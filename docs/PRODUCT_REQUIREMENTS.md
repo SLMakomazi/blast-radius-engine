@@ -1,96 +1,117 @@
 # Product Requirements — Blast Radius Engine
 
 ## Context
-This repository is a design/PoC for the **Blast Radius Analysis** capability planned for MadlangaAI.
+This repository implements and proves the **Blast Radius Analysis** capability planned for MadlangaAI Phase 4.
 
-MadlangaAI is an AI-powered software application diagnosis platform. Existing/planned platform capabilities described by the MadlangaAI v1.0 technical specification include source-code assessment, architecture visualization, dependency analysis, data-flow mapping, SonarQube, JaCoCo, TsakaniQA, API evaluation, Datadog application health, risk assessment, AI root-cause analysis, remediation recommendations, scorecards and diagnosis reports.
+The current MadlangaAI MVP already defines architecture/dependency analysis, data-flow mapping, SonarQube, JaCoCo, TsakaniQA, API evaluation, Datadog application health, AI diagnosis, remediation, scorecards and reports. Its current Datadog scope guarantees traffic, latency, error-rate and zero-traffic/endpoint-health information. It does **not** currently guarantee raw logs or distributed traces.
 
-This engine should reuse those capabilities through integration contracts rather than duplicate the whole platform.
-
-## Problem
-An application incident can produce thousands of logs and alerts while engineers still need to determine:
-- the likely origin;
-- which dependencies may be impacted;
-- which services are demonstrably degraded;
-- how far failure propagation extends;
-- the evidence behind that conclusion;
-- what should be investigated next.
+That limitation must not reduce the Blast Radius design. Where MadlangaAI does not yet supply a capability required by Blast Radius, this repository must implement/prove it locally behind a provider contract.
 
 ## Goal
-Provide a machine-readable and human-explainable blast-radius assessment for an application incident.
+Provide a machine-readable, evidence-backed and human-explainable blast-radius assessment for application incidents, with a complete local environment capable of producing logs, metrics, traces and endpoint-health telemetry.
 
 ## Primary user story
-As an engineer investigating an incident, I want MadlangaAI to correlate telemetry with the application's dependency topology so I can understand the likely origin, direct impact, indirect impact, observed impact, evidence and recommended investigation steps.
+As an engineer investigating an incident, I want Blast Radius to correlate full runtime telemetry with dependency topology so I can understand origin, propagation, direct/indirect impact, observed degradation, evidence, confidence and recommended investigation/remediation.
 
 ## Functional requirements
-### FR-01 Telemetry ingestion
-Accept normalized logs, metrics and traces from a `TelemetryProvider`.
+### FR-01 Full telemetry ingestion
+The engine MUST support normalized:
+- logs;
+- metrics;
+- distributed traces/spans;
+- endpoint/application health;
+- traffic volume;
+- latency;
+- error rate;
+- availability/zero-traffic signals.
 
-### FR-02 Dependency ingestion
-Accept a service/component dependency graph supplied by mock fixtures initially and by MadlangaAI architecture/dependency data later.
+A provider may return a subset, but the normalized Blast Radius model must support all categories and expose missing categories as data-quality warnings.
+
+### FR-02 Dependency topology
+Accept directed service/component dependencies from local fixtures/discovery and later from MadlangaAI architecture/dependency data.
 
 ### FR-03 Incident correlation
-Correlate related telemetry by time window, service/component, trace identifiers and error/degradation signals.
+Correlate telemetry by time window, component, endpoint, trace/span IDs, dependency relationships, error signatures and degradation signals.
 
 ### FR-04 Suspected origin
-Identify a suspected origin from evidence and return a confidence value/reasons. The engine must not present uncertain correlation as proven causation.
+Identify a suspected origin using transparent evidence/rules and return confidence plus reasons. Correlation must not be presented as proven causation.
 
 ### FR-05 Theoretical blast radius
-Traverse the dependency graph from the failed component to determine components that could be impacted.
+Reverse-traverse dependencies from the origin to determine components that could be impacted.
 
-### FR-06 Impact depth
-Classify impact at minimum as:
-- origin;
-- direct (one dependency hop);
-- indirect (two or more hops).
+### FR-06 Impact depth/path
+Classify origin, direct and indirect impact and retain the dependency path and minimum hop distance.
 
 ### FR-07 Observed blast radius
-Mark components as observed affected only when runtime evidence indicates degradation/error within the incident window.
+Mark a component observed affected only when runtime evidence indicates degradation/error in the incident window.
 
-### FR-08 Evidence
-Every observed-impact and root-origin assertion must carry evidence references.
+### FR-08 Propagation timeline
+Produce an ordered chronology showing origin signal and downstream degradation timing.
 
-### FR-09 Severity
-Calculate a deterministic severity from configurable factors such as affected criticality, number/depth of impacted components and observed degradation.
+### FR-09 Evidence/provenance
+Every origin/observed-impact assertion MUST reference supporting evidence with source, timestamp and component.
 
-### FR-10 AI diagnosis context
-Create a compact, structured context that an AI diagnosis component can use to explain probable cause and recommended investigation/remediation.
+### FR-10 Deterministic severity
+Calculate incident severity from configurable factors such as component criticality, number/depth of observed impacts and degradation magnitude. This is separate from MadlangaAI Overall Health Score.
 
-### FR-11 API
-Expose a versioned API suitable for eventual MadlangaAI integration.
+### FR-11 AI diagnosis context
+Produce sanitized structured context for explanation, likely-cause narrative and Immediate/Medium-term/Strategic remediation recommendations.
 
-## Initial PoC scenario
-Dependency topology:
+### FR-12 Versioned API
+Expose a versioned API for local use and eventual MadlangaAI integration.
+
+### FR-13 Partial-data behavior
+Analysis MUST continue when one telemetry category/provider is unavailable when sufficient evidence remains. Results must expose coverage and warnings.
+
+### FR-14 Chaos/failure validation
+Accept a known injected-failure/chaos experiment event and compare expected/theoretical impact, observed impact, unexpected impact and containment success.
+
+### FR-15 Local lab
+The repository MUST include a Docker Compose environment that can generate and observe real synthetic failures end to end.
+
+### FR-16 Sanitization
+PII, secrets and credentials MUST be sanitized before Blast Radius persistence/logging/export and before AI context generation.
+
+## Canonical local scenario
+Topology:
 `payment-service -> customer-service -> document-service -> postgres`
 
-Synthetic incident:
-1. PostgreSQL becomes unavailable.
-2. Document Service reports database connection errors and HTTP 5xx.
-3. Customer Service reports downstream timeouts.
-4. Payment Service may show degraded/error behavior.
+Scenario:
+1. Traffic generator calls payment-service.
+2. Calls propagate through customer-service and document-service to PostgreSQL.
+3. A controlled failure makes PostgreSQL unavailable or unhealthy.
+4. document-service emits DB errors, failed spans, HTTP 5xx and latency/error metrics.
+5. customer-service emits downstream timeout/error evidence.
+6. payment-service may remain healthy or degrade depending on the scenario.
 
-Expected result:
-- origin: postgres;
-- direct theoretical impact: document-service;
-- indirect theoretical impact: customer-service and payment-service;
-- observed impact derived only from supplied telemetry;
-- evidence and investigation recommendations returned.
+Expected:
+- postgres is suspected/known origin;
+- document-service is direct theoretical impact;
+- customer-service and payment-service are indirect theoretical impact;
+- observed impact is based only on telemetry;
+- propagation timeline and evidence are returned;
+- a healthy but theoretically reachable service remains theoretical-only.
 
 ## Non-functional requirements
 - Deterministic core analysis.
 - Provider-neutral domain model.
-- Unit-testable without network access.
-- Explainable results with evidence.
-- No secrets/PII in logs or fixtures.
-- Designed for POPIA-compatible integration.
-- API response should be suitable for MadlangaAI UI/report consumption.
+- Offline/local testability.
+- Docker Compose startup for the complete lab.
+- Explainable evidence-backed output.
+- Synthetic data only.
+- POPIA-aligned sanitization.
+- Graceful partial-data behavior.
+- Cycle-safe graph traversal.
+- Stable versioned contracts.
+- Core analysis remains available when AI is unavailable.
 
-## Out of scope for this PoC
-- Autonomous production remediation.
-- Infrastructure diagnosis as a broad product.
-- Full Datadog integration.
-- Full MadlangaAI UI.
-- Chaos injection.
-- Production deployment.
-- Training an ML model.
-- Rebuilding MadlangaAI architecture analysis.
+## Scope boundary
+This repository **does implement/prove everything required for Blast Radius**, including local mock services/database and observability. It does not rebuild unrelated MadlangaAI capabilities.
+
+Not part of the Blast Radius domain engine:
+- autonomous production remediation;
+- enterprise production deployment;
+- training an ML model;
+- production chaos orchestration.
+
+A controlled local failure/chaos driver is in scope because it is required to validate the engine.
