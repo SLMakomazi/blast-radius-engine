@@ -1,109 +1,140 @@
 # Architecture
 
 ## Design principle
-**Dependency topology calculates potential blast radius; telemetry validates observed blast radius; AI explains the evidence.**
+**Topology calculates potential impact; full telemetry proves observed impact; AI explains sanitized evidence.**
 
 ## Logical architecture
-
 ```text
-                +--------------------------+
-                | MadlangaAI / Future Host |
-                +------------+-------------+
-                             |
-        +--------------------+--------------------+
-        |                                         |
- DependencyTopologyProvider                 TelemetryProvider
-        |                                         |
-        |                          +--------------+--------------+
-        |                          |              |              |
-        |                        Logs           Metrics         Traces
-        |                          |              |              |
-        +--------------------------+--------------+--------------+
-                                   |
-                          IncidentCorrelation
-                                   |
-                          OriginAssessment
-                                   |
-                         BlastRadiusEngine
-                         /               \
-              Theoretical Impact     Observed Impact
-                         \               /
-                          Evidence Model
-                               |
-                       DiagnosisContext
-                               |
-                    AiDiagnosisProvider
-                               |
-                        API / MadlangaAI
+ Sources
+ ┌──────────────────────┐      ┌─────────────────────────┐
+ │ Dependency Topology  │      │ Telemetry Providers     │
+ │ mock / MadlangaAI    │      │ logs metrics traces     │
+ └──────────┬───────────┘      │ endpoint health         │
+            │                  └───────────┬─────────────┘
+            │                              │
+            │                    ┌─────────▼─────────┐
+            │                    │ Sanitization     │
+            │                    │ PII/secrets      │
+            │                    └─────────┬─────────┘
+            └──────────────────────┬───────┘
+                                   ▼
+                         Incident Correlation
+                                   │
+                         Origin Assessment
+                                   │
+                         Blast Radius Engine
+                         /                 \
+               Theoretical Impact     Observed Impact
+                         \                 /
+                           Evidence Model
+                                   │
+                         Propagation Timeline
+                                   │
+                         Severity / Confidence
+                                   │
+                         Diagnosis Context
+                                   │
+                         AI Diagnosis (optional)
+                                   │
+                         REST/UI/MadlangaAI
 ```
 
-## Proposed Spring Boot modules/packages
+## Local Docker lab
+```text
+traffic-generator
+      |
+payment-service
+      |
+customer-service
+      |
+document-service
+      |
+postgres
 
+All services emit:
+  logs ----------> local log backend
+  metrics -------> Prometheus-compatible backend
+  OTLP traces ---> OpenTelemetry Collector ---> trace backend
+  health --------> health collector/probes
+
+failure-driver ---> postgres/services
+                         |
+                         v
+                 blast-radius-engine
+                 reads normalized evidence
+```
+
+The exact local observability products may be selected during implementation, but adapters must hide product-specific schemas. Prefer lightweight, Docker-friendly components and OpenTelemetry-compatible instrumentation.
+
+## Package boundaries
 ```text
 com.madlanga.blastradius
 ├── api
-│   ├── BlastRadiusController
-│   └── dto
 ├── application
 │   ├── BlastRadiusAnalysisService
 │   ├── IncidentCorrelationService
+│   ├── PropagationTimelineService
 │   └── DiagnosisContextService
 ├── domain
 │   ├── model
 │   ├── graph
+│   ├── correlation
 │   ├── severity
 │   └── evidence
 ├── ports
 │   ├── TelemetryProvider
 │   ├── DependencyTopologyProvider
+│   ├── FailureExperimentProvider
 │   └── AiDiagnosisProvider
 └── adapters
-    ├── mock
-    ├── datadog       # later
-    ├── madlanga      # later
-    └── ai            # later
+    ├── local
+    ├── datadog
+    ├── madlanga
+    └── ai
 ```
 
-This is ports-and-adapters/hexagonal in spirit: business rules do not import Datadog-specific classes.
-
-## Core components
-
+## Responsibilities
 ### TelemetryProvider
-Returns normalized telemetry for an application/environment/time window.
+Returns normalized full/partial telemetry plus coverage metadata.
+
+### Sanitization
+Runs before evidence enters domain persistence, logs, exports or AI context.
 
 ### DependencyTopologyProvider
-Returns nodes and directed dependency edges. For edge `A -> B`, A depends on B. If B fails, traversal follows reverse dependencies to discover potential consumers affected by B.
+Returns nodes and directed edges. For `A -> B`, A depends on B. Failure propagation analysis traverses reverse dependents from B.
 
 ### IncidentCorrelationService
-Groups relevant telemetry and creates an incident evidence set.
+Correlates logs, metrics, traces and health observations into an evidence set.
 
 ### OriginAssessment
-Selects a suspected origin using explicit rules/evidence. The first PoC may use known/injected origin hints plus timestamp/error evidence; later implementations can become more sophisticated.
+Ranks suspected origins using explicit evidence and chronology. Known local failure events can provide ground truth for test validation without replacing normal inference tests.
 
 ### BlastRadiusEngine
-Pure domain logic. Traverses reverse dependencies and assigns hop distance. It must be testable with no Spring context.
+Pure graph/domain logic. Calculates paths, hop distance and theoretical impact.
 
 ### ObservedImpactEvaluator
-For theoretically impacted nodes, checks telemetry for actual error/degradation evidence. A component is not "observed affected" simply because it is reachable in the graph.
+Uses actual runtime evidence. Reachability alone never proves observed impact.
+
+### PropagationTimelineService
+Orders origin/degradation evidence to explain how failure moved across components.
 
 ### SeverityCalculator
-Deterministic/configurable. AI must not be the source of the severity classification.
+Deterministic/configurable and independent from MadlangaAI Overall Health Score.
+
+### FailureExperimentProvider
+Supplies optional controlled-failure metadata so expected vs observed vs unexpected impact and containment can be evaluated.
 
 ### AiDiagnosisProvider
-Optional boundary. Receives sanitized structured diagnosis context and returns explanatory text/recommendations. Core blast-radius analysis remains functional if AI is unavailable.
+Receives only sanitized structured context. AI unavailability must not break deterministic results.
 
-## Integration path into MadlangaAI
-PoC:
-`MockTelemetryProvider + MockDependencyTopologyProvider`
-
-MadlangaAI:
-`Datadog/MCP Telemetry Adapter + MadlangaAI Architecture/Dependency Adapter`
-
-The domain/application services remain unchanged.
+## MadlangaAI integration
+Reuse MadlangaAI topology, Datadog/MCP and AI capabilities where they satisfy the Blast Radius contracts. Add adapters/providers where MadlangaAI lacks required logs/traces or other evidence.
 
 ## Resilience
-- Provider failures should return explicit partial-data warnings.
-- AI failure must not fail deterministic blast-radius calculation.
-- Missing traces must not prevent log/metric analysis.
-- Cycles in the dependency graph must not cause infinite traversal.
-- Unknown components should be reported rather than silently discarded.
+- Partial telemetry produces warnings/coverage, not fabricated evidence.
+- Missing traces do not prevent logs/metrics/health analysis.
+- Missing logs do not prevent trace/metric/health analysis.
+- AI failure does not fail core analysis.
+- Cycles terminate safely.
+- Unknown components are surfaced.
+- Provider timeouts are isolated.
