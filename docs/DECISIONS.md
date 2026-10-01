@@ -1,47 +1,59 @@
 # Architecture Decision Log
 
 ## ADR-001 — Provider-neutral telemetry
-**Status:** Accepted for PoC
-
-**Decision:** Core logic consumes normalized telemetry through `TelemetryProvider`; Datadog-specific payloads stay in adapters.
-
-**Why:** Allows realistic mock data now and Datadog/MCP integration later without rewriting the engine.
+**Status:** Accepted
+Core logic consumes normalized telemetry; vendor schemas stay in adapters.
 
 ## ADR-002 — Deterministic graph calculation
-**Status:** Accepted for PoC
-
-**Decision:** Dependency graph traversal, not an LLM, determines theoretical blast radius.
-
-**Why:** Blast radius must be reproducible, testable and explainable.
+**Status:** Accepted
+Dependency traversal, not AI, determines theoretical blast radius.
 
 ## ADR-003 — Theoretical vs observed impact
-**Status:** Accepted for PoC
-
-**Decision:** Results explicitly separate components that could be impacted from components with telemetry evidence of degradation.
-
-**Why:** Reachability does not prove runtime impact.
+**Status:** Accepted
+Reachability is potential impact; runtime evidence is required for observed impact.
 
 ## ADR-004 — AI is advisory
-**Status:** Accepted for PoC
+**Status:** Accepted
+AI explains sanitized evidence/recommends actions; deterministic results survive AI failure.
 
-**Decision:** AI explains evidence and recommends investigation/remediation; it does not replace deterministic impact/evidence calculations.
+## ADR-005 — Java/Spring Boot
+**Status:** Accepted for local implementation
+Use Java/Spring Boot for the Blast Radius service while preserving integration-neutral contracts.
 
-**Why:** The core result must survive AI unavailability and avoid unsupported dependency claims.
+## ADR-006 — No autonomous production fixes
+**Status:** Accepted
+Remediation is advisory.
 
-## ADR-005 — Java/Spring Boot for standalone concept
-**Status:** Proposed pending team confirmation
+## ADR-007 — Full telemetry contract exceeds current MadlangaAI MVP
+**Status:** Accepted
+Blast Radius supports logs, metrics, traces and health even where current upstream integrations expose only a subset.
 
-**Decision:** Use Java/Spring Boot for the PoC unless the MadlangaAI team confirms a different integration constraint.
+## ADR-008 — Complete Docker local lab
+**Status:** Accepted
+Mock services, PostgreSQL first, traffic, observability and a failure driver prove runtime behavior.
 
-**Why:** It aligns with the team's common engineering stack, while the supplied MadlangaAI specification does not itself confirm the platform's implementation language.
+## ADR-009 — Sanitization before domain/AI use
+**Status:** Accepted
+Raw telemetry is sanitized before normalized evidence is persisted, logged, exported or sent to AI.
 
-## ADR-006 — No autonomous fixes
-**Status:** Accepted for PoC
+## ADR-010 — Incident severity is not Overall Health Score
+**Status:** Accepted
+Blast Radius incident severity does not alter MadlangaAI's weighted application health score without a future approved requirement.
 
-**Decision:** The engine recommends remediation but does not execute production changes.
+## ADR-011 — Blast Radius and chaos injection are separate
+**Status:** Accepted
+The engine evaluates failure/experiment impact; local failure injection validates it while production chaos orchestration remains separate.
 
-**Why:** Automated bug fixing is a separate MadlangaAI roadmap capability and requires additional authorization, safety and audit controls.
+## ADR-012 — Partial telemetry is first-class
+**Status:** Accepted
+Telemetry families have explicit coverage status; missing data is reported, never fabricated.
+
+## ADR-013 — Technology-neutral dependency graph
+**Status:** Accepted
+
+The core graph must support heterogeneous application components. The MadlangaAI-supported landscape includes frontend structures, Java/Spring Boot and Node.js applications, PostgreSQL/MongoDB/Oracle/DB2/SQL Server, IBM MQ/SQS/SNS/ActiveMQ, Step Functions and Lambda.
+
+Node type and technology are separate concepts. PostgreSQL is the first local scenario, not a Blast Radius limitation. New supported technologies must be addable without rewriting traversal/correlation fundamentals.
 
 ---
-
-Add new decisions here when implementation introduces a significant architectural choice. Do not silently change accepted decisions in code.
+Add new decisions for significant architectural choices.

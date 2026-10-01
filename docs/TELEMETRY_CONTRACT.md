@@ -1,17 +1,46 @@
 # Telemetry Contract
 
 ## Purpose
-Define a provider-neutral model so mock data can later be replaced by Datadog/MCP or another observability source without rewriting blast-radius logic.
+Define the **full Blast Radius normalized telemetry model**. The contract is intentionally broader than the current MadlangaAI Datadog MVP contract.
+
+Blast Radius supports four primary evidence families:
+1. logs;
+2. metrics;
+3. distributed traces/spans;
+4. endpoint/application health.
+
+Traffic, latency, error rate, availability and zero-traffic are represented through metrics/health observations.
+
+A provider may not support every family. Unsupported/unavailable families must be reported in `coverage` and `warnings`; they must never be fabricated.
 
 ## Query
 ```json
 {
   "applicationId": "document-platform",
-  "environment": "dev",
+  "environment": "local",
   "from": "2026-10-01T10:30:00Z",
   "to": "2026-10-01T10:35:00Z"
 }
 ```
+
+## TelemetryBundle
+```json
+{
+  "logs": [],
+  "metrics": [],
+  "spans": [],
+  "health": [],
+  "coverage": {
+    "logs": "AVAILABLE",
+    "metrics": "AVAILABLE",
+    "traces": "AVAILABLE",
+    "health": "AVAILABLE"
+  },
+  "warnings": []
+}
+```
+
+Coverage values: `AVAILABLE`, `PARTIAL`, `UNAVAILABLE`, `NOT_SUPPORTED`.
 
 ## Normalized log event
 ```json
@@ -19,51 +48,67 @@ Define a provider-neutral model so mock data can later be replaced by Datadog/MC
   "id": "log-001",
   "timestamp": "2026-10-01T10:31:02Z",
   "service": "document-service",
-  "environment": "dev",
+  "environment": "local",
   "level": "ERROR",
-  "message": "Connection refused to PostgreSQL",
+  "message": "Database connection failed",
   "traceId": "trace-1001",
-  "attributes": {
-    "error.type": "ConnectionException"
-  }
+  "attributes": {"error.type":"ConnectionException"},
+  "provenance": {"provider":"local-logs","sourceRef":"..."}
 }
 ```
 
-## Normalized metric event
+## Normalized metric sample
 ```json
 {
   "id": "metric-001",
   "timestamp": "2026-10-01T10:31:05Z",
   "service": "document-service",
-  "name": "http.server.errors",
-  "value": 82,
-  "unit": "count",
-  "attributes": {}
+  "name": "http.server.error.rate",
+  "value": 0.74,
+  "unit": "ratio",
+  "attributes": {"endpoint":"POST /documents"},
+  "provenance": {"provider":"local-metrics","sourceRef":"..."}
 }
 ```
 
-## Normalized trace/span event
+Required metric concepts for the lab include request/traffic volume, latency, error rate and availability/health where applicable.
+
+## Normalized trace/span
 ```json
 {
   "id": "span-001",
   "traceId": "trace-1001",
   "spanId": "span-a",
-  "parentSpanId": null,
+  "parentSpanId": "span-parent",
   "timestamp": "2026-10-01T10:31:02Z",
   "durationMs": 1250,
   "service": "document-service",
   "operation": "POST /documents",
   "status": "ERROR",
   "peerService": "postgres",
-  "attributes": {
-    "error.type": "ConnectionException"
-  }
+  "attributes": {"error.type":"ConnectionException"},
+  "provenance": {"provider":"local-traces","sourceRef":"..."}
+}
+```
+
+## Normalized health observation
+```json
+{
+  "id": "health-001",
+  "timestamp": "2026-10-01T10:31:06Z",
+  "service": "document-service",
+  "endpoint": "/actuator/health",
+  "status": "DEGRADED",
+  "latencyMs": 4200,
+  "errorRate": 0.74,
+  "trafficCount": 12493,
+  "zeroTraffic": false,
+  "provenance": {"provider":"local-health","sourceRef":"..."}
 }
 ```
 
 ## Dependency topology
-Edge semantics are important: `from` depends on `to`.
-
+Edge semantics: `from` depends on `to`.
 ```json
 {
   "applicationId": "document-platform",
@@ -81,32 +126,49 @@ Edge semantics are important: `from` depends on `to`.
 }
 ```
 
-## Provider interface
-Conceptual Java contract:
+## Chaos/failure event
+```json
+{
+  "experimentId": "chaos-001",
+  "timestamp": "2026-10-01T10:31:00Z",
+  "targetComponent": "postgres",
+  "failureType": "SERVICE_STOP",
+  "expectedContainmentBoundary": ["document-service","customer-service"],
+  "source": "local-failure-driver"
+}
+```
 
+## Provider interfaces
 ```java
 public interface TelemetryProvider {
     TelemetryBundle getTelemetry(TelemetryQuery query);
 }
-```
 
-```java
 public interface DependencyTopologyProvider {
     DependencyTopology getTopology(String applicationId, String environment);
 }
+
+public interface FailureExperimentProvider {
+    Optional<FailureExperiment> getExperiment(String experimentId);
+}
 ```
 
-## Data quality
-Providers should return warnings for:
+## Data quality warnings
+Providers must report, where relevant:
 - incomplete time range;
-- unavailable telemetry type;
+- unavailable/not-supported telemetry family;
 - unknown service mapping;
 - duplicate events;
-- clock skew concerns;
-- provider timeout.
+- clock skew;
+- provider timeout;
+- missing trace context;
+- dropped telemetry;
+- stale health data.
 
-## Privacy/security
-- Never put credentials or tokens into normalized attributes.
-- Redact/mask PII before persistence, logs or AI prompts.
-- Preserve provider IDs where safe so evidence can be traced back.
-- Synthetic fixtures must contain no real customer information.
+## Sanitization boundary
+Raw provider data is untrusted.
+
+Required flow:
+`provider -> sanitization/redaction -> normalized evidence -> correlation -> persistence/export/AI`.
+
+Never expose credentials/tokens. PII and secret-like values must be redacted before normalized evidence is logged, persisted or sent to AI. Preserve safe provider/source references for auditability.

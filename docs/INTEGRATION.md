@@ -1,68 +1,71 @@
 # MadlangaAI Integration Design
 
 ## Objective
-Make this PoC easy to transplant into or expose as a module/service to MadlangaAI once the actual repository contracts are known.
+Build Blast Radius as a complete capability that can integrate with MadlangaAI without being limited by today's MVP integrations.
 
-## Existing MadlangaAI capabilities to leverage
-From the v1.0 technical specification:
-- architecture visualization;
-- dependency analysis;
-- data-flow mapping;
-- Datadog application health;
-- AI root-cause analysis;
-- risk generation;
-- remediation recommendations;
-- diagnosis reports/dashboard.
+## Confirmed MadlangaAI capabilities relevant to Blast Radius
+Current project documents support:
+- architecture/dependency assessment and dependency maps;
+- data-flow analysis;
+- Datadog/MCP application health;
+- traffic, latency, error rate and zero-traffic/high-risk endpoint information;
+- AI diagnosis/remediation;
+- diagnosis reports/dashboard;
+- historical diagnosis runs.
 
-Blast Radius should compose these capabilities rather than recreate them.
+Blast Radius / Chaos Engineering is identified as a later Phase-4 capability, so this repository defines the additional contracts needed for that phase.
+
+## Capability-gap rule
+If MadlangaAI does not currently expose a Blast Radius requirement, **do not remove the requirement**.
+
+Instead:
+1. keep the normalized Blast Radius contract;
+2. implement/prove it in the local lab;
+3. expose a provider/adapter boundary;
+4. later map to MadlangaAI/Datadog if the source becomes available;
+5. otherwise integrate an approved additional source.
+
+This applies specifically to raw logs and distributed traces.
 
 ## Adapter mapping
-
-| PoC port | PoC adapter | MadlangaAI adapter later |
+| Blast Radius port | Local implementation | MadlangaAI/enterprise integration |
 |---|---|---|
-| TelemetryProvider | JSON/mock fixtures | Datadog/MCP application-health telemetry |
-| DependencyTopologyProvider | JSON/mock topology | MadlangaAI architecture/dependency model |
-| AiDiagnosisProvider | Stub/template or optional LLM | MadlangaAI AI Diagnosis Engine |
-| Result consumer | REST response | MadlangaAI report/dashboard/API |
+| TelemetryProvider | local logs + metrics + traces + health adapters | Datadog/MCP plus additional approved source(s) for missing telemetry |
+| DependencyTopologyProvider | synthetic topology | MadlangaAI architecture/dependency model |
+| FailureExperimentProvider | local failure/chaos driver | Phase-4 chaos/TsakaniQA integration when defined |
+| AiDiagnosisProvider | deterministic stub/approved local option | MadlangaAI AI Diagnosis Engine |
+| Result consumer | REST + local UI | MadlangaAI report/dashboard/API |
 
-## Integration contract
-Core analysis accepts normalized models only. Vendor payloads must be mapped in adapters.
-
-This means a Datadog payload should never leak throughout domain classes.
-
-## UI/report fields MadlangaAI can consume
-- incident/origin;
-- confidence;
-- graph path from origin to affected component;
-- direct vs indirect classification;
-- theoretical vs observed state;
-- severity;
-- evidence;
-- warnings/data gaps;
+## Integration fields
+- incident ID/window;
+- suspected origin and confidence;
+- dependency path/hop distance;
+- direct/indirect classification;
+- theoretical/observed/unexpected state;
+- propagation timeline;
+- incident severity;
+- telemetry coverage/data gaps;
+- evidence/provenance;
 - AI explanation;
-- recommended investigation/remediation.
+- remediation recommendations;
+- optional experiment/containment result.
 
-## Operational integration
-Later, MadlangaAI may invoke analysis:
-- manually from a diagnosis screen;
-- for a selected historical incident/time window;
-- from a monitoring event;
-- from a CI/CD or synthetic-monitoring workflow;
-- during a chaos experiment.
+## Security/compliance
+All source data must pass sanitization before Blast Radius persistence/logging/export/AI. MadlangaAI POPIA masking requirements remain applicable.
 
-The PoC should not assume only one trigger.
+## Scoring separation
+Blast Radius incident severity must not modify MadlangaAI's weighted Overall Health Score unless a future approved requirement explicitly changes that scoring framework.
 
 ## Open integration questions
-These must be answered after access to the MadlangaAI repository/team design:
-1. What is MadlangaAI's actual implementation stack and module structure?
-2. Is Blast Radius an internal module or separately deployed service?
-3. What exact schema does its architecture/dependency analyzer expose?
-4. What Datadog MCP capabilities/endpoints are already implemented?
-5. What AI provider/agent abstraction already exists?
-6. What application/environment identifiers are canonical?
-7. Where are diagnosis results persisted?
-8. What authentication/RBAC contract must the endpoint use?
-9. What report/dashboard schema should Blast Radius extend?
-10. What enterprise severity/criticality rules should replace PoC defaults?
+1. Is Blast Radius ultimately an internal module or separate service?
+2. What exact MadlangaAI dependency schema will be exposed?
+3. Which Datadog/MCP APIs are available for logs, metrics, APM traces and health?
+4. If logs/traces are unavailable through current MCP, which approved source will supply them?
+5. What canonical application/environment/component IDs should adapters use?
+6. What auth/RBAC/audit contract applies?
+7. Where should incident analyses be persisted?
+8. What UI/report schema will Phase 4 extend?
+9. What enterprise severity/criticality rules replace local defaults?
+10. What is the final Chaos Engineering/TsakaniQA contract?
 
-Do not guess these answers in implementation.
+These are integration unknowns, not reasons to narrow the local Blast Radius capability.

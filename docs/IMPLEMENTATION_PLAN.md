@@ -1,89 +1,116 @@
 # Implementation Plan
 
-## Phase 0 — Design playback
-Goal: validate the concept with the team before changing MadlangaAI.
+## Phase 0 — Documentation/design baseline
+- contracts, architecture, source alignment;
+- local-lab topology;
+- API and telemetry models;
+- test strategy and UI concept.
 
-Deliver:
-- architecture diagram;
-- terminology;
-- provider contracts;
-- API contract;
-- mock incident;
-- integration path;
-- open questions.
+Exit: no known requirement is silently delegated to unavailable MadlangaAI functionality.
 
-Exit: team agrees on responsibilities and integration boundaries.
+## Phase 1 — Docker local lab foundation
+Create Docker Compose with:
+- PostgreSQL;
+- document-service;
+- customer-service;
+- payment-service;
+- traffic generator;
+- health endpoints;
+- network/dependency topology.
 
-## Phase 1 — Spring Boot skeleton
-- Generate Spring Boot service.
-- Establish package boundaries from ARCHITECTURE.md.
-- Add health endpoint.
-- Add API DTOs and validation.
-- Add test framework.
-- Add fixture loading.
+Instrument services from the start.
 
-Exit: service starts and can load synthetic topology/telemetry.
+Exit: healthy calls traverse the complete chain and persist/read synthetic data.
 
-## Phase 2 — Deterministic graph engine
-- Model nodes/edges.
-- Validate topology.
-- Implement reverse traversal.
-- Handle cycles.
-- Calculate minimum hop distance.
-- Classify direct/indirect impact.
+## Phase 2 — Observability stack
+Implement local collection for:
+- application/container logs;
+- Prometheus-style metrics;
+- OpenTelemetry distributed traces;
+- endpoint/application health.
 
-Exit: graph unit tests pass for chain, fan-out, fan-in, cycles and disconnected nodes.
+Include an OpenTelemetry Collector and lightweight local backends/adapters appropriate to each signal.
 
-## Phase 3 — Telemetry normalization/correlation
-- Implement mock TelemetryProvider.
-- Normalize logs, metrics and traces.
-- Correlate incident window.
-- Evaluate observed impact.
-- Attach evidence.
+Exit: one request can be followed across logs, metrics and trace data with health visible.
 
-Exit: fixture scenario distinguishes theoretical from observed impact.
+## Phase 3 — Blast Radius Spring Boot skeleton
+- package boundaries;
+- versioned API DTOs;
+- provider ports;
+- health endpoint;
+- configuration;
+- fixture support.
 
-## Phase 4 — Origin/severity
-- Implement transparent origin-assessment rules.
-- Return confidence/reasons.
-- Implement configurable severity calculation.
-- Add partial-data warnings.
+## Phase 4 — Sanitization and normalized telemetry
+- log/metric/span/health models;
+- coverage metadata;
+- sanitization/redaction;
+- local provider adapters;
+- provenance.
 
-Exit: output is deterministic and explainable.
+Exit: full TelemetryBundle can be built from the local lab without secrets/PII leakage.
 
-## Phase 5 — API
-- Implement `POST /api/v1/blast-radius/analyze`.
-- Return versioned response.
-- Add error contract.
-- Add OpenAPI documentation if compatible with project stack.
+## Phase 5 — Deterministic graph engine
+- topology validation;
+- reverse traversal;
+- cycles;
+- minimum distance/path;
+- direct/indirect classification.
 
-Exit: end-to-end integration test proves sample incident.
+## Phase 6 — Correlation, origin and observed impact
+- multi-signal correlation;
+- transparent origin rules/confidence;
+- observed-impact evaluator;
+- propagation timeline;
+- partial-data warnings.
 
-## Phase 6 — AI diagnosis
-- Create AiDiagnosisProvider boundary.
-- Build sanitized structured DiagnosisContext.
-- Start with deterministic/stub implementation if no approved AI endpoint exists.
-- Later connect to MadlangaAI AI Diagnosis Engine.
-- Validate AI output is advisory and does not overwrite deterministic evidence.
+## Phase 7 — Severity and chaos/failure assessment
+- configurable incident severity;
+- local failure driver;
+- FailureExperimentProvider;
+- expected vs observed vs unexpected impact;
+- containment assessment.
 
-Exit: AI explanation can fail independently without losing blast-radius result.
+## Phase 8 — API and persistence
+- `POST /api/v1/blast-radius/analyze`;
+- error/warning contracts;
+- incident/evidence persistence if needed for local history;
+- OpenAPI docs.
 
-## Phase 7 — MadlangaAI integration
-After repo access/design confirmation:
-- implement MadlangaAI topology adapter;
-- implement Datadog/MCP telemetry adapter;
-- use existing AI abstraction;
-- map result into diagnosis report/dashboard;
-- apply platform auth/RBAC/audit conventions.
+If persistence is used, include its database/container in Docker Compose; do not reuse target PostgreSQL in a way that prevents analysis during its simulated outage.
 
-## Backlog / future
-- recent-deployment/change correlation;
-- business-capability impact;
-- topology learned from traces;
-- historical comparison;
-- chaos-experiment comparison;
-- unexpected dependency detection;
-- remediation workflow integration.
+## Phase 9 — AI diagnosis
+- sanitized DiagnosisContext;
+- deterministic stub first;
+- optional approved AI adapter;
+- Immediate/Medium-term/Strategic recommendations;
+- AI failure isolation.
 
-## Explicit non-goals
-Do not build automated production fixes, chaos injection, a replacement monitoring platform, or a replacement MadlangaAI dashboard in this PoC.
+## Phase 10 — Local UI
+Build a focused Blast Radius UI:
+- incident KPIs;
+- interactive topology;
+- origin/direct/indirect/observed states;
+- node evidence drawer;
+- propagation timeline;
+- telemetry coverage;
+- AI diagnosis/remediation;
+- chaos containment result.
+
+## Phase 11 — End-to-end scenarios
+Automate healthy baseline, PostgreSQL outage, partial observability, resilient upstream and containment scenarios.
+
+Exit: a new developer can run the documented commands and reproduce expected results locally.
+
+## Phase 12 — MadlangaAI integration
+- MadlangaAI topology adapter;
+- Datadog/MCP adapter for supported telemetry;
+- additional approved adapter for any missing logs/traces;
+- MadlangaAI AI adapter;
+- RBAC/audit integration;
+- dashboard/report integration.
+
+## Not part of domain implementation
+- autonomous production fixes;
+- production chaos orchestration;
+- replacement of unrelated MadlangaAI modules.

@@ -1,50 +1,55 @@
 # MadlangaAI Blast Radius Engine
 
-Design and proof-of-concept repository for the **Blast Radius Analysis** capability intended for integration into MadlangaAI.
+Full-capability Blast Radius proof-of-concept for future integration into **MadlangaAI Phase 4**.
 
-## Purpose
+## Core principle
+> **Dependency topology calculates potential blast radius; full runtime telemetry validates observed blast radius; AI explains sanitized evidence.**
 
-Given an application incident, the engine is designed to answer:
+The engine supports **logs, metrics, distributed traces and endpoint/application health**. Current MadlangaAI/Datadog requirements expose only part of that set, so missing capabilities are proven locally behind replaceable provider contracts rather than removed from the design.
 
-- What failed and where did the incident likely originate?
-- Which components **could** be affected based on the dependency graph?
-- Which components are **actually observed** as degraded from runtime telemetry?
-- What evidence supports the assessment?
-- What should an engineer investigate or remediate?
+## Local-first proof
+The target repository runs a complete synthetic environment with Docker Compose:
 
-The core principle is:
+```text
+traffic-generator
+      |
+payment-service
+      |
+customer-service
+      |
+document-service
+      |
+postgres
+```
 
-> **Dependency topology calculates potential blast radius; telemetry validates observed blast radius; AI explains the evidence.**
+The services emit logs, metrics, traces and health signals. A controlled failure driver can break PostgreSQL/services while traffic continues, allowing the engine to calculate theoretical vs observed impact and propagation.
 
-## PoC approach
-
-The first implementation should use synthetic, provider-neutral logs, metrics, traces and dependency topology. Real Datadog/MCP and MadlangaAI integrations are adapters added later.
-
-Proposed PoC technology: **Java + Spring Boot**, pending confirmation of the final MadlangaAI integration constraints.
+## What Blast Radius returns
+- suspected origin + confidence;
+- direct/indirect theoretical impact;
+- observed impact;
+- dependency paths;
+- propagation timeline;
+- telemetry coverage/data gaps;
+- evidence/provenance;
+- deterministic incident severity;
+- optional chaos containment assessment;
+- sanitized AI diagnosis/remediation context.
 
 ## Documentation
+Start with [CODEX.md](CODEX.md).
 
-Start with [CODEX.md](CODEX.md). It is the instruction entry point for Codex and other coding agents.
-
-Detailed design:
-
+- [Source Alignment](docs/SOURCE_ALIGNMENT.md)
 - [Product Requirements](docs/PRODUCT_REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Blast Radius Specification](docs/BLAST_RADIUS_SPEC.md)
 - [Telemetry Contract](docs/TELEMETRY_CONTRACT.md)
+- [Local Docker Lab](docs/LOCAL_LAB.md)
 - [MadlangaAI Integration](docs/INTEGRATION.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
 - [Test Strategy](docs/TEST_STRATEGY.md)
+- [UI/UX Concept](docs/UI_UX_CONCEPT.md)
 - [Architecture Decisions](docs/DECISIONS.md)
 
-## Canonical demo
-
-```text
-payment-service -> customer-service -> document-service -> postgres
-```
-
-A synthetic PostgreSQL failure propagates toward dependent services. The engine calculates theoretical impact from topology and then checks telemetry to determine observed impact.
-
-## Scope boundary
-
-This repository is **not** a replacement for MadlangaAI, Datadog, chaos engineering or the automated bug-fixing capability. It isolates the Blast Radius domain so the concept can be validated and later integrated cleanly into MadlangaAI.
+## Scope
+This repository must prove all capabilities required by Blast Radius locally, even when the current MadlangaAI MVP does not yet expose the corresponding telemetry source. It does not perform autonomous production remediation or own production chaos orchestration.
