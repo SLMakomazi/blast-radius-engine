@@ -57,3 +57,23 @@ Node type and technology are separate concepts. PostgreSQL is the first local sc
 
 ---
 Add new decisions for significant architectural choices.
+
+
+## ADR-014 — Independently buildable API skeleton and revised delivery order
+**Status:** Accepted — Phase 1 skeleton
+
+The current delivery begins with a Java 21 / Spring Boot 4.1.1 Maven application
+in `blast-radius-api`, followed by the mock service chain and PostgreSQL, then
+observability. The original implementation roadmap is retained as the design
+baseline, with its original phase numbering.
+
+Use the requested `controller`/`dto` and `service` packages for transport and use-case
+orchestration (the logical `api` and `application` layers in ARCHITECTURE.md).
+Keep technology-neutral domain internals separate from ports and adapters;
+adapters are grouped by telemetry, topology, AI and persistence responsibilities.
+Do not introduce speculative domain types, provider interfaces or database dependencies.
+
+Each future application owns its build and Docker context. Compose currently starts
+only the implemented API on a dedicated network. The API exposes Actuator health
+and runs as a non-root container user. Persistence, analysis, telemetry ingestion,
+Datadog and AI remain deferred.

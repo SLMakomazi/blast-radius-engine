@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: blast-radius-api
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

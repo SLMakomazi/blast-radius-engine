@@ -31,7 +31,7 @@ All business data is synthetic.
 - `traffic-generator` — continuously/periodically generates requests.
 
 ### Blast Radius
-- `blast-radius-engine` — analysis API.
+- `blast-radius-api` — analysis API.
 - Optional dedicated `blast-radius-db` if incident/evidence history is persisted. It must remain available when target `postgres` is intentionally failed.
 
 ### Observability
@@ -64,6 +64,57 @@ It must emit a `FailureExperiment` event containing target, timestamp, failure t
 
 ## Docker networking
 All containers run on a dedicated Compose network and resolve dependencies by service name. Health checks and startup dependencies must avoid false incident signals during normal boot.
+
+## Local container names
+Explicitly set `container_name` for each application/infrastructure service in the
+local lab, using these names as services are introduced:
+
+```text
+blast-radius-api
+payment-service
+customer-service
+document-service
+postgres
+traffic-generator
+otel-collector
+prometheus
+tempo
+loki
+```
+
+Do not add a `blast-radius-engine-` prefix. Phase 1 contains only `blast-radius-api`;
+the remaining services are added when implemented. Keep the Compose configuration
+compatible with Podman and validate it with `podman compose config`.
+
+Compose **service names** remain the canonical DNS names for service-to-service
+communication. Application configuration must never depend on `container_name`,
+container IP addresses or localhost for reaching another container. Localhost in a
+container health check refers only to that container itself.
+
+Explicit names are a local development convenience, not a production deployment
+assumption. They also mean only one instance of this named lab can run per container
+engine at a time.
+
+## Local image names
+Set an explicit `image` alongside `build` for every locally built application:
+
+| Compose service | Image |
+| --- | --- |
+| `blast-radius-api` | `blast-radius-api:latest` |
+| `payment-service` | `payment-service:latest` |
+| `customer-service` | `customer-service:latest` |
+| `document-service` | `document-service:latest` |
+| `traffic-generator` | `traffic-generator:latest` |
+
+Do not let Compose generate application image names such as
+`blast-radius-engine-blast-radius-api` or `blast-radius-engine-payment-service`.
+These `latest` tags are for the local development lab only.
+
+PostgreSQL, Prometheus, OpenTelemetry Collector, Tempo and Loki retain their
+official upstream image names with explicitly pinned versions when introduced.
+Do not rename or rebuild infrastructure images merely to match container names.
+Image and container naming never change the canonical internal DNS names:
+application configuration continues to use Compose service names.
 
 ## Healthy baseline
 Before injecting failure:
