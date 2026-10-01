@@ -1,130 +1,117 @@
 # Blast Radius Analysis Specification
 
-## Terminology
-
-### Origin
-The component suspected to be the earliest/root failure for the analyzed incident. This is a hypothesis supported by evidence unless causation is independently known.
-
-### Theoretical blast radius
-Components that **could** be affected based on dependency topology.
-
-### Observed blast radius
-Components for which runtime telemetry provides evidence of actual degradation/error during the incident window.
-
-### Direct impact
-A reverse-dependent one hop from the origin.
-
-### Indirect impact
-A reverse-dependent two or more hops from the origin.
+## Impact states
+- **Origin** — suspected earliest/root failure, evidence-backed unless known from a controlled experiment.
+- **Theoretical** — component could be affected based on dependency topology.
+- **Observed** — runtime telemetry proves degradation/error during the incident window.
+- **Unexpected** — observed affected but outside the expected/theoretical or declared containment model.
+- **Direct** — reverse-dependent one hop from origin.
+- **Indirect** — reverse-dependent two or more hops.
 
 ## Graph semantics
-If:
-```text
-A -> B -> C
-```
-then A depends on B and B depends on C.
+For `A -> B -> C`, A depends on B and B depends on C. If C fails, reverse traversal returns B at distance 1 and A at distance 2. Use a visited set and retain minimum distance/path.
 
-If C fails, reverse traversal produces:
-- B: distance 1/direct;
-- A: distance 2/indirect.
+## Full analysis algorithm
+1. Load dependency topology.
+2. Load logs, metrics, traces and health telemetry with coverage metadata.
+3. Sanitize/redact raw evidence.
+4. Correlate signals by time, component, endpoint, trace and dependency.
+5. Determine suspected origin/confidence/reasons or record controlled-failure ground truth.
+6. Reverse-traverse topology.
+7. Record minimum hop distance, path and direct/indirect classification.
+8. Evaluate observed degradation using available telemetry.
+9. Construct propagation timeline.
+10. Calculate deterministic incident severity.
+11. If experiment metadata exists, compare expected/theoretical/observed/unexpected impact and containment.
+12. Build evidence-backed result.
+13. Build sanitized AI diagnosis context.
+14. Optionally request AI explanation/remediation.
 
-Use a visited set so cycles terminate.
-
-## Analysis algorithm — PoC
-1. Load topology.
-2. Load normalized telemetry for the requested window.
-3. Correlate error/degradation signals.
-4. determine suspected origin and evidence.
-5. Reverse-traverse topology from origin.
-6. Record each reachable component and minimum hop distance.
-7. Evaluate runtime evidence for each reachable component.
-8. Calculate severity deterministically.
-9. Build evidence-backed result.
-10. Build sanitized AI diagnosis context.
-11. Optionally request an AI explanation/recommendation.
-
-## Observed-impact rules — initial
-A service may be marked observed affected when at least one configured signal exists in the incident window, for example:
-- error log;
-- failed trace/span;
-- HTTP 5xx increase;
+## Observed-impact signals
+Configurable evidence includes:
+- error logs;
+- failed spans;
+- trace latency/failure propagation;
+- HTTP 5xx/error-rate increase;
 - timeout increase;
-- availability/health failure.
+- latency degradation;
+- availability/health failure;
+- unexpected zero traffic;
+- dependency-specific connection failures.
 
-The result must list the signals used.
+A component must list the evidence used to mark it observed.
 
-## Severity — initial design
-Keep thresholds configurable. Suggested factors:
+## Origin assessment
+Initial transparent factors may include:
+- earliest strong failure signal;
+- dependency position;
+- DB/dependency connection errors;
+- trace peer-service failures;
+- health transition;
+- correlated downstream symptoms.
+
+Return confidence and reasons. Do not claim proven causation from correlation alone.
+
+## Propagation timeline
+Each timeline event contains timestamp, component, signal type, evidence ID and relative offset from the origin signal.
+
+## Severity
+Configurable factors:
 - criticality of origin/affected nodes;
-- number of observed affected components;
-- maximum propagation depth;
-- presence of a critical business/service component;
-- magnitude of degradation where metrics are available.
+- observed affected count;
+- propagation depth;
+- critical business component;
+- error/latency/availability magnitude;
+- containment breach.
 
-Do not hard-code an unchangeable enterprise policy into the PoC.
+Severity is an incident concept and is not the MadlangaAI Overall Health Score.
 
 ## API
-
 ### POST /api/v1/blast-radius/analyze
-Example request:
 ```json
 {
-  "applicationId": "document-platform",
-  "environment": "dev",
-  "from": "2026-10-01T10:30:00Z",
-  "to": "2026-10-01T10:35:00Z",
-  "originHint": "postgres"
+  "applicationId":"document-platform",
+  "environment":"local",
+  "from":"2026-10-01T10:30:00Z",
+  "to":"2026-10-01T10:35:00Z",
+  "originHint":"postgres",
+  "experimentId":"chaos-001"
 }
 ```
 
-`originHint` is optional and useful for deterministic PoC/demo scenarios.
-
-Example response:
+Example response shape:
 ```json
 {
-  "incidentId": "INC-001",
-  "applicationId": "document-platform",
-  "origin": {
-    "component": "postgres",
-    "confidence": 0.91,
-    "evidenceIds": ["log-db-001", "span-db-001"]
-  },
-  "theoreticalImpact": [
-    {"component":"document-service","distance":1,"classification":"DIRECT"},
-    {"component":"customer-service","distance":2,"classification":"INDIRECT"},
-    {"component":"payment-service","distance":3,"classification":"INDIRECT"}
+  "incidentId":"INC-001",
+  "origin":{"component":"postgres","confidence":0.91,"evidenceIds":["health-db-1"]},
+  "telemetryCoverage":{"logs":"AVAILABLE","metrics":"AVAILABLE","traces":"AVAILABLE","health":"AVAILABLE"},
+  "theoreticalImpact":[
+    {"component":"document-service","distance":1,"classification":"DIRECT","path":["postgres","document-service"]},
+    {"component":"customer-service","distance":2,"classification":"INDIRECT","path":["postgres","document-service","customer-service"]}
   ],
-  "observedImpact": [
-    {
-      "component":"document-service",
-      "evidenceIds":["log-001","metric-001"]
-    },
-    {
-      "component":"customer-service",
-      "evidenceIds":["log-002"]
-    }
+  "observedImpact":[
+    {"component":"document-service","evidenceIds":["log-1","span-1","metric-1"]}
   ],
-  "severity": "HIGH",
-  "diagnosis": {
-    "summary": "Database connectivity failure with propagated service degradation.",
-    "recommendations": [
-      "Verify database availability",
-      "Inspect connectivity and connection-pool health",
-      "Review relevant recent configuration/deployment changes"
-    ]
-  },
-  "warnings": []
+  "propagationTimeline":[
+    {"timestamp":"2026-10-01T10:31:00Z","component":"postgres","signal":"HEALTH_DOWN","offsetMs":0},
+    {"timestamp":"2026-10-01T10:31:02Z","component":"document-service","signal":"DB_ERROR","offsetMs":2000}
+  ],
+  "severity":"HIGH",
+  "experimentAssessment":{"containment":"HELD","unexpectedImpact":[]},
+  "diagnosis":{"summary":"...","recommendations":[]},
+  "warnings":[]
 }
 ```
 
-## Explainability requirement
-The UI/report must be able to answer "Why is this service shown as affected?" using evidence IDs and graph path.
+## Explainability
+The UI/report must answer:
+- Why is this component in the theoretical radius?
+- Why is it marked observed?
+- What path connects it to the origin?
+- Which evidence proves degradation?
+- When did degradation begin relative to the origin?
+- What telemetry was unavailable?
+- Did impact escape the expected containment boundary?
 
-## Future extension: chaos validation
-A chaos experiment can supply a known injected failure. The engine can compare:
-- expected/theoretical impact;
-- observed impact;
-- unexpected impact;
-- containment success/failure.
-
-This repository does not inject chaos itself.
+## Local validation
+The canonical Docker lab must produce real synthetic telemetry from service-to-service calls and controlled failures. Static JSON fixtures remain useful for unit tests but are not sufficient as the sole proof.
