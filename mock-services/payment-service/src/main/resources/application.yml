@@ -12,7 +12,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+  metrics:
+    tags:
+      service: ${spring.application.name}
+      environment: local
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
   endpoint:
     health:
       show-details: never
@@ -23,7 +31,7 @@ management:
           include: readinessState
 logging:
   pattern:
-    level: "%5p [correlationId=%X{correlationId:-}]"
+    level: "%5p [service_name=${spring.application.name} correlationId=%X{correlationId:-} trace_id=%X{trace_id:-} span_id=%X{span_id:-}]"
 lab:
   downstream-url: ${CUSTOMER_SERVICE_URL:http://customer-service:8082}
   connect-timeout: ${HTTP_CONNECT_TIMEOUT:2s}

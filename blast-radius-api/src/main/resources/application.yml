@@ -10,7 +10,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+  metrics:
+    tags:
+      service: ${spring.application.name}
+      environment: local
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
   endpoint:
     health:
       show-details: never

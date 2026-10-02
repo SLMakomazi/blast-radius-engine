@@ -13,9 +13,13 @@ which is preserved as the planning baseline:
    Acceptance requires a real persisted document, PostgreSQL outage reaching the
    caller, and recovery without rebuilding. Run `scripts/verify-phase2.py`; consult
    `PHASE2_VERIFICATION.md` for recorded execution results.
-3. **Phase 3 — Observability:** instrument and collect logs, metrics and distributed
-   traces from the running chain. No observability backend or OTel integration is
-   part of Phase 2.
+3. **Phase 3 — Observability:** Java agent OTLP logs/traces through Collector to
+   Loki/Tempo, direct Micrometer/Prometheus scraping and Actuator health. Acceptance
+   retrieves all four evidence families during healthy/PostgreSQL outage/recovery
+   and proves business continuity during Collector loss. Run
+   `scripts/verify-observability.sh`; see `PHASE3_VERIFICATION.md` for actual results.
+4. **Phase 4 — Provider-neutral evidence:** normalized TelemetryBundle, sanitization,
+   coverage/provenance and provider adapters. These remain unimplemented in Phase 3.
 
 Subsequent domain/telemetry/analysis work follows the requirements below.
 

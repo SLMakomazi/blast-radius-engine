@@ -126,3 +126,31 @@ Emit synthetic PII/secret-like test values and verify they never appear in norma
 13. Stable versioned JSON API is produced.
 14. Synthetic fixtures only.
 15. Mock/local providers can later be replaced without domain rewrite.
+
+## Implemented Phase 3 checks
+
+Preserve all Phase 1/2 behavior tests. Mock-service context tests additionally assert
+Prometheus metrics exist and `/actuator/env`, `/actuator/configprops` and
+`/actuator/heapdump` return 404. These tests run without the Java agent; actual agent
+compatibility is exercised by the container experiment, not inferred from Maven.
+
+`./scripts/verify-observability.sh --output /tmp/blast-radius-phase3` runs against
+the real Podman lab. It checks all application scrape targets, backend readiness,
+controlled endpoint exposure, response correlation IDs and persisted documents.
+For healthy, PostgreSQL outage and recovery requests it retrieves correlated Loki
+logs, follows their trace ID to Tempo, checks parent ancestry across all three
+services, JDBC evidence and failure span statuses, and checks increasing HTTP
+status counters plus latency/client/pool metrics. Health records distinguish DB
+readiness, process liveness and the independent API.
+
+Synthetic authorization/password-header canaries must not appear in retrieved
+telemetry. Resource/span allowlists and Loki index-label checks supplement that
+probe; no test claims arbitrary PII detection. During Collector loss the script
+checks successful business persistence, ongoing metrics/health and absent new
+logs/trace, then restores export and retrieves fresh evidence. PostgreSQL and the
+Collector are restored in finally blocks. Do not run competing outage scripts
+concurrently. Inspect container/VM memory and OOM status under traffic separately.
+
+Actual counts, commands, IDs and limitations are in `PHASE3_VERIFICATION.md`. The
+original engine tests above remain planned; Phase 3 does not implement graph or
+TelemetryBundle contracts to make those tests pass prematurely.

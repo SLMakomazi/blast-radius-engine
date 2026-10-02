@@ -4,6 +4,9 @@ services:
     container_name: blast-radius-api
     build:
       context: ./blast-radius-api
+    mem_limit: 256m
+    environment:
+      JAVA_TOOL_OPTIONS: -Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=2
     ports:
       - "127.0.0.1:8080:8080"
     networks:
@@ -14,9 +17,15 @@ services:
     container_name: payment-service
     build:
       context: ./mock-services/payment-service
+    mem_limit: 448m
+    volumes:
+      - ./infrastructure/observability/otel/javaagent.properties:/app/javaagent.properties:ro
     ports:
       - "127.0.0.1:8081:8081"
     environment:
+      JAVA_TOOL_OPTIONS: -Xms32m -Xmx160m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -javaagent:/app/otel-agent.jar
+      OTEL_SERVICE_NAME: payment-service
+      OTEL_JAVAAGENT_CONFIGURATION_FILE: /app/javaagent.properties
       CUSTOMER_SERVICE_URL: http://customer-service:8082
     depends_on:
       customer-service:
@@ -35,9 +44,15 @@ services:
     container_name: customer-service
     build:
       context: ./mock-services/customer-service
+    mem_limit: 448m
+    volumes:
+      - ./infrastructure/observability/otel/javaagent.properties:/app/javaagent.properties:ro
     ports:
       - "127.0.0.1:8082:8082"
     environment:
+      JAVA_TOOL_OPTIONS: -Xms32m -Xmx160m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -javaagent:/app/otel-agent.jar
+      OTEL_SERVICE_NAME: customer-service
+      OTEL_JAVAAGENT_CONFIGURATION_FILE: /app/javaagent.properties
       DOCUMENT_SERVICE_URL: http://document-service:8083
     depends_on:
       document-service:
@@ -56,9 +71,15 @@ services:
     container_name: document-service
     build:
       context: ./mock-services/document-service
+    mem_limit: 448m
+    volumes:
+      - ./infrastructure/observability/otel/javaagent.properties:/app/javaagent.properties:ro
     ports:
       - "127.0.0.1:8083:8083"
     environment:
+      JAVA_TOOL_OPTIONS: -Xms32m -Xmx160m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -javaagent:/app/otel-agent.jar
+      OTEL_SERVICE_NAME: document-service
+      OTEL_JAVAAGENT_CONFIGURATION_FILE: /app/javaagent.properties
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-synthetic_lab}?connectTimeout=2&socketTimeout=3
       POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
@@ -77,6 +98,7 @@ services:
   postgres:
     image: docker.io/library/postgres:17.6
     container_name: postgres
+    mem_limit: 192m
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-synthetic_lab}
       POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
@@ -97,6 +119,7 @@ services:
   traffic-generator:
     image: traffic-generator:latest
     container_name: traffic-generator
+    mem_limit: 64m
     build:
       context: ./traffic-generator
     environment:
@@ -108,6 +131,71 @@ services:
         condition: service_healthy
     networks:
       - blast-radius
+
+  otel-collector:
+    image: docker.io/otel/opentelemetry-collector-contrib:0.157.0
+    container_name: otel-collector
+    mem_limit: 192m
+    environment:
+      GOMEMLIMIT: 140MiB
+      GOMAXPROCS: "2"
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./infrastructure/observability/otel/collector.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - "127.0.0.1:13133:13133"
+    networks: [blast-radius]
+
+  prometheus:
+    image: docker.io/prom/prometheus:v3.14.0
+    container_name: prometheus
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: "2"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2h
+      - --storage.tsdb.retention.size=128MB
+      - --query.max-concurrency=2
+    volumes:
+      - ./infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    networks: [blast-radius]
+
+  tempo:
+    image: docker.io/grafana/tempo:2.10.7
+    container_name: tempo
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: "2"
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./infrastructure/observability/tracing/tempo.yml:/etc/tempo.yml:ro
+    ports:
+      - "127.0.0.1:3200:3200"
+    networks: [blast-radius]
+
+  loki:
+    image: docker.io/grafana/loki:3.7.8
+    container_name: loki
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: "2"
+    command: ["-config.file=/etc/loki.yml"]
+    volumes:
+      - ./infrastructure/observability/logging/loki.yml:/etc/loki.yml:ro
+    ports:
+      - "127.0.0.1:3100:3100"
+    networks: [blast-radius]
 
 networks:
   blast-radius:

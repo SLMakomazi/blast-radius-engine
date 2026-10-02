@@ -39,6 +39,14 @@ class CustomerApplicationTests {
     @BeforeEach void reset() { server.reset(); }
     @AfterEach void verify() { server.verify(); }
 
+    @Test void prometheusIsExposedButSensitiveEndpointsAreNot() throws Exception {
+        mvc.perform(get("/actuator/prometheus")).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("jvm_memory_used_bytes")));
+        mvc.perform(get("/actuator/env")).andExpect(status().isNotFound());
+        mvc.perform(get("/actuator/configprops")).andExpect(status().isNotFound());
+        mvc.perform(get("/actuator/heapdump")).andExpect(status().isNotFound());
+    }
+
     @Test void contextLoadsAndHealthIsExposed() throws Exception {
         mvc.perform(get("/actuator/health")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
