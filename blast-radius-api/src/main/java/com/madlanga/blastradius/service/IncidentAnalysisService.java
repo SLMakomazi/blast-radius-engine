@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class IncidentAnalysisService {
-    private static final java.time.Duration TOPOLOGY_LOOKBACK = java.time.Duration.ofHours(1);
+    private static final java.time.Duration RECENT_TOPOLOGY_LOOKBACK = java.time.Duration.ofHours(1);
+    private static final java.time.Duration HISTORICAL_TOPOLOGY_LOOKBACK = java.time.Duration.ofHours(24);
 
     private final TelemetryProvider telemetryProvider;
     private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
@@ -35,14 +36,28 @@ public class IncidentAnalysisService {
         // the incident window, then merge those spans with the current incident spans.
         // Historical telemetry affects topology only; it must not become incident evidence
         // or alter the requested window's coverage.
-        TelemetryQuery topologyQuery = TelemetryQuery.builder()
+        TelemetryQuery recentTopologyQuery = TelemetryQuery.builder()
                 .applicationId(applicationId)
                 .environment(environment)
-                .from(from.minus(TOPOLOGY_LOOKBACK))
+                .from(from.minus(RECENT_TOPOLOGY_LOOKBACK))
                 .to(from)
                 .build();
-        TelemetryBundle topologyTelemetry = telemetryProvider.getTelemetry(topologyQuery);
-        List<SpanEvidence> topologySpans = new ArrayList<>(topologyTelemetry.getSpans());
+        TelemetryBundle recentTopologyTelemetry = telemetryProvider.getTelemetry(recentTopologyQuery);
+
+        // Tempo's bounded search returns the newest traces in a window. During a
+        // long outage those newest traces can all be failures and no longer carry
+        // the successful DB peer identity. Query an older, non-overlapping window
+        // as well so a long-running outage cannot erase the last-known topology.
+        TelemetryQuery historicalTopologyQuery = TelemetryQuery.builder()
+                .applicationId(applicationId)
+                .environment(environment)
+                .from(from.minus(HISTORICAL_TOPOLOGY_LOOKBACK))
+                .to(from.minus(RECENT_TOPOLOGY_LOOKBACK))
+                .build();
+        TelemetryBundle historicalTopologyTelemetry = telemetryProvider.getTelemetry(historicalTopologyQuery);
+
+        List<SpanEvidence> topologySpans = new ArrayList<>(historicalTopologyTelemetry.getSpans());
+        topologySpans.addAll(recentTopologyTelemetry.getSpans());
         topologySpans.addAll(telemetry.getSpans());
 
         DependencyTopology topology = new TraceDiscoveredTopologyProvider(telemetryProvider)
