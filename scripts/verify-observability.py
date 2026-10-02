@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import re
 import subprocess
-import tempfile
 from http.client import HTTPException
 import time
 from urllib.error import HTTPError
@@ -322,6 +321,21 @@ def collector_action(action):
     subprocess.run([*command, "otel-collector"], check=True, timeout=30)
 
 
+def write_evidence(filename, data):
+    """Write only fixed evidence filenames under the repository-owned evidence directory."""
+    allowed = {
+        "availability-timeout.json", "availability-recovery.json", "availability.json",
+        "partial.json", "summary.json"
+    }
+    if filename not in allowed:
+        raise ValueError("Unsupported evidence filename")
+    evidence_dir = p2.ROOT / ".phase3-evidence"
+    evidence_dir.mkdir(mode=0o700, exist_ok=True)
+    target = evidence_dir / filename
+    target.write_text(json.dumps(data, indent=2))
+    return target
+
+
 def availability_cases(args):
     """Only timeout and successful recovery; no database failure or rebuild."""
     try:
@@ -332,13 +346,13 @@ def availability_cases(args):
         assert unavailable["elapsedSeconds"] <= args.timeout_case_seconds + 2
         assert all(probe["httpStatus"] == 201 and probe["correlationReturned"] for probe in unavailable["probes"])
         assert p2.count_rows(unavailable["correlationId"]) == 1
-        (args.output / "availability-timeout.json").write_text(json.dumps(unavailable, indent=2))
+        write_evidence("availability-timeout.json", unavailable)
         print("TIMEOUT", json.dumps({k: v for k, v in unavailable.items() if k != "evidence"}), flush=True)
     finally:
         collector_action("start")
     eventually(lambda: fetch(COLLECTOR_HEALTH_URL), "Collector infrastructure readiness", timeout=args.availability_timeout)
     available = wait_for_telemetry(args.availability_timeout, args.poll_interval)
-    (args.output / "availability-recovery.json").write_text(json.dumps(available, indent=2))
+    write_evidence("availability-recovery.json", available)
     assert available["telemetryAvailable"], available["missingEvidenceFamilies"]
     assert all(probe["httpStatus"] == 201 and probe["correlationReturned"] for probe in available["probes"])
     assert p2.count_rows(available["correlationId"]) == 1
@@ -348,8 +362,6 @@ def availability_cases(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=None,
-                        help="Evidence directory. Must resolve inside the current working directory.")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--availability-only", action="store_true", help="Probe telemetry without stopping any service")
     modes.add_argument("--availability-cases", action="store_true", help="Run only Collector timeout/recovery cases")
@@ -362,25 +374,13 @@ def main():
     if any(not 0 < value < float("inf") for value in
            (args.availability_timeout, args.poll_interval, args.timeout_case_seconds)):
         parser.error("timeouts and poll interval must be finite positive numbers")
-    workspace = Path.cwd().resolve()
-    if args.output is None:
-        args.output = Path(tempfile.mkdtemp(prefix=".phase3-evidence-", dir=workspace))
-    else:
-        args.output = args.output.expanduser().resolve()
-        try:
-            args.output.relative_to(workspace)
-        except ValueError:
-            parser.error("--output must resolve inside the current working directory")
-        args.output.mkdir(parents=True, exist_ok=True)
-    if args.output.is_symlink():
-        parser.error("--output must not be a symbolic link")
     p2.PODMAN = args.runtime
     if args.availability_cases:
         availability_cases(args)
         return
     if args.availability_only:
         result = wait_for_telemetry(args.availability_timeout, args.poll_interval)
-        (args.output / "availability.json").write_text(json.dumps(result, indent=2))
+        write_evidence("availability.json", result)
         print(json.dumps({k: v for k, v in result.items() if k != "evidence"}), flush=True)
         raise SystemExit(0 if result["telemetryAvailable"] else 1)
     # Keep the configured local password in memory only, never in evidence/output.
@@ -420,7 +420,7 @@ def main():
                 assert p2.get_health(8080) == (200,"UP")
             else:
                 assert p2.count_rows(correlation) == 1
-            summary.append(collect(correlation,failed,args.output,before))
+            summary.append(collect(correlation,failed,p2.ROOT / ".phase3-evidence",before))
         finally:
             if failed:
                 p2.compose("start","postgres");p2.wait_healthy(8083)
@@ -447,7 +447,7 @@ def main():
             pass
         h=health();assert h["document-service"]["readiness"] == (200,"UP")
         partial={"correlationId":correlation,"httpStatus":201,"persistedRows":1,"collectorReachable":False,"traceId":partial_trace,"traceHttpStatus":404,"centralizedLogsAtCheck":0,"metrics":counters(ok_status),"health":h}
-        (args.output/"partial.json").write_text(json.dumps(partial,indent=2))
+        write_evidence("partial.json", partial)
         print("PARTIAL",json.dumps(partial),flush=True)
     finally:
         p2.compose("start","otel-collector")
@@ -459,8 +459,8 @@ def main():
     summary.append(collect(correlation,False,args.output,before))
     labels=fetch("http://localhost:3100/loki/api/v1/labels")["data"]
     assert not set(labels).intersection({"correlation_id","trace_id","span_id"}), labels
-    (args.output/"summary.json").write_text(json.dumps({"experiments":summary,"partial":partial,"indexLabels":labels,"telemetryAvailability":export_probes},indent=2))
-    print("Phase 3 verification PASSED; evidence:",args.output,flush=True)
+    write_evidence("summary.json", {"experiments":summary,"partial":partial,"indexLabels":labels,"telemetryAvailability":export_probes})
+    print("Phase 3 verification PASSED; evidence:", p2.ROOT / ".phase3-evidence", flush=True)
 
 
 if __name__ == "__main__":
