@@ -79,6 +79,9 @@ class TempoResponse {
         @JsonProperty("name")
         String name;
 
+        @JsonProperty("kind")
+        String kind;
+
         @JsonProperty("startTimeUnixNano")
         String startTimeUnixNano;
 
