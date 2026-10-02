@@ -29,7 +29,7 @@ public class IncidentAnalysisService {
         DependencyTopology topology = new TraceDiscoveredTopologyProvider(telemetryProvider)
                 .discover(applicationId, environment, telemetry.getSpans());
 
-        Map<String,List<EvidenceSignal>> signals = correlate(telemetry);
+        Map<String,List<EvidenceSignal>> signals = correlate(telemetry, topology);
         OriginAssessment origin = assessOrigin(originHint, topology, signals);
         GraphAnalysisResult theoretical = graphEngine.calculate(topology, origin.component());
 
@@ -68,7 +68,7 @@ public class IncidentAnalysisService {
                 telemetry.getCoverage(), impacts, timeline, warnings);
     }
 
-    private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry) {
+    private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry, DependencyTopology topology) {
         Map<String,List<EvidenceSignal>> result = new LinkedHashMap<>();
         for (LogEvidence log : telemetry.getLogs()) {
             if (isErrorLevel(log.getLevel())) add(result, log.getService(),
@@ -79,9 +79,18 @@ public class IncidentAnalysisService {
             if (span.isError()) {
                 add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
                         "error span: " + span.getOperation(), span.getId()));
-                if (hasText(span.getPeerService())) add(result, span.getPeerService(),
-                        new EvidenceSignal(span.getStartTime(), span.getPeerService(), "TRACE",
-                                "dependency error observed by " + span.getService(), span.getId()));
+                if (hasText(span.getPeerService())) {
+                    add(result, span.getPeerService(),
+                            new EvidenceSignal(span.getStartTime(), span.getPeerService(), "TRACE",
+                                    "dependency error observed by " + span.getService(), span.getId()));
+                } else {
+                    inferFailedDependencyFromTopology(span, topology).ifPresent(dependency ->
+                            add(result, dependency,
+                                    new EvidenceSignal(span.getStartTime(), dependency, "TRACE",
+                                            "dependency error inferred from topology for failed "
+                                                    + span.getOperation() + " observed by " + span.getService(),
+                                            span.getId())));
+                }
             }
         }
         for (HealthEvidence health : telemetry.getHealth()) {
@@ -92,6 +101,19 @@ public class IncidentAnalysisService {
         correlateMetricDeltas(telemetry.getMetrics(), result);
         result.replaceAll((k,v) -> v.stream().sorted(Comparator.comparing(EvidenceSignal::timestamp)).toList());
         return result;
+    }
+
+    private Optional<String> inferFailedDependencyFromTopology(SpanEvidence span, DependencyTopology topology) {
+        List<String> dependencies = topology.getEdges().stream()
+                .filter(edge -> edge.getDependentId().equals(span.getService()))
+                .map(DependencyEdge::getDependencyId)
+                .sorted()
+                .toList();
+
+        // A peer-less failed span proves that the emitting component failed while using
+        // a dependency, but it does not identify which dependency when several exist.
+        // Only infer when topology leaves exactly one possible downstream dependency.
+        return dependencies.size() == 1 ? Optional.of(dependencies.get(0)) : Optional.empty();
     }
 
     private OriginAssessment assessOrigin(String hint, DependencyTopology topology, Map<String,List<EvidenceSignal>> signals) {
