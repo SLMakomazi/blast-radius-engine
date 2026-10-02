@@ -281,6 +281,33 @@ class TempoTraceAdapterTest {
     }
 
     @Test
+    void usesConcreteDatabaseEndpointAsPeerAndKeepsTechnologyInAttributes() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        span.kind = "SPAN_KIND_INTERNAL";
+
+        TempoResponse.KeyValue db = new TempoResponse.KeyValue();
+        db.key = "db.system.name";
+        db.value = new TempoResponse.AnyValue();
+        db.value.stringValue = "postgresql";
+        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        address.key = "server.address";
+        address.value = new TempoResponse.AnyValue();
+        address.value.stringValue = "postgres";
+        span.attributes = List.of(db, address);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals("postgres", result.getSpans().get(0).getPeerService());
+        assertEquals("postgresql", result.getSpans().get(0).getAttributes().get("db.system.name"));
+    }
+
+    @Test
     void retriesTransientTraceFetchFailureAfterSuccessfulSearch() {
         TempoSearchResponse search = new TempoSearchResponse();
         TempoSearchResponse.TraceSummary summary = new TempoSearchResponse.TraceSummary();
