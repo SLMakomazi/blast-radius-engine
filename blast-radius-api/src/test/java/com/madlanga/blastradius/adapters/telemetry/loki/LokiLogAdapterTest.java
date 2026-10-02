@@ -160,6 +160,47 @@ class LokiLogAdapterTest {
         assertEquals("my-correlation-id", result.getLogs().get(0).getCorrelationId());
     }
 
+
+    @Test
+    void mapsOtelStructuredMetadataFromRealLokiShape() {
+        LokiResponse response = new LokiResponse();
+        response.status = "success";
+        response.data = new LokiResponse.Data();
+
+        LokiResponse.Stream stream = new LokiResponse.Stream();
+        stream.stream = java.util.Map.of(
+                "service_name", "payment-service",
+                "deployment_environment_name", "local",
+                "correlation_id", "phase4-integration-1790942164",
+                "trace_id", "1657683429e6a0a411c08c1a8554444",
+                "span_id", "39e32c2c76b45d5f",
+                "severity_text", "INFO");
+
+        long nanos = FROM.getEpochSecond() * 1_000_000_000L;
+        stream.values = List.of(List.of(
+                String.valueOf(nanos),
+                "event=downstream_request dependency=customer-service"));
+        response.data.result = List.of(stream);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(LokiResponse.class);
+
+        LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertEquals(1, result.getLogs().size());
+
+        LogEvidence log = result.getLogs().get(0);
+        assertEquals("payment-service", log.getService());
+        assertEquals("INFO", log.getLevel());
+        assertEquals("phase4-integration-1790942164", log.getCorrelationId());
+        assertEquals("1657683429e6a0a411c08c1a8554444", log.getTraceId());
+        assertEquals("39e32c2c76b45d5f", log.getSpanId());
+        assertEquals("event=downstream_request dependency=customer-service", log.getMessage());
+    }
+
     @Test
     void sanitizesAuthorizationInLogAttributes() {
         LokiResponse response = new LokiResponse();
