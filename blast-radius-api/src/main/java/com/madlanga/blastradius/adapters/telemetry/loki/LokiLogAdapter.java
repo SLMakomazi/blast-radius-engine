@@ -206,6 +206,10 @@ public class LokiLogAdapter {
 
         for (LokiResponse.Stream stream : streams) {
             String serviceName = stream.stream.getOrDefault("service_name", "unknown");
+            String streamCorrelationId = stream.stream.get("correlation_id");
+            String streamTraceId = stream.stream.get("trace_id");
+            String streamSpanId = stream.stream.get("span_id");
+            String streamSeverityText = stream.stream.get("severity_text");
 
             for (List<String> value : stream.values) {
                 if (value.size() < 2) continue;
@@ -233,11 +237,11 @@ public class LokiLogAdapter {
                         .timestamp(timestamp)
                         .service(serviceName)
                         .environment(environment)
-                        .level(normalizeLevel(logLine.severityText))
+                        .level(normalizeLevel(firstNonBlank(streamSeverityText, logLine.severityText)))
                         .message(sanitizedMessage)
-                        .correlationId(logLine.correlationId)
-                        .traceId(logLine.traceId)
-                        .spanId(logLine.spanId)
+                        .correlationId(firstNonBlank(streamCorrelationId, logLine.correlationId))
+                        .traceId(firstNonBlank(streamTraceId, logLine.traceId))
+                        .spanId(firstNonBlank(streamSpanId, logLine.spanId))
                         .attributes(sanitizedAttrs)
                         .provenance(provenance)
                         .build();
@@ -284,6 +288,13 @@ public class LokiLogAdapter {
     /** Convert an {@link Instant} to a nanosecond Unix timestamp string for Loki. */
     private static String toNanoString(Instant instant) {
         return String.valueOf(instant.getEpochSecond() * 1_000_000_000L + instant.getNano());
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+        return fallback;
     }
 
     /** Normalize severity text to a consistent uppercase level string. */
