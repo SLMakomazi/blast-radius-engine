@@ -50,5 +50,25 @@ class TempoSearchResponse {
 
         @JsonProperty("durationMs")
         long durationMs;
+
+        @JsonProperty("spanSet")
+        SpanSet spanSet;
+
+        boolean isFailed() {
+            return spanSet != null && spanSet.spans != null && spanSet.spans.stream()
+                    .anyMatch(span -> span != null && "error".equalsIgnoreCase(span.status));
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    static class SpanSet {
+        @JsonProperty("spans")
+        List<SpanSummary> spans = Collections.emptyList();
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    static class SpanSummary {
+        @JsonProperty("status")
+        String status;
     }
 }
