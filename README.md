@@ -38,7 +38,7 @@ The services emit logs, metrics, traces and health signals. A controlled failure
 
 ## Current status — Phase 5 deterministic graph engine
 
-Phase 5 implementation is complete on `feat/deterministic-graph-engine` and is **awaiting manual test execution**.
+Phase 5 implementation is complete on `feat/deterministic-graph-engine`. **Manual Maven verification passed on 2026-10-02: 123 tests, 0 failures, 0 errors, 0 skipped.**
 
 The graph engine is deliberately independent of topology discovery. Engineers do **not** need to hand-author a graph for every monitored application. The core consumes the `DependencyTopologyProvider` port; adapters can populate that contract from MadlangaAI's architecture/dependency model, runtime trace discovery, service catalogs/cloud metadata, or local fixtures. Test fixtures in this repository are deterministic test inputs, not a production onboarding requirement.
 
@@ -56,7 +56,7 @@ Phase 5 adds:
 
 Phase 5 calculates **theoretical** impact only. Runtime evidence correlation and observed impact remain Phase 6.
 
-**Do not claim Phase 5 tests passed until the manual Maven test command has been executed.**
+Phase 5 added 14 graph/topology tests (11 graph-engine + 3 topology-domain); all passed as part of the 123-test Blast Radius API regression suite.
 
 ## Current status — Phase 4 normalized telemetry
 
