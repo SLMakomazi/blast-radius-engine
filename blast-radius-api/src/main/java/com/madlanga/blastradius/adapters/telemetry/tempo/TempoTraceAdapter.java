@@ -128,7 +128,16 @@ public class TempoTraceAdapter {
         List<SpanEvidence> allSpans = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
-        for (TempoSearchResponse.TraceSummary summary : searchResponse.traces) {
+        // Tempo search returns newest traces first. Prefer traces that Tempo itself
+        // marks as failed so a busy healthy traffic stream cannot crowd incident
+        // traces out of the bounded search result.
+        List<TempoSearchResponse.TraceSummary> summaries = new ArrayList<>(searchResponse.traces);
+        summaries.sort(java.util.Comparator
+                .comparing((TempoSearchResponse.TraceSummary s) -> !s.isFailed())
+                .thenComparing(s -> s.startTimeUnixNano == null ? "" : s.startTimeUnixNano,
+                        java.util.Comparator.reverseOrder()));
+
+        for (TempoSearchResponse.TraceSummary summary : summaries) {
             if (summary.traceId == null || summary.traceId.isBlank()) continue;
             try {
                 TempoResponse trace = restClient.get()
