@@ -19,7 +19,11 @@ which is preserved as the planning baseline:
    and proves business continuity during Collector loss. Run
    `scripts/verify-observability.sh`; see `PHASE3_VERIFICATION.md` for actual results.
 4. **Phase 4 — Provider-neutral evidence:** normalized TelemetryBundle, sanitization,
-   coverage/provenance and provider adapters. These remain unimplemented in Phase 3.
+   coverage/provenance and provider adapters. **Implementation complete on
+   `feat/normalized-telemetry-sanitization`; manual test verification pending.**
+   See `docs/DECISIONS.md` ADR-018 through ADR-022 for implementation decisions.
+   Unit tests are written and staged; run `mvn -f blast-radius-api/pom.xml test` to
+   verify. Do NOT claim tests passed until executed manually.
 
 Subsequent domain/telemetry/analysis work follows the requirements below.
 

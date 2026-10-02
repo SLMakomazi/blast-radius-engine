@@ -36,15 +36,44 @@ The services emit logs, metrics, traces and health signals. A controlled failure
 - optional chaos containment assessment;
 - sanitized AI diagnosis/remediation context.
 
-## Current status — Phase 3 observability
+## Current status — Phase 4 normalized telemetry
 
-The repository now contains the independent Blast Radius API plus three Java 21 /
-Spring Boot 4.1.1 synthetic services, PostgreSQL and a lightweight Python traffic
-generator. Real HTTP calls and document persistence form the dependency chain.
-The API remains outside the business request path. OpenTelemetry exports application
-logs to Loki and distributed traces to Tempo through the Collector; Prometheus
-scrapes Micrometer metrics directly. Actuator provides health evidence. Analysis
-algorithms, AI, normalized telemetry and provider adapters remain deferred.
+Phase 4 introduces the provider-neutral telemetry domain boundary. The Blast Radius
+domain now consumes a `TelemetryProvider` port rather than raw Loki/Prometheus/Tempo/
+Actuator responses directly. All provider-specific data is normalized, sanitized and
+mapped to typed evidence models before entering the domain.
+
+**Phase 4 implementation is complete on `feat/normalized-telemetry-sanitization`.
+Manual test verification is pending — tests are written but have not been executed.
+Do not claim tests passed until `mvn -f blast-radius-api/pom.xml test` has been run.**
+
+### What Phase 4 adds
+
+| Layer | What was added |
+|---|---|
+| `domain/evidence` | `LogEvidence`, `MetricEvidence`, `SpanEvidence`, `HealthEvidence`, `TelemetryBundle`, `TelemetryCoverage`, `CoverageStatus`, `HealthState`, `SpanStatus`, `EvidenceProvenance`, `EvidenceFamily`, `TelemetryQuery` |
+| `ports` | `TelemetryProvider` interface |
+| `sanitization` | `TelemetrySanitizer`, `RedactionRule`, `BuiltInRedactionRules`, `RedactionPlaceholders` |
+| `adapters/telemetry/loki` | `LokiLogAdapter` + internal DTOs + `LokiProperties` |
+| `adapters/telemetry/prometheus` | `PrometheusMetricsAdapter` + internal DTOs + `PrometheusProperties` |
+| `adapters/telemetry/tempo` | `TempoTraceAdapter` + internal DTOs + `TempoProperties` |
+| `adapters/telemetry/health` | `ActuatorHealthAdapter` + internal DTOs + `ActuatorHealthProperties` |
+| `adapters/telemetry` | `LocalTelemetryProvider` (composite, implements port) |
+| `config` | `TelemetryAdapterConfig` |
+| `application.yml` | `blast-radius.telemetry.*` configuration block |
+| Tests | 13 test classes (~60 test methods) — NOT YET EXECUTED |
+
+### Architectural guarantees introduced in Phase 4
+
+- The domain never imports provider-specific DTOs (Loki/Prometheus/Tempo/Actuator types).
+- All evidence is sanitized before construction (Authorization, Bearer tokens, passwords,
+  API keys, access tokens, cookies/sessions, SA ID number fields).
+- `CoverageStatus.UNAVAILABLE` for any family **does not** mean services are healthy.
+- Provider failures are isolated — one unavailable backend does not suppress other families.
+- Every evidence item retains full `EvidenceProvenance` (family, provider, collectedAt, sourceRef).
+
+Phase 3 observability stack (Loki, Prometheus, Tempo, Actuator) is fully preserved and
+unchanged. Analysis algorithms, graph traversal, AI, persistence and UI remain deferred.
 
 See the [Phase 3 verification report](docs/PHASE3_VERIFICATION.md) for observed
 telemetry, outage/recovery results and resource measurements. The historical

@@ -172,3 +172,36 @@ Required flow:
 `provider -> sanitization/redaction -> normalized evidence -> correlation -> persistence/export/AI`.
 
 Never expose credentials/tokens. PII and secret-like values must be redacted before normalized evidence is logged, persisted or sent to AI. Preserve safe provider/source references for auditability.
+
+---
+
+## Phase 4 implementation status
+
+**Implementation complete on `feat/normalized-telemetry-sanitization`.
+Manual test verification pending — tests are written but not yet executed.**
+
+### Java types implemented
+
+| Contract element | Java type | Package |
+|---|---|---|
+| TelemetryQuery | `TelemetryQuery` | `domain.evidence` |
+| TelemetryBundle | `TelemetryBundle` | `domain.evidence` |
+| Coverage | `TelemetryCoverage`, `CoverageStatus` | `domain.evidence` |
+| Log evidence | `LogEvidence` | `domain.evidence` |
+| Metric evidence | `MetricEvidence` | `domain.evidence` |
+| Span evidence | `SpanEvidence`, `SpanStatus` | `domain.evidence` |
+| Health evidence | `HealthEvidence`, `HealthState` | `domain.evidence` |
+| Provenance | `EvidenceProvenance`, `EvidenceFamily` | `domain.evidence` |
+| Port | `TelemetryProvider` | `ports` |
+| Sanitization | `TelemetrySanitizer`, `RedactionRule`, `BuiltInRedactionRules`, `RedactionPlaceholders` | `sanitization` |
+| Loki adapter | `LokiLogAdapter` | `adapters.telemetry.loki` |
+| Prometheus adapter | `PrometheusMetricsAdapter` | `adapters.telemetry.prometheus` |
+| Tempo adapter | `TempoTraceAdapter` | `adapters.telemetry.tempo` |
+| Health adapter | `ActuatorHealthAdapter` | `adapters.telemetry.health` |
+| Composite | `LocalTelemetryProvider` | `adapters.telemetry` |
+
+### Critical invariant
+`CoverageStatus.UNAVAILABLE` for any family does **not** mean the corresponding
+services are healthy. Telemetry availability and application health are entirely
+separate concepts (ADR-017). All callers must inspect `TelemetryCoverage`, not
+infer health from empty evidence lists.
