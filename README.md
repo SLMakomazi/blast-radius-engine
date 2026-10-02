@@ -136,6 +136,15 @@ Explicit application image/container names are local conventions, not production
 assumptions. Infrastructure keeps official upstream names and pinned versions.
 Only one instance of this named lab can run on a container engine at a time.
 
+### Docker Desktop portability
+
+Podman is the primary documented local runtime, but the Compose configuration and
+OCI images are intentionally portable. The same lab was also verified with Docker
+Desktop during Phase 3 recovery testing. Substitute `docker compose` for
+`podman compose` when Docker is the active runtime. Verification commands that
+control containers accept `--runtime docker` where documented. Do not run the
+same named lab simultaneously on both engines.
+
 ## Manual healthy request and persistence proof
 
 ```bash
