@@ -19,7 +19,11 @@ which is preserved as the planning baseline:
    and proves business continuity during Collector loss. Run
    `scripts/verify-observability.sh`; see `PHASE3_VERIFICATION.md` for actual results.
 4. **Phase 4 — Provider-neutral evidence:** normalized TelemetryBundle, sanitization,
-   coverage/provenance and provider adapters. These remain unimplemented in Phase 3.
+   coverage/provenance and provider adapters. **Implementation and verification complete
+   on `feat/normalized-telemetry-sanitization`.** Final regression: 109 Blast Radius
+   API tests plus 39 supporting-service tests passed; the opt-in live provider integration
+   also passed against real Loki, Prometheus, Tempo and Actuator backends. See
+   `docs/PHASE4_VERIFICATION.md` and `docs/DECISIONS.md` ADR-018 through ADR-022.
 
 Subsequent domain/telemetry/analysis work follows the requirements below.
 

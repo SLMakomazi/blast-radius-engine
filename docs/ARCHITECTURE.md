@@ -53,28 +53,56 @@ All services emit logs, metrics, OTLP traces and health signals. A failure drive
 ## Package boundaries
 ```text
 com.madlanga.blastradius
-├── api
-├── application
-│   ├── BlastRadiusAnalysisService
-│   ├── IncidentCorrelationService
-│   ├── PropagationTimelineService
-│   └── DiagnosisContextService
+├── config
+│   └── TelemetryAdapterConfig
 ├── domain
-│   ├── model
-│   ├── graph
-│   ├── correlation
-│   ├── severity
 │   └── evidence
+│       ├── EvidenceFamily          (enum)
+│       ├── CoverageStatus          (enum)
+│       ├── HealthState             (enum)
+│       ├── SpanStatus              (enum)
+│       ├── EvidenceProvenance
+│       ├── TelemetryQuery
+│       ├── TelemetryCoverage
+│       ├── TelemetryBundle
+│       ├── LogEvidence
+│       ├── MetricEvidence
+│       ├── SpanEvidence
+│       └── HealthEvidence
 ├── ports
-│   ├── TelemetryProvider
-│   ├── DependencyTopologyProvider
-│   ├── FailureExperimentProvider
-│   └── AiDiagnosisProvider
+│   ├── TelemetryProvider           ← Phase 4 complete
+│   ├── DependencyTopologyProvider  ← Phase 5+
+│   ├── FailureExperimentProvider   ← Phase 7+
+│   └── AiDiagnosisProvider         ← Phase 9+
+├── sanitization
+│   ├── RedactionRule               (interface)
+│   ├── RedactionPlaceholders
+│   ├── BuiltInRedactionRules
+│   └── TelemetrySanitizer          (Spring @Component)
 └── adapters
-    ├── local
-    ├── datadog
-    ├── madlanga
-    └── ai
+    ├── telemetry
+    │   ├── LocalTelemetryProvider  (implements TelemetryProvider)
+    │   ├── loki/
+    │   │   ├── LokiProperties
+    │   │   ├── LokiLogAdapter
+    │   │   ├── LokiResponse        (internal DTO)
+    │   │   └── LokiLogLine         (internal DTO)
+    │   ├── prometheus/
+    │   │   ├── PrometheusProperties
+    │   │   ├── PrometheusMetricsAdapter
+    │   │   └── PrometheusResponse  (internal DTO)
+    │   ├── tempo/
+    │   │   ├── TempoProperties
+    │   │   ├── TempoTraceAdapter
+    │   │   ├── TempoResponse       (internal DTO)
+    │   │   └── TempoSearchResponse (internal DTO)
+    │   └── health/
+    │       ├── ActuatorHealthProperties
+    │       ├── ActuatorHealthAdapter
+    │       └── ActuatorHealthResponse (internal DTO)
+    ├── ai/        ← Phase 9+
+    ├── topology/  ← Phase 5+
+    └── persistence/ ← Phase 8+
 ```
 
 ## Responsibilities

@@ -154,3 +154,31 @@ concurrently. Inspect container/VM memory and OOM status under traffic separatel
 Actual counts, commands, IDs and limitations are in `PHASE3_VERIFICATION.md`. The
 original engine tests above remain planned; Phase 3 does not implement graph or
 TelemetryBundle contracts to make those tests pass prematurely.
+
+## Implemented Phase 4 unit tests
+
+Tests are written on `feat/normalized-telemetry-sanitization` and staged for manual
+execution. **Tests have NOT been run; results are not claimed.** Run with:
+
+```bash
+mvn -f blast-radius-api/pom.xml test
+```
+
+| Test class | Covers |
+|---|---|
+| `TelemetryQueryTest` | Required fields, optional filters, from/to validation, null rejection |
+| `EvidenceProvenanceTest` | Field preservation, null sourceRef default, equality/hashCode |
+| `LogEvidenceTest` | Builder, correlationId, traceId/spanId preservation, timestamp, sanitized attributes, immutability |
+| `MetricEvidenceTest` | Builder, timestamp, error rate, latency, Hikari pool, dimension immutability |
+| `SpanEvidenceTest` | Builder, traceId/spanId, root span detection, timestamp, duration, error+errorType, JDBC peer service, cross-service propagation, immutability |
+| `HealthEvidenceTest` | UP/DOWN/DEGRADED/UNKNOWN mapping, timestamp, latencyMs, details, immutability |
+| `TelemetryBundleTest` | Full bundle, partial bundle, UNAVAILABLE≠healthy invariant, NOT_SUPPORTED vs UNAVAILABLE, warnings, list immutability |
+| `TelemetrySanitizerTest` | Authorization header, Bearer redaction in free text, password, api-key, client-secret, access/refresh token, cookie/session, SA ID number, safe fields preserved, null map/message, custom rule injection |
+| `LokiLogAdapterTest` | Unreachable provider, null response, stream→LogEvidence mapping, correlationId/traceId/spanId preservation, authorization attribute sanitization |
+| `PrometheusMetricsAdapterTest` | Unreachable provider, matrix series mapping, timestamp preservation, empty series=UNAVAILABLE, label sanitization |
+| `TempoTraceAdapterTest` | Unreachable provider, OTLP batch→SpanEvidence mapping, traceId/spanId preservation, error span+errorType, empty batches=UNAVAILABLE |
+| `ActuatorHealthAdapterTest` | UP→UP mapping, unreachable=UNKNOWN (not silent), DOWN=real evidence, timestamp preservation, component filter, provenance provider ID |
+| `LocalTelemetryProviderTest` | Full bundle assembly, logs-unavailable does not suppress other families, all-unavailable with warnings, unhandled adapter exception is isolated, missing evidence is not interpreted as healthy |
+
+Total new Phase 4 test methods: approximately **60** across 13 test classes.
+These supplement the existing 36 Java + 4 Python tests from Phases 1–3.

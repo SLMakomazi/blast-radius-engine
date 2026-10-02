@@ -59,6 +59,72 @@ Node type and technology are separate concepts. PostgreSQL is the first local sc
 Add new decisions for significant architectural choices.
 
 
+## ADR-018 — Normalized telemetry domain is Java record-style immutable builders
+**Status:** Accepted — Phase 4
+
+The four evidence models (LogEvidence, MetricEvidence, SpanEvidence, HealthEvidence)
+and supporting types (TelemetryBundle, TelemetryCoverage, EvidenceProvenance,
+TelemetryQuery) are implemented as final classes with private constructors and
+nested Builder types rather than Java records. This preserves explicit `NullPointerException`
+precondition enforcement at construction time, allows future inheritance-free extension,
+and matches the project's existing Spring Boot / Maven toolchain without requiring
+additional bytecode processors.
+
+All collections returned from getters are unmodifiable. No raw provider DTOs are
+referenced from domain classes.
+
+
+## ADR-019 — Sanitization before evidence objects are constructed
+**Status:** Accepted — Phase 4
+
+The `TelemetrySanitizer` is called by each provider adapter before constructing
+evidence objects (LogEvidence, MetricEvidence, SpanEvidence, HealthEvidence). This
+means the domain model never contains unsanitized values; sanitization is not an
+optional post-processing step. The built-in rule set (authorization header, password,
+API key, access/refresh token, secret, cookie/session, SA ID number field) is
+applied defensively to all attribute maps retrieved from provider responses.
+
+Additional redaction rules can be injected at construction time without modifying
+the core sanitizer, satisfying the extensibility requirement documented in Phase 4.
+
+
+## ADR-020 — Provider adapters return typed result objects, not raw exceptions
+**Status:** Accepted — Phase 4
+
+Each adapter (LokiLogAdapter, PrometheusMetricsAdapter, TempoTraceAdapter,
+ActuatorHealthAdapter) catches its own provider failures (RestClientException and
+general Exception) and returns a typed result object (LogAdapterResult,
+MetricAdapterResult, TraceAdapterResult, HealthAdapterResult) carrying the evidence
+list, a CoverageStatus, and warnings. This means the composite LocalTelemetryProvider
+always receives a well-typed result with no unchecked exception propagation from normal
+provider failures.
+
+An additional outer try/catch in LocalTelemetryProvider isolates the rare case of an
+unchecked exception escaping an adapter, recording it as a warning and UNAVAILABLE
+coverage for that family without terminating other adapter calls.
+
+
+## ADR-021 — Actuator health adapter probes both root and readiness endpoints
+**Status:** Accepted — Phase 4
+
+The health adapter probes both `/actuator/health` (overall process health) and
+`/actuator/health/readiness` (database-tied readiness for document-service) for each
+configured component. This mirrors the Phase 3 verification evidence that showed
+document readiness becomes DOWN during a PostgreSQL outage while liveness stays UP.
+Probing both endpoints produces more precise HealthEvidence for the correlation engine
+in later phases without requiring a provider-specific workaround at the domain level.
+
+
+## ADR-022 — LocalTelemetryProvider is the sole TelemetryProvider implementation for Phase 4
+**Status:** Accepted — Phase 4
+
+A single composite Spring @Component implements the TelemetryProvider port by delegating
+to the four local adapters. The domain and service layers depend only on the
+TelemetryProvider interface. When a Datadog or other enterprise provider is introduced
+in Phase 12, a new implementation of TelemetryProvider replaces or supplements
+LocalTelemetryProvider without any change to domain or service code.
+
+
 ## ADR-014 — Independently buildable API skeleton and revised delivery order
 **Status:** Accepted — Phase 1 skeleton
 

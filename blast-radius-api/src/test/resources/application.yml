@@ -1,0 +1,32 @@
+# Test application configuration.
+# Overrides the main application.yml for Spring context tests.
+# Points all provider URLs at localhost so no DNS resolution for lab hostnames
+# is attempted during context loading or unit tests.
+# No real connections are made — adapter beans construct a RestClient.Builder
+# lazily with base URLs but do not establish connections at startup.
+
+spring:
+  application:
+    name: blast-radius-api-test
+
+blast-radius:
+  telemetry:
+    loki:
+      base-url: http://localhost:3100
+      provider-id: local-loki
+
+    prometheus:
+      base-url: http://localhost:9090
+      provider-id: local-prometheus
+
+    tempo:
+      base-url: http://localhost:3200
+      provider-id: local-tempo
+
+    health:
+      provider-id: local-actuator
+      endpoints:
+        blast-radius-api: http://localhost:8080
+        payment-service:  http://localhost:8081
+        customer-service: http://localhost:8082
+        document-service: http://localhost:8083
