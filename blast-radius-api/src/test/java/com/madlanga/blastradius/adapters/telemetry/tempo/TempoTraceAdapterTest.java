@@ -90,6 +90,7 @@ class TempoTraceAdapterTest {
         span.spanId = "a08f368e31e4992c";
         span.parentSpanId = "41c503f305ad0e47";
         span.name = "POST /api/documents";
+        span.kind = "SPAN_KIND_SERVER";
         span.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
         span.endTimeUnixNano   = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L + 1_250_000_000L);
         span.status = new TempoResponse.SpanStatusDto();
@@ -228,6 +229,55 @@ class TempoTraceAdapterTest {
 
         assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
         assertTrue(result.getSpans().get(0).isError());
+    }
+
+    @Test
+    void doesNotTreatServerAddressOnServerSpanAsDependencyPeer() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        span.kind = "SPAN_KIND_SERVER";
+
+        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        address.key = "server.address";
+        address.value = new TempoResponse.AnyValue();
+        address.value.stringValue = "localhost";
+        span.attributes = List.of(address);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertNull(result.getSpans().get(0).getPeerService());
+    }
+
+    @Test
+    void prefersDatabaseSystemIdentityOverEndpointAddress() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        span.kind = "SPAN_KIND_CLIENT";
+
+        TempoResponse.KeyValue db = new TempoResponse.KeyValue();
+        db.key = "db.system.name";
+        db.value = new TempoResponse.AnyValue();
+        db.value.stringValue = "postgresql";
+        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        address.key = "server.address";
+        address.value = new TempoResponse.AnyValue();
+        address.value.stringValue = "localhost";
+        span.attributes = List.of(db, address);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals("postgresql", result.getSpans().get(0).getPeerService());
     }
 
     @Test
