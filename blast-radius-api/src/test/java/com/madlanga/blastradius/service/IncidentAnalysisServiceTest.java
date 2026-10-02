@@ -29,6 +29,41 @@ class IncidentAnalysisServiceTest {
     }
 
     @Test
+    void usesPreIncidentTraceHistoryToRecoverDependencyMissingFromOutageWindow() {
+        TelemetryBundle incident = TelemetryBundle.builder()
+                .coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p-fail","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
+                        span("c-fail","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                        span("jdbc-fail","document-service",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())))
+                .health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2))))
+                .build();
+
+        TelemetryBundle history = TelemetryBundle.builder()
+                .coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p-ok","payment-service","customer-service",SpanStatus.OK,FROM.minusSeconds(30),Map.of()),
+                        span("c-ok","customer-service","document-service",SpanStatus.OK,FROM.minusSeconds(30),Map.of()),
+                        span("db-ok","document-service","postgres",SpanStatus.OK,FROM.minusSeconds(30),
+                                Map.of("db.system.name","postgresql"))))
+                .build();
+
+        TelemetryProvider provider = query -> query.getTo().equals(FROM) ? history : incident;
+
+        IncidentAnalysis result = new IncidentAnalysisService(provider)
+                .analyze("document-platform","local",FROM,TO,null);
+
+        assertThat(result.origin().component()).isEqualTo("postgres");
+        assertThat(result.impacts()).extracting(ComponentImpact::component)
+                .containsExactly("postgres","document-service","customer-service","payment-service");
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("TRACE")
+                        && signal.signal().contains("dependency error inferred from topology")
+                        && signal.signal().contains("document-service"));
+        assertThat(result.timeline()).noneMatch(signal -> signal.evidenceId().equals("db-ok"));
+    }
+
+    @Test
     void infersPeerlessFailedDependencyWhenTopologyHasSingleCandidate() {
         TelemetryBundle bundle=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable()).spans(List.of(
                 span("p","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
