@@ -456,7 +456,7 @@ def main():
     assert export_probes["telemetryAvailable"], export_probes["missingEvidenceFamilies"]
     correlation=f"phase3-observability-restored-{suffix}"
     before=counters(ok_status);assert p2.pay(correlation)[0]==201
-    summary.append(collect(correlation,False,args.output,before))
+    summary.append(collect(correlation, False, p2.ROOT / ".phase3-evidence", before))
     labels=fetch("http://localhost:3100/loki/api/v1/labels")["data"]
     assert not set(labels).intersection({"correlation_id","trace_id","span_id"}), labels
     write_evidence("summary.json", {"experiments":summary,"partial":partial,"indexLabels":labels,"telemetryAvailability":export_probes})
