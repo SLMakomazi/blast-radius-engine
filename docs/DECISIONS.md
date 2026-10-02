@@ -132,3 +132,21 @@ Observability is never a business startup dependency. Bounded asynchronous expor
 may delay/drop evidence during outages; it must not break business processing.
 These limits and disposable telemetry storage are local lab choices, not production
 deployment assumptions. Phase 4 will interpret provider coverage and provenance.
+
+
+## ADR-017 — Business availability and telemetry availability are independent
+**Status:** Accepted — Phase 3
+
+Observability infrastructure readiness is not equivalent to end-to-end telemetry
+availability. A running Collector or backend does not prove that application
+exporters have reconnected or that fresh evidence exists.
+
+Business requests must never wait for telemetry recovery. Analysis-side or
+verification-side consumers may perform a bounded, configurable wait for required
+evidence families using fresh evidence. On timeout, unavailable or partial evidence
+is reported explicitly; missing evidence must never be interpreted as proof that a
+dependency is healthy.
+
+The Phase 3 verification probe proves this behavior without introducing the future
+Phase 4 provider/domain API. Required evidence families remain a provider-neutral
+concept rather than a Collector-specific contract.
