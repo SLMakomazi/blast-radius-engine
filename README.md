@@ -43,9 +43,8 @@ domain now consumes a `TelemetryProvider` port rather than raw Loki/Prometheus/T
 Actuator responses directly. All provider-specific data is normalized, sanitized and
 mapped to typed evidence models before entering the domain.
 
-**Phase 4 implementation is complete on `feat/normalized-telemetry-sanitization`.
-Manual test verification is pending — tests are written but have not been executed.
-Do not claim tests passed until `mvn -f blast-radius-api/pom.xml test` has been run.**
+**Phase 4 implementation and verification are complete on `feat/normalized-telemetry-sanitization`.**
+The final regression pass completed 109 Blast Radius API tests plus 39 supporting-service tests with no failures, and the opt-in live `LocalTelemetryProviderLiveIT` passed against real Loki, Prometheus, Tempo and Actuator providers. See [Phase 4 verification](docs/PHASE4_VERIFICATION.md) for the runtime findings and acceptance evidence.
 
 ### What Phase 4 adds
 
@@ -61,7 +60,7 @@ Do not claim tests passed until `mvn -f blast-radius-api/pom.xml test` has been 
 | `adapters/telemetry` | `LocalTelemetryProvider` (composite, implements port) |
 | `config` | `TelemetryAdapterConfig` |
 | `application.yml` | `blast-radius.telemetry.*` configuration block |
-| Tests | 13 test classes (~60 test methods) — NOT YET EXECUTED |
+| Tests | Unit/regression coverage plus opt-in real-provider integration verification |
 
 ### Architectural guarantees introduced in Phase 4
 
