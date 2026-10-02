@@ -1,4 +1,4 @@
-# Local Docker Lab
+# Local Container Lab (Podman primary)
 
 ## Purpose
 Provide a self-contained environment that proves Blast Radius with **real synthetic runtime behavior**, not only JSON fixtures.
@@ -82,8 +82,9 @@ tempo
 loki
 ```
 
-Do not add a `blast-radius-engine-` prefix. Phase 1 contains only `blast-radius-api`;
-the remaining services are added when implemented. Keep the Compose configuration
+Do not add a `blast-radius-engine-` prefix. Phase 2 contains the API, payment,
+customer, document, PostgreSQL and traffic generator; observability services remain
+planned. Keep the Compose configuration
 compatible with Podman and validate it with `podman compose config`.
 
 Compose **service names** remain the canonical DNS names for service-to-service
@@ -116,7 +117,7 @@ Do not rename or rebuild infrastructure images merely to match container names.
 Image and container naming never change the canonical internal DNS names:
 application configuration continues to use Compose service names.
 
-## Healthy baseline
+## Full-lab healthy baseline (later phases)
 Before injecting failure:
 1. database is healthy;
 2. all services report healthy;
@@ -148,13 +149,13 @@ The lab must contain explicit synthetic PII/secret-like canaries used only to pr
 ## Developer experience target
 The final implementation should support a small command set such as:
 ```bash
-docker compose up --build -d
+podman compose up --build -d
 # wait for health
 ./scripts/run-baseline.sh
 ./scripts/inject-postgres-failure.sh
 ./scripts/analyze-latest.sh
 ./scripts/restore.sh
-docker compose down -v
+podman compose down -v
 ```
 
 Exact scripts may change during implementation, but a new developer must be able to reproduce the demo from the README without external credentials.
@@ -168,3 +169,52 @@ Exact scripts may change during implementation, but a new developer must be able
 - telemetry coverage is explicit;
 - containment assessment works when experiment metadata is supplied;
 - recovery can restore the healthy baseline.
+
+
+## Implemented Phase 2 contract
+
+The synthetic runtime path is traffic-generator → payment-service → customer-service
+→ document-service → PostgreSQL. The Blast Radius API remains independent. Service
+ports are 8080/8081/8082/8083 respectively and PostgreSQL uses 5432. Only document
+has database dependencies; the Blast Radius domain is unchanged.
+
+- Payment `POST /api/payments`: validates synthetic IDs, positive decimal amount and
+  currency; calls customer and returns 201 only after the downstream receipt arrives.
+- Customer `POST /api/customers/validate`: validates synthetic references, calls
+  document, and returns 200 with a document receipt.
+- Document `POST /api/documents`: transactionally inserts and reads a real row,
+  returning 201 after transaction completion.
+- Traffic: standard-library Python HTTP requests to payment only, with per-transaction
+  UUID correlation IDs and configurable interval/enabled state.
+
+Spring RestClient uses configuration-based service URLs, explicit connect/read
+limits and no application retries/fallbacks. Failure bodies identify the immediate
+dependency and downstream HTTP status without forwarding raw error messages.
+Database unavailability maps to document 503, then customer 502, then payment 502.
+Correlated logs identify all hops. No request payloads are logged.
+
+`X-Correlation-ID` is preserved when safe (1–128 alphanumeric/dot/underscore/hyphen
+characters), generated when absent, rejected when unsafe, and removed from MDC at
+request completion. Document stores the ID with the row for verification.
+
+The official `docker.io/library/postgres:17.6` image uses a named volume. Flyway
+migration V1 belongs to document-service and creates `synthetic_documents` with
+UUID primary key, document/customer references, timestamp and correlation ID.
+The small Spring JDBC repository inserts and reads within a transaction. Credentials
+come from the ignored root `.env`, initialized using the synthetic `.env.example`.
+Database initialization is versioned; it does not rely on first-volume-only init scripts.
+
+Health-based Compose startup orders postgres → document → customer → payment →
+traffic. All mock services expose Actuator liveness/readiness, and document readiness
+includes the database. Payment/customer readiness intentionally does not recursively
+probe downstream services. Runtime business failures remain visible through the APIs.
+
+Use the exact [README commands](../README.md) for build/start/status/health/manual
+request/logs/failure/recovery/shutdown. `python3 scripts/verify-phase2.py` checks real
+persistence, correlated failure at every hop, and recovery without an application
+rebuild. It restores PostgreSQL even when a failure assertion fails. A passing
+container startup alone is not Phase 2 acceptance.
+
+Phase 3 will add logs/metrics/traces collection and instrumentation. The earlier
+full-lab criteria in this document remain future requirements, not claims that
+Phase 2 implements topology analysis, normalized telemetry or observability backends.

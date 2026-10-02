@@ -1,5 +1,26 @@
 # Implementation Plan
 
+## Current delivery sequence
+
+The current execution sequence supersedes the original phase numbering below,
+which is preserved as the planning baseline:
+
+1. **Phase 1 — API skeleton:** Java 21 / Spring Boot foundation, package boundaries,
+   Actuator, smoke test, OCI image and API Compose service.
+2. **Phase 2 — Local synthetic service chain:** independent payment/customer/document
+   apps, real HTTP calls, PostgreSQL with Flyway/JDBC, propagated correlation IDs,
+   lightweight traffic, Podman Compose and sanitized failure responses.
+   Acceptance requires a real persisted document, PostgreSQL outage reaching the
+   caller, and recovery without rebuilding. Run `scripts/verify-phase2.py`; consult
+   `PHASE2_VERIFICATION.md` for recorded execution results.
+3. **Phase 3 — Observability:** instrument and collect logs, metrics and distributed
+   traces from the running chain. No observability backend or OTel integration is
+   part of Phase 2.
+
+Subsequent domain/telemetry/analysis work follows the requirements below.
+
+## Original design roadmap
+
 ## Phase 0 — Documentation/design baseline
 - contracts, architecture, source alignment;
 - local-lab topology;

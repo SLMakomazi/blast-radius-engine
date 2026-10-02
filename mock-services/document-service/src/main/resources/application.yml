@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: document-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://postgres:5432/synthetic_lab?connectTimeout=2&socketTimeout=3}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      connection-timeout: 3000
+      validation-timeout: 1000
+      maximum-pool-size: 5
+  flyway:
+    enabled: true
+server:
+  port: 8083
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"

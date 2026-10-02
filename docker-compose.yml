@@ -9,6 +9,109 @@ services:
     networks:
       - blast-radius
 
+  payment-service:
+    image: payment-service:latest
+    container_name: payment-service
+    build:
+      context: ./mock-services/payment-service
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+    depends_on:
+      customer-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8081/actuator/health/readiness"]
+      interval: 5s
+      timeout: 4s
+      start_period: 40s
+      retries: 12
+    networks:
+      - blast-radius
+
+  customer-service:
+    image: customer-service:latest
+    container_name: customer-service
+    build:
+      context: ./mock-services/customer-service
+    ports:
+      - "127.0.0.1:8082:8082"
+    environment:
+      DOCUMENT_SERVICE_URL: http://document-service:8083
+    depends_on:
+      document-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8082/actuator/health/readiness"]
+      interval: 5s
+      timeout: 4s
+      start_period: 40s
+      retries: 12
+    networks:
+      - blast-radius
+
+  document-service:
+    image: document-service:latest
+    container_name: document-service
+    build:
+      context: ./mock-services/document-service
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-synthetic_lab}?connectTimeout=2&socketTimeout=3
+      POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8083/actuator/health/readiness"]
+      interval: 5s
+      timeout: 4s
+      start_period: 40s
+      retries: 12
+    networks:
+      - blast-radius
+
+  postgres:
+    image: docker.io/library/postgres:17.6
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-synthetic_lab}
+      POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    networks:
+      - blast-radius
+
+  traffic-generator:
+    image: traffic-generator:latest
+    container_name: traffic-generator
+    build:
+      context: ./traffic-generator
+    environment:
+      TARGET_URL: http://payment-service:8081/api/payments
+      REQUEST_INTERVAL: ${REQUEST_INTERVAL:-2}
+      ENABLED: ${TRAFFIC_ENABLED:-true}
+    depends_on:
+      payment-service:
+        condition: service_healthy
+    networks:
+      - blast-radius
+
 networks:
   blast-radius:
     driver: bridge
+
+volumes:
+  postgres-data:
