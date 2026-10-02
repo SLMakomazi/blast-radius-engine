@@ -153,9 +153,31 @@ public class IncidentAnalysisService {
             if (points.size()<2) continue;
             MetricEvidence first=points.get(0), last=points.get(points.size()-1);
             double delta=last.getValue()-first.getValue();
-            if (delta>0) add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
-                    "METRIC",last.getName()+" increased by "+delta,last.getId()));
+            if (delta<=0) continue;
+
+            String status=last.getDimensions().getOrDefault("status",last.getDimensions().get("code"));
+            String name=last.getName().toLowerCase(Locale.ROOT);
+            boolean serverErrorCounter=status!=null && status.matches("5\\d\\d")
+                    && name.endsWith(".count");
+            boolean timeoutCounter=name.contains("timeout")
+                    && (name.endsWith(".total") || name.endsWith(".count"));
+
+            // HTTP *_sum/_max series are latency/accumulator signals, not failure counts.
+            // Timeout counters are supporting evidence only: require another independent
+            // failure family for the same component before promoting them to observed impact.
+            if (serverErrorCounter) {
+                add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
+                        "METRIC",last.getName()+" 5xx counter increased by "+delta,last.getId()));
+            } else if (timeoutCounter && hasIndependentFailureSignal(result,last.getService())) {
+                add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
+                        "METRIC",last.getName()+" timeout counter increased by "+delta,last.getId()));
+            }
         }
+    }
+
+    private boolean hasIndependentFailureSignal(Map<String,List<EvidenceSignal>> result, String service) {
+        return result.getOrDefault(service,List.of()).stream()
+                .anyMatch(signal -> !"METRIC".equals(signal.family()));
     }
     private boolean hasText(String value) { return value!=null&&!value.isBlank(); }
 }
