@@ -214,6 +214,31 @@ class TempoTraceAdapterTest {
     }
 
     @Test
+    void retriesTransientTraceFetchFailureAfterSuccessfulSearch() {
+        TempoSearchResponse search = new TempoSearchResponse();
+        TempoSearchResponse.TraceSummary summary = new TempoSearchResponse.TraceSummary();
+        summary.traceId = TRACE_ID;
+        summary.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
+        search.traces = List.of(summary);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.any(java.util.function.Function.class));
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        when(responseSpec.body(TempoSearchResponse.class)).thenReturn(search);
+        when(responseSpec.body(TempoResponse.class))
+                .thenThrow(new ResourceAccessException("transient Tempo read failure"))
+                .thenReturn(buildHealthyTrace());
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithoutTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertEquals(1, result.getSpans().size());
+        assertTrue(result.getWarnings().isEmpty());
+        verify(responseSpec, times(2)).body(TempoResponse.class);
+    }
+
+    @Test
     void returnsUnavailableWhenResponseHasNoBatches() {
         TempoResponse empty = new TempoResponse();
         empty.batches = List.of();
