@@ -93,7 +93,7 @@ class TempoTraceAdapterTest {
         span.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
         span.endTimeUnixNano   = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L + 1_250_000_000L);
         span.status = new TempoResponse.SpanStatusDto();
-        span.status.code = 1; // OK
+        span.status.code = "1"; // OK
         span.attributes = List.of();
         scope.spans = List.of(span);
         batch.scopeSpans = List.of(scope);
@@ -193,7 +193,7 @@ class TempoTraceAdapterTest {
     void mapsErrorSpanCorrectly() {
         TempoResponse response = buildHealthyTrace();
         TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
-        errorSpan.status.code = 2; // ERROR
+        errorSpan.status.code = "2"; // ERROR
         TempoResponse.KeyValue errorKv = new TempoResponse.KeyValue();
         errorKv.key = "error.type";
         errorKv.value = new TempoResponse.AnyValue();
@@ -211,6 +211,23 @@ class TempoTraceAdapterTest {
         SpanEvidence span = result.getSpans().get(0);
         assertTrue(span.isError());
         assertEquals("ConnectionException", span.getErrorType());
+    }
+
+    @Test
+    void mapsRealTempoSymbolicErrorStatus() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        errorSpan.status.code = "STATUS_CODE_ERROR";
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertTrue(result.getSpans().get(0).isError());
     }
 
     @Test
