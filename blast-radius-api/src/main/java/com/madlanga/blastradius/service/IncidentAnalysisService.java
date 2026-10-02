@@ -101,13 +101,26 @@ public class IncidentAnalysisService {
             List<EvidenceSignal> evidence=signals.getOrDefault(id,List.of());
             return new OriginAssessment(id, evidence.isEmpty()?ConfidenceLevel.LOW:ConfidenceLevel.HIGH, score(evidence), evidence);
         }
-        return signals.entrySet().stream()
-                .filter(e -> topology.getNode(e.getKey()) != null)
-                .map(e -> new OriginAssessment(e.getKey(), confidence(score(e.getValue())), score(e.getValue()), e.getValue()))
+        Set<String> candidates = new LinkedHashSet<>();
+        signals.keySet().stream().filter(id -> topology.getNode(id) != null).forEach(candidates::add);
+        if (candidates.isEmpty()) throw new IllegalStateException(
+                "No failure evidence found in the requested window; provide originHint for theoretical analysis.");
+
+        Set<String> hasFailingDependency = new HashSet<>();
+        for (DependencyEdge edge : topology.getEdges()) {
+            if (candidates.contains(edge.getDependentId()) && candidates.contains(edge.getDependencyId())) {
+                hasFailingDependency.add(edge.getDependentId());
+            }
+        }
+        List<String> rootCandidates = candidates.stream().filter(id -> !hasFailingDependency.contains(id)).toList();
+        if (rootCandidates.isEmpty()) rootCandidates = List.copyOf(candidates);
+
+        return rootCandidates.stream()
+                .map(id -> new OriginAssessment(id, confidence(score(signals.get(id))),
+                        score(signals.get(id)), signals.get(id)))
                 .sorted(Comparator.comparingInt(OriginAssessment::evidenceScore).reversed()
                         .thenComparing(o -> earliest(o.evidence())).thenComparing(OriginAssessment::component))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No failure evidence found in the requested window; provide originHint for theoretical analysis."));
+                .findFirst().orElseThrow();
     }
 
     private int score(List<EvidenceSignal> evidence) {
