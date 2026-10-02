@@ -150,6 +150,9 @@ public class TempoTraceAdapter {
                             "trace/" + summary.traceId));
                 }
             } catch (Exception e) {
+                String cause = safeFailureDetail(e);
+                log.warn("Tempo trace fetch failed: traceId={}, exception={}, cause={}",
+                        summary.traceId, e.getClass().getSimpleName(), cause);
                 warnings.add("Tempo: could not fetch trace " + summary.traceId
                         + " [" + e.getClass().getSimpleName() + "]");
             }
@@ -168,6 +171,26 @@ public class TempoTraceAdapter {
         }
 
         return new TraceAdapterResult(allSpans, coverage, warnings);
+    }
+
+    private static String safeFailureDetail(Throwable failure) {
+        Throwable root = failure;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+
+        String message = root.getMessage();
+        if (message == null || message.isBlank()) {
+            return root.getClass().getSimpleName();
+        }
+
+        // Keep diagnostics bounded and single-line. Provider payloads are deliberately
+        // not logged here because telemetry may contain sensitive application data.
+        String singleLine = message.replace('\n', ' ').replace('\r', ' ').trim();
+        if (singleLine.length() > 300) {
+            singleLine = singleLine.substring(0, 300) + "...";
+        }
+        return root.getClass().getSimpleName() + ": " + singleLine;
     }
 
     private TempoResponse fetchTraceWithRetry(String traceId) {
