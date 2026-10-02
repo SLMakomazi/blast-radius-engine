@@ -2,6 +2,8 @@ package com.madlanga.blastradius.adapters.telemetry.tempo;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -229,9 +231,9 @@ public class TempoTraceAdapter {
 
         return SpanEvidence.builder()
                 .id("span-" + UUID.randomUUID())
-                .traceId(span.traceId)
-                .spanId(span.spanId)
-                .parentSpanId(span.parentSpanId)
+                .traceId(normalizeOtlpId(span.traceId))
+                .spanId(normalizeOtlpId(span.spanId))
+                .parentSpanId(normalizeOtlpId(span.parentSpanId))
                 .service(serviceName)
                 .environment(environment)
                 .operation(span.name)
@@ -248,6 +250,31 @@ public class TempoTraceAdapter {
     // -------------------------------------------------------------------------
     // Parsing helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Tempo's OTLP/JSON trace endpoint serializes byte-valued trace/span IDs as
+     * Base64, while Loki and Tempo search APIs expose the same IDs as hexadecimal.
+     * Normalize OTLP IDs to lowercase hex so evidence can correlate across providers.
+     * If a value is already a valid hex ID, preserve it in normalized lowercase form.
+     */
+    static String normalizeOtlpId(String id) {
+        if (id == null || id.isBlank()) return id;
+
+        String trimmed = id.trim();
+        if (trimmed.matches("(?i)^[0-9a-f]+$") && (trimmed.length() == 16 || trimmed.length() == 32)) {
+            return trimmed.toLowerCase(java.util.Locale.ROOT);
+        }
+
+        try {
+            byte[] decoded = Base64.getDecoder().decode(trimmed);
+            if (decoded.length == 8 || decoded.length == 16) {
+                return HexFormat.of().formatHex(decoded);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Preserve unknown provider representations rather than inventing an ID.
+        }
+        return trimmed;
+    }
 
     private static String extractResourceAttribute(TempoResponse.Resource resource, String key) {
         if (resource == null || resource.attributes == null) return "unknown";
