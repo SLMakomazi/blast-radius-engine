@@ -19,11 +19,14 @@ spec = importlib.util.spec_from_file_location("phase2", Path(__file__).with_name
 p2 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p2)
 SECRET_VALUES = []
+JSON_CONTENT_TYPE = "application/json"
+TEMPO_TRACE_URL = "http://localhost:3200/api/traces/"
+COLLECTOR_HEALTH_URL = COLLECTOR_HEALTH_URL
 SERVICES = {"payment-service": (8081, "/api/payments"), "customer-service": (8082, "/api/customers/validate"), "document-service": (8083, "/api/documents")}
 
 
 def fetch(url):
-    with urlopen(Request(url, headers={"Accept": "application/json"}), timeout=8) as response:
+    with urlopen(Request(url, headers={"Accept": JSON_CONTENT_TYPE}), timeout=8) as response:
         raw = response.read().decode()
         try:
             return json.loads(raw)
@@ -95,7 +98,7 @@ def assert_path(spans):
 
 def safe_telemetry(data):
     text = json.dumps(data)
-    for forbidden in [*SECRET_VALUES, "Bearer PHASE3-SYNTHETIC-CANARY", "phase3-canary-password", '"exception.stacktrace"', '"db.connection_string"', '"http.request.body"']:
+    for forbidden in [*SECRET_VALUES, '"exception.stacktrace"', '"db.connection_string"', '"http.request.body"']:
         if not forbidden:
             continue
         assert forbidden not in text, "Telemetry contains a forbidden secret, field or canary"
@@ -120,7 +123,7 @@ def counters(statuses):
 def collect(correlation, failed, output, before):
     def complete_logs():
         rows = logs(correlation)
-        return rows if set(r["stream"]["service_name"] for r in rows) == set(SERVICES) else None
+        return rows if {r["stream"]["service_name"] for r in rows} == set(SERVICES) else None
     rows = eventually(complete_logs, "centralized logs from all three services")
     ids = set()
     for row in rows:
@@ -133,7 +136,7 @@ def collect(correlation, failed, output, before):
     assert len(ids) == 1, ("Expected one trace ID shared by all correlated logs", ids, rows)
     trace_id = ids.pop()
     def complete_trace():
-        trace = fetch("http://localhost:3200/api/traces/" + trace_id)
+        trace = fetch(TEMPO_TRACE_URL + trace_id)
         spans = trace_spans(trace)
         assert_path(spans)
         return trace
@@ -183,7 +186,7 @@ def wait_for_telemetry(timeout=90, poll_interval=2):
     families = ("logs", "traces", "metrics", "health")
     result = {"telemetryAvailable": False, "timedOut": False,
               "timeoutSeconds": timeout, "pollIntervalSeconds": poll_interval,
-              "probes": [], "families": {name: False for name in families}}
+              "probes": [], "families": dict.fromkeys(families, False)}
     metric_query = ('http_server_requests_seconds_count{service=~"payment-service|customer-service|document-service",'
                     'uri=~"/api/payments|/api/customers/validate|/api/documents"}')
 
@@ -194,7 +197,7 @@ def wait_for_telemetry(timeout=90, poll_interval=2):
         return value
 
     def bounded_fetch(url, data=None, headers=None):
-        request = Request(url, data=data, headers={"Accept": "application/json", **(headers or {})})
+        request = Request(url, data=data, headers={"Accept": JSON_CONTENT_TYPE, **(headers or {})})
         try:
             response = urlopen(request, timeout=min(2, remaining()))
         except HTTPError as error:
@@ -230,7 +233,7 @@ def wait_for_telemetry(timeout=90, poll_interval=2):
                      "sentAtUnix": time.time()}
             result["probes"].append({k: v for k, v in probe.items() if k != "monotonicStart"})
             result.update({"correlationId": probe["correlationId"], "traceId": probe["traceId"],
-                           "families": {name: False for name in families}, "evidence": {}})
+                           "families": dict.fromkeys(families, False), "evidence": {}})
             try:
                 probe["before"] = counts(metric_values(metric_query))
             except (OSError, HTTPException, AssertionError, ValueError, KeyError):
@@ -240,7 +243,7 @@ def wait_for_telemetry(timeout=90, poll_interval=2):
                 result["probes"][-1]["sentAtUnix"] = probe["sentAtUnix"]
                 status, body = bounded_fetch("http://localhost:8081/api/payments",
                     data=(p2.ROOT / "fixtures/payment-request.json").read_bytes(),
-                    headers={"Content-Type": "application/json", "X-Correlation-ID": probe["correlationId"],
+                    headers={"Content-Type": JSON_CONTENT_TYPE, "X-Correlation-ID": probe["correlationId"],
                              "traceparent": f'00-{probe["traceId"]}-0123456789abcdef-01'})
                 result["probes"][-1]["correlationReturned"] = body.get("correlationId") == probe["correlationId"]
                 result["probes"][-1]["httpStatus"] = status
@@ -248,7 +251,9 @@ def wait_for_telemetry(timeout=90, poll_interval=2):
                 result["probes"][-1]["correlationReturned"] = False
                 result["probes"][-1]["httpStatus"] = None
 
-        def fresh_logs():
+        current_probe = probe.copy()
+
+        def fresh_logs(probe=current_probe):
             query = '{service_name=~"payment-service|customer-service|document-service"} | correlation_id="' + probe["correlationId"] + '"'
             _, response = bounded_fetch("http://localhost:3100/loki/api/v1/query_range?" + urlencode({
                 "query": query, "start": str(int((probe["sentAtUnix"] - 1) * 1e9)), "end": str(time.time_ns()), "limit": 100}))
@@ -260,14 +265,14 @@ def wait_for_telemetry(timeout=90, poll_interval=2):
                     assert hex_id(metadata.get("trace_id")) == probe["traceId"]
             return rows
 
-        def fresh_trace():
-            _, trace = bounded_fetch("http://localhost:3200/api/traces/" + probe["traceId"])
+        def fresh_trace(probe=current_probe):
+            _, trace = bounded_fetch(TEMPO_TRACE_URL + probe["traceId"])
             spans = trace_spans(trace)
             assert_path(spans)
             assert any(s["service"] == "document-service" and "jdbc" in s["scope"].get("name", "") for s in spans)
             return trace
 
-        def fresh_metrics():
+        def fresh_metrics(probe=current_probe):
             rows = metric_values(metric_query)
             stamps = metric_values("timestamp(" + metric_query + ")")
             after = counts(rows)
@@ -330,7 +335,7 @@ def availability_cases(args):
         print("TIMEOUT", json.dumps({k: v for k, v in unavailable.items() if k != "evidence"}), flush=True)
     finally:
         collector_action("start")
-    eventually(lambda: fetch("http://localhost:13133/"), "Collector infrastructure readiness", timeout=args.availability_timeout)
+    eventually(lambda: fetch(COLLECTOR_HEALTH_URL), "Collector infrastructure readiness", timeout=args.availability_timeout)
     available = wait_for_telemetry(args.availability_timeout, args.poll_interval)
     (args.output / "availability-recovery.json").write_text(json.dumps(available, indent=2))
     assert available["telemetryAvailable"], available["missingEvidenceFamilies"]
@@ -378,7 +383,7 @@ def main():
             except HTTPError as error:
                 assert error.code == 404
     for port,path in ((9090,"/-/ready"),(3200,"/ready"),(3100,"/ready"),(13133,"/")):
-        eventually(lambda: fetch(f"http://localhost:{port}{path}"), f"backend {port}")
+        eventually(lambda port=port, path=path: fetch(f"http://localhost:{port}{path}"), f"backend {port}")
     eventually(lambda: len(prom('up{job="applications"} == 1')) == 4, "all four application scrape targets")
     suffix = uuid.uuid4().hex[:10]
     summary = []
@@ -390,8 +395,11 @@ def main():
         try:
             if failed:
                 p2.compose("stop", "postgres")
-            result = p2.pay(correlation, {"Authorization": "Bearer PHASE3-SYNTHETIC-CANARY",
-                                          "X-Canary-Password": "phase3-canary-password"})
+            canary_token = "phase3-" + uuid.uuid4().hex
+            canary_password = "phase3-" + uuid.uuid4().hex
+            SECRET_VALUES.extend((canary_token, canary_password))
+            result = p2.pay(correlation, {"Authorization": "Bearer " + canary_token,
+                                          "X-Canary-Password": canary_password})
             assert result[0] == (502 if failed else 201), result
             if failed:
                 eventually(lambda: p2.get_health(8083,"/actuator/health/readiness") == (503,"DOWN"), "document readiness DOWN")
@@ -415,12 +423,12 @@ def main():
         eventually(lambda: all(counters(ok_status)[s] > before[s] for s in SERVICES), "metrics during Collector outage")
         assert not logs(correlation), "Unexpected centralized logs while Collector is stopped"
         try:
-            fetch("http://localhost:3200/api/traces/" + partial_trace)
+            fetch(TEMPO_TRACE_URL + partial_trace)
             raise AssertionError("Unexpected trace while Collector is stopped")
         except HTTPError as error:
             assert error.code == 404
         try:
-            fetch("http://localhost:13133/")
+            fetch(COLLECTOR_HEALTH_URL)
             raise AssertionError("Collector health endpoint unexpectedly reachable")
         except (OSError, HTTPException):
             pass
@@ -430,7 +438,7 @@ def main():
         print("PARTIAL",json.dumps(partial),flush=True)
     finally:
         p2.compose("start","otel-collector")
-        eventually(lambda: fetch("http://localhost:13133/"),"Collector recovery")
+        eventually(lambda: fetch(COLLECTOR_HEALTH_URL),"Collector recovery")
     export_probes = wait_for_telemetry(args.availability_timeout, args.poll_interval)
     assert export_probes["telemetryAvailable"], export_probes["missingEvidenceFamilies"]
     correlation=f"phase3-observability-restored-{suffix}"
