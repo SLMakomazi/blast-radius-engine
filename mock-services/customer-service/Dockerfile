@@ -7,10 +7,9 @@ COPY src ./src
 RUN mvn --batch-mode --no-transfer-progress clean verify
 
 FROM docker.io/library/maven:3.9.16-eclipse-temurin-21 AS agent
-RUN curl --fail --silent --show-error --location \
-      https://repo.maven.apache.org/maven2/io/opentelemetry/javaagent/opentelemetry-javaagent/2.31.1/opentelemetry-javaagent-2.31.1.jar \
-      --output /otel-agent.jar \
-    && echo "bbf83c151b6400709e2f225bdd07a04f839d9d13b8b93464241333fd25d3e3ba  /otel-agent.jar" | sha256sum -c -
+ADD --checksum=sha256:bbf83c151b6400709e2f225bdd07a04f839d9d13b8b93464241333fd25d3e3ba \
+    https://repo.maven.apache.org/maven2/io/opentelemetry/javaagent/opentelemetry-javaagent/2.31.1/opentelemetry-javaagent-2.31.1.jar /otel-agent.jar
+RUN echo "bbf83c151b6400709e2f225bdd07a04f839d9d13b8b93464241333fd25d3e3ba  /otel-agent.jar" | sha256sum -c -
 
 FROM docker.io/library/eclipse-temurin:21-jre-jammy
 RUN apt-get update \
