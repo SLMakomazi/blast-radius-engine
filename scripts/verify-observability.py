@@ -21,7 +21,7 @@ spec.loader.exec_module(p2)
 SECRET_VALUES = []
 JSON_CONTENT_TYPE = "application/json"
 TEMPO_TRACE_URL = "http://localhost:3200/api/traces/"
-COLLECTOR_HEALTH_URL = COLLECTOR_HEALTH_URL
+COLLECTOR_HEALTH_URL = "http://localhost:13133/"
 SERVICES = {"payment-service": (8081, "/api/payments"), "customer-service": (8082, "/api/customers/validate"), "document-service": (8083, "/api/documents")}
 
 
