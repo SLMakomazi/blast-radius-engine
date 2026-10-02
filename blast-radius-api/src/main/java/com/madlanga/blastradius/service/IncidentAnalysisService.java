@@ -1,0 +1,133 @@
+package com.madlanga.blastradius.service;
+
+import com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider;
+import com.madlanga.blastradius.domain.evidence.*;
+import com.madlanga.blastradius.domain.incident.*;
+import com.madlanga.blastradius.domain.topology.*;
+import com.madlanga.blastradius.ports.TelemetryProvider;
+import java.time.Instant;
+import java.util.*;
+import org.springframework.stereotype.Service;
+
+/**
+ * Phase 6 deterministic incident intelligence.
+ * AI is deliberately absent: evidence determines origin candidates and observed impact.
+ */
+@Service
+public class IncidentAnalysisService {
+    private final TelemetryProvider telemetryProvider;
+    private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
+
+    public IncidentAnalysisService(TelemetryProvider telemetryProvider) {
+        this.telemetryProvider = telemetryProvider;
+    }
+
+    public IncidentAnalysis analyze(String applicationId, String environment, Instant from, Instant to, String originHint) {
+        TelemetryQuery query = TelemetryQuery.builder().applicationId(applicationId).environment(environment)
+                .from(from).to(to).build();
+        TelemetryBundle telemetry = telemetryProvider.getTelemetry(query);
+        DependencyTopology topology = new TraceDiscoveredTopologyProvider(telemetryProvider)
+                .discover(applicationId, environment, telemetry.getSpans());
+
+        Map<String,List<EvidenceSignal>> signals = correlate(telemetry);
+        OriginAssessment origin = assessOrigin(originHint, topology, signals);
+        GraphAnalysisResult theoretical = graphEngine.calculate(topology, origin.component());
+
+        Map<String,TheoreticalImpact> theoreticalById = new LinkedHashMap<>();
+        theoretical.impacts().forEach(i -> theoreticalById.put(i.getComponent().getId(), i));
+
+        List<ComponentImpact> impacts = new ArrayList<>();
+        impacts.add(new ComponentImpact(origin.component(), ObservedState.ORIGIN, 0,
+                List.of(origin.component()), origin.evidence()));
+
+        for (TheoreticalImpact impact : theoretical.getImpacts()) {
+            List<EvidenceSignal> componentSignals = signals.getOrDefault(impact.getComponent().getId(), List.of());
+            ObservedState state = componentSignals.isEmpty()
+                    ? (telemetry.getCoverage().hasAnyEvidence() ? ObservedState.THEORETICAL_ONLY : ObservedState.UNKNOWN)
+                    : ObservedState.OBSERVED;
+            impacts.add(new ComponentImpact(impact.getComponent().getId(), state, impact.getDistance(),
+                    impact.getPath(), componentSignals));
+        }
+
+        signals.entrySet().stream()
+                .filter(e -> !e.getKey().equals(origin.component()) && !theoreticalById.containsKey(e.getKey()))
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> impacts.add(new ComponentImpact(e.getKey(), ObservedState.UNEXPECTED, null,
+                        List.of(), e.getValue())));
+
+        List<EvidenceSignal> timeline = signals.values().stream().flatMap(Collection::stream)
+                .sorted(Comparator.comparing(EvidenceSignal::timestamp)
+                        .thenComparing(EvidenceSignal::component)
+                        .thenComparing(EvidenceSignal::family))
+                .toList();
+
+        List<String> warnings = new ArrayList<>(telemetry.getWarnings());
+        if (!telemetry.isFullyCovered()) warnings.add("Observed impact is constrained by partial telemetry coverage; missing evidence is not healthy evidence.");
+
+        return new IncidentAnalysis(applicationId, environment, from, to, origin,
+                telemetry.getCoverage(), impacts, timeline, warnings);
+    }
+
+    private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry) {
+        Map<String,List<EvidenceSignal>> result = new LinkedHashMap<>();
+        for (LogEvidence log : telemetry.getLogs()) {
+            if (isErrorLevel(log.getLevel())) add(result, log.getService(),
+                    new EvidenceSignal(log.getTimestamp(), log.getService(), "LOG",
+                            log.getLevel() + " log", log.getId()));
+        }
+        for (SpanEvidence span : telemetry.getSpans()) {
+            if (span.isError()) {
+                add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
+                        "error span: " + span.getOperation(), span.getId()));
+                if (hasText(span.getPeerService())) add(result, span.getPeerService(),
+                        new EvidenceSignal(span.getStartTime(), span.getPeerService(), "TRACE",
+                                "dependency error observed by " + span.getService(), span.getId()));
+            }
+        }
+        for (HealthEvidence health : telemetry.getHealth()) {
+            if (health.isDegraded()) add(result, health.getService(),
+                    new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
+                            "health " + health.getState(), health.getId()));
+        }
+        for (MetricEvidence metric : telemetry.getMetrics()) {
+            if (metricIndicatesFailure(metric)) add(result, metric.getService(),
+                    new EvidenceSignal(metric.getTimestamp(), metric.getService(), "METRIC",
+                            metric.getName() + "=" + metric.getValue(), metric.getId()));
+        }
+        result.replaceAll((k,v) -> v.stream().sorted(Comparator.comparing(EvidenceSignal::timestamp)).toList());
+        return result;
+    }
+
+    private OriginAssessment assessOrigin(String hint, DependencyTopology topology, Map<String,List<EvidenceSignal>> signals) {
+        if (hasText(hint)) {
+            String id=hint.trim();
+            if (topology.getNode(id)==null) throw new IllegalArgumentException("originHint is not present in discovered topology: "+id);
+            List<EvidenceSignal> evidence=signals.getOrDefault(id,List.of());
+            return new OriginAssessment(id, evidence.isEmpty()?ConfidenceLevel.LOW:ConfidenceLevel.HIGH, score(evidence), evidence);
+        }
+        return signals.entrySet().stream()
+                .filter(e -> topology.getNode(e.getKey()) != null)
+                .map(e -> new OriginAssessment(e.getKey(), confidence(score(e.getValue())), score(e.getValue()), e.getValue()))
+                .sorted(Comparator.comparingInt(OriginAssessment::evidenceScore).reversed()
+                        .thenComparing(o -> earliest(o.evidence())).thenComparing(OriginAssessment::component))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No failure evidence found in the requested window; provide originHint for theoretical analysis."));
+    }
+
+    private int score(List<EvidenceSignal> evidence) {
+        int score=0;
+        for(EvidenceSignal s:evidence) score += switch(s.family()) { case "HEALTH" -> 50; case "TRACE" -> 40; case "LOG" -> 30; case "METRIC" -> 20; default -> 0; };
+        return score;
+    }
+    private ConfidenceLevel confidence(int score) { return score>=80?ConfidenceLevel.HIGH:score>=40?ConfidenceLevel.MEDIUM:ConfidenceLevel.LOW; }
+    private Instant earliest(List<EvidenceSignal> evidence) { return evidence.stream().map(EvidenceSignal::timestamp).min(Instant::compareTo).orElse(Instant.MAX); }
+    private void add(Map<String,List<EvidenceSignal>> map,String service,EvidenceSignal signal) { if(hasText(service)&&!"unknown".equalsIgnoreCase(service)) map.computeIfAbsent(service,k->new ArrayList<>()).add(signal); }
+    private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
+    private boolean metricIndicatesFailure(MetricEvidence m) {
+        String status=m.getDimensions().getOrDefault("status",m.getDimensions().get("code"));
+        boolean serverError=status!=null && status.matches("5\\d\\d") && m.getValue()>0;
+        boolean timeout=m.getName().toLowerCase(Locale.ROOT).contains("timeout") && m.getValue()>0;
+        return serverError||timeout;
+    }
+    private boolean hasText(String value) { return value!=null&&!value.isBlank(); }
+}
