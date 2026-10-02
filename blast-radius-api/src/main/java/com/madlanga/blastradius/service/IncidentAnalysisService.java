@@ -34,7 +34,7 @@ public class IncidentAnalysisService {
         GraphAnalysisResult theoretical = graphEngine.calculate(topology, origin.component());
 
         Map<String,TheoreticalImpact> theoreticalById = new LinkedHashMap<>();
-        theoretical.impacts().forEach(i -> theoreticalById.put(i.getComponent().getId(), i));
+        theoretical.getImpacts().forEach(i -> theoreticalById.put(i.getComponent().getId(), i));
 
         List<ComponentImpact> impacts = new ArrayList<>();
         impacts.add(new ComponentImpact(origin.component(), ObservedState.ORIGIN, 0,
