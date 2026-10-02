@@ -11,9 +11,9 @@ RUN apt-get update \
     && groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
-COPY --from=build --chown=app:app /workspace/target/blast-radius-api.jar ./app.jar
+COPY --from=build --chown=app:app /workspace/target/payment-service.jar ./app.jar
 USER app:app
-EXPOSE 8080
+EXPOSE 8081
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
-    CMD curl --fail --silent http://localhost:8080/actuator/health || exit 1
+    CMD curl --fail --silent http://localhost:8081/actuator/health/readiness || exit 1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

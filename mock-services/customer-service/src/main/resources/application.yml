@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: customer-service
+server:
+  port: 8082
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"
+lab:
+  downstream-url: ${DOCUMENT_SERVICE_URL:http://document-service:8083}
+  connect-timeout: ${HTTP_CONNECT_TIMEOUT:2s}
+  read-timeout: ${HTTP_READ_TIMEOUT:8s}

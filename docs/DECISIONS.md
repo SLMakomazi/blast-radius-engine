@@ -77,3 +77,26 @@ Each future application owns its build and Docker context. Compose currently sta
 only the implemented API on a dedicated network. The API exposes Actuator health
 and runs as a non-root container user. Persistence, analysis, telemetry ingestion,
 Datadog and AI remain deferred.
+
+
+## ADR-015 — Synthetic chain persistence and explicit failure semantics
+**Status:** Accepted — Phase 2
+
+Use three independent Spring Boot applications and [Spring RestClient](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html) for the two
+synchronous HTTP hops. Configure bounded timeouts; do not add fallback success,
+circuit breakers or request retries. Return sanitized immediate-dependency/status
+errors (document database failure 503; upstream HTTP dependency failure 502), and
+use a propagated correlation ID to connect the hop logs.
+
+Document-service alone owns Spring JDBC persistence and Flyway versioned migrations
+against the target PostgreSQL database. This is smaller than an ORM for one table
+and supports restart-safe schema evolution. The API/domain engine gains no database
+or HTTP assumptions. Maven tests use H2 plus the same migration for fast local
+checks; real PostgreSQL healthy/outage/recovery verification is separately required.
+
+Keep the mock applications independently buildable, including their small transport
+contracts and correlation filters, instead of adding a shared runtime library or
+coupling them to the Blast Radius domain. Container startup follows health-based
+Compose dependencies; document readiness includes DB health, liveness does not.
+The Podman-primary lab uses standard Compose fields and OCI images, with no engine
+socket mounts or Docker Desktop dependency.

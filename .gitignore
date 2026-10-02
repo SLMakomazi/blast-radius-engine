@@ -16,3 +16,7 @@
 !.env.example
 *.log
 .DS_Store
+
+# Python traffic generator
+__pycache__/
+*.pyc

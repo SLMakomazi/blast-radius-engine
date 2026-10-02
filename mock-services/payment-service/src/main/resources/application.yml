@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: payment-service
+server:
+  port: 8081
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"
+lab:
+  downstream-url: ${CUSTOMER_SERVICE_URL:http://customer-service:8082}
+  connect-timeout: ${HTTP_CONNECT_TIMEOUT:2s}
+  read-timeout: ${HTTP_READ_TIMEOUT:12s}
