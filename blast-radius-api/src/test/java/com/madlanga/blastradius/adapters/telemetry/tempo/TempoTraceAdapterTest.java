@@ -155,6 +155,40 @@ class TempoTraceAdapterTest {
         assertEquals("a08f368e31e4992c", span.getSpanId());
     }
 
+
+    @Test
+    void normalizesRealTempoBase64IdsToHexForCrossProviderCorrelation() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+
+        // Real Tempo /api/traces payload shape observed in the local lab.
+        span.traceId = "AWV2g0KeagpBHAjBqFVERA==";
+        span.spanId = "JoH0pF5bLyk=";
+        span.parentSpanId = "KpLLlwgkSO8=";
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        SpanEvidence normalized = result.getSpans().get(0);
+        assertEquals("01657683429e6a0a411c08c1a8554444", normalized.getTraceId());
+        assertEquals("2681f4a45e5b2f29", normalized.getSpanId());
+        assertEquals("2a92cb97082448ef", normalized.getParentSpanId());
+    }
+
+    @Test
+    void preservesAlreadyHexEncodedOtlpIds() {
+        assertEquals("61e1c07146fcb6829b35fca26be213c3",
+                TempoTraceAdapter.normalizeOtlpId("61E1C07146FCB6829B35FCA26BE213C3"));
+        assertEquals("a08f368e31e4992c",
+                TempoTraceAdapter.normalizeOtlpId("a08f368e31e4992c"));
+        assertNull(TempoTraceAdapter.normalizeOtlpId(null));
+    }
+
     @Test
     void mapsErrorSpanCorrectly() {
         TempoResponse response = buildHealthyTrace();
