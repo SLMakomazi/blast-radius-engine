@@ -96,6 +96,58 @@ class IncidentAnalysisServiceTest {
                 .hasMessageContaining("not present in discovered topology");
     }
 
+
+    @Test
+    void ignoresHttpFiveXxLatencySumEvenWhenItIncreases() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(
+                        metricNamed("s1","payment-service","http.server.requests.seconds.sum",100,FROM.plusSeconds(1),Map.of("status","500")),
+                        metricNamed("s2","payment-service","http.server.requests.seconds.sum",250,FROM.plusSeconds(30),Map.of("status","500"))))
+                .build();
+        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+                .isEqualTo(ObservedState.THEORETICAL_ONLY);
+    }
+
+    @Test
+    void timeoutCounterAloneIsSupportingNotSufficientFailureEvidence() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(
+                        metricNamed("t1","document-service","hikaricp.connections.timeout.total",1,FROM.plusSeconds(1),Map.of()),
+                        metricNamed("t2","document-service","hikaricp.connections.timeout.total",5,FROM.plusSeconds(30),Map.of())))
+                .build();
+        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.impacts().stream().filter(i->i.component().equals("document-service")).findFirst().orElseThrow().state())
+                .isEqualTo(ObservedState.THEORETICAL_ONLY);
+    }
+
+    @Test
+    void acceptsIncreasingFiveXxCountAsFailureEvidence() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(
+                        metricNamed("e1","payment-service","http.server.requests.seconds.count",5,FROM.plusSeconds(1),Map.of("status","500")),
+                        metricNamed("e2","payment-service","http.server.requests.seconds.count",7,FROM.plusSeconds(30),Map.of("status","500"))))
+                .build();
+        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+                .isEqualTo(ObservedState.OBSERVED);
+    }
+
     private TelemetryBundle bundle(TelemetryCoverage coverage) {
         return TelemetryBundle.builder().coverage(coverage).spans(List.of(
                 span("p","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
@@ -113,6 +165,13 @@ class IncidentAnalysisServiceTest {
     private HealthEvidence health(String service,HealthState state,Instant at){
         return HealthEvidence.builder().id("h-"+service).timestamp(at).service(service).environment("local")
                 .endpoint("/actuator/health/readiness").state(state).provenance(provenance(EvidenceFamily.HEALTH)).build();
+    }
+
+
+    private MetricEvidence metricNamed(String id,String service,String name,double value,Instant at,Map<String,String> dimensions){
+        return MetricEvidence.builder().id(id).timestamp(at).service(service).environment("local")
+                .name(name).value(value).unit("requests").dimensions(dimensions)
+                .provenance(provenance(EvidenceFamily.METRICS)).build();
     }
 
     private LogEvidence log(String service,String level,Instant at){
