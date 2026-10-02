@@ -274,9 +274,15 @@ public class TempoTraceAdapter {
         // it is stable even when the endpoint host is localhost, an IP, or provider-specific.
         String dbSystem = sanitizedAttrs.getOrDefault("db.system.name",
                 sanitizedAttrs.get("db.system"));
-        String peerService = dbSystem;
-        if (peerService == null && isClientSpan(span.kind)) {
-            peerService = sanitizedAttrs.get("server.address");
+        String serverAddress = sanitizedAttrs.get("server.address");
+        String peerService = null;
+        if (dbSystem != null) {
+            // For DB spans the endpoint address identifies the concrete dependency
+            // instance/service (for example "postgres"), while db.system identifies
+            // its technology (for example "postgresql"). Keep those concepts separate.
+            peerService = hasUsablePeerAddress(serverAddress) ? serverAddress : dbSystem;
+        } else if (isClientSpan(span.kind)) {
+            peerService = serverAddress;
         }
 
         EvidenceProvenance provenance = EvidenceProvenance.of(
@@ -340,6 +346,14 @@ public class TempoTraceAdapter {
             }
         }
         return "unknown";
+    }
+
+    private static boolean hasUsablePeerAddress(String address) {
+        if (address == null || address.isBlank()) return false;
+        String normalized = address.trim().toLowerCase(java.util.Locale.ROOT);
+        return !"localhost".equals(normalized)
+                && !"127.0.0.1".equals(normalized)
+                && !"::1".equals(normalized);
     }
 
     private static boolean isClientSpan(String kind) {
