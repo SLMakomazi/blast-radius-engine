@@ -36,6 +36,28 @@ The services emit logs, metrics, traces and health signals. A controlled failure
 - optional chaos containment assessment;
 - sanitized AI diagnosis/remediation context.
 
+## Current status — Phase 5 deterministic graph engine
+
+Phase 5 implementation and verification are complete on `feat/deterministic-graph-engine`. **Final clean Maven regression passed on 2026-10-02: 125 tests, 0 failures, 0 errors, 0 skipped.** The separate live topology-discovery acceptance also passed against real Docker/Tempo evidence. See [Phase 5 verification](docs/PHASE5_VERIFICATION.md).
+
+The graph engine is deliberately independent of topology discovery. Engineers do **not** need to hand-author a graph for every monitored application. The core consumes the `DependencyTopologyProvider` port; adapters can populate that contract from MadlangaAI's architecture/dependency model, runtime trace discovery, service catalogs/cloud metadata, or local fixtures. Test fixtures in this repository are deterministic test inputs, not a production onboarding requirement.
+
+Phase 5 adds:
+
+- technology-neutral component nodes and directed dependency edges;
+- separate component type and technology metadata;
+- topology validation and duplicate-edge normalization;
+- provider-neutral `DependencyTopologyProvider`;
+- reverse dependency traversal from a supplied origin;
+- minimum hop distance and dependency path;
+- DIRECT vs INDIRECT theoretical impact;
+- deterministic ordering and deterministic shortest-path tie breaking;
+- fan-out, fan-in, cycles, disconnected components and duplicate-edge coverage.
+
+Phase 5 calculates **theoretical** impact only. Runtime evidence correlation and observed impact remain Phase 6.
+
+Phase 5 adds 16 regular graph/topology/discovery tests (11 graph-engine + 3 topology-domain + 2 trace-discovery); all passed as part of the 125-test Blast Radius API regression suite. The opt-in live trace-discovery integration test passed separately.
+
 ## Current status — Phase 4 normalized telemetry
 
 Phase 4 introduces the provider-neutral telemetry domain boundary. The Blast Radius
