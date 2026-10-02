@@ -43,3 +43,14 @@ A local injected failure creates real synthetic telemetry. The engine correlates
 
 ## Working style
 Small branches/commits; tests with behavior changes; interfaces at integration boundaries; synthetic fixtures only; ADRs for significant choices; never invent answers to documented open questions.
+
+## Implemented local observability conventions (Phase 3)
+- Podman Compose is the primary local runtime; preserve OCI/Compose portability.
+- Java agent instrumentation belongs to mock applications, never the Blast Radius domain.
+- Micrometer metrics scrape directly; logs/traces use asynchronous OTLP through the Collector.
+- Keep business correlation IDs separate from W3C trace IDs; neither is a Loki index label.
+- Preserve safe application log events and Collector attribute allowlists. Do not enable body, authorization/header, SQL parameter, environment-secret or exception-stack export.
+- Observability must not become a business startup dependency. Backend loss means missing evidence, not proof of application health.
+- Run `scripts/verify-observability.sh` for actual healthy/failure/recovery and partial-observability proof; record observed results in `docs/PHASE3_VERIFICATION.md`.
+- Keep backend retention/concurrency/memory bounded for the small ARM64 Podman VM. Never change machine resources automatically.
+- No normalized ingestion, provider adapters, graph calculations or diagnosis are implemented in Phase 3.

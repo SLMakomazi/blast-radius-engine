@@ -36,17 +36,19 @@ The services emit logs, metrics, traces and health signals. A controlled failure
 - optional chaos containment assessment;
 - sanitized AI diagnosis/remediation context.
 
-## Current status — Phase 2 synthetic service chain
+## Current status — Phase 3 observability
 
 The repository now contains the independent Blast Radius API plus three Java 21 /
 Spring Boot 4.1.1 synthetic services, PostgreSQL and a lightweight Python traffic
 generator. Real HTTP calls and document persistence form the dependency chain.
-The API remains outside the business request path. No analysis algorithms, AI,
-telemetry normalization or observability stack are implemented.
+The API remains outside the business request path. OpenTelemetry exports application
+logs to Loki and distributed traces to Tempo through the Collector; Prometheus
+scrapes Micrometer metrics directly. Actuator provides health evidence. Analysis
+algorithms, AI, normalized telemetry and provider adapters remain deferred.
 
-The real healthy → PostgreSQL failure → recovery sequence passed. See the
-[Phase 2 verification report](docs/PHASE2_VERIFICATION.md) for exact test results,
-recorded runtime evidence, the complete file inventory and component tree.
+See the [Phase 3 verification report](docs/PHASE3_VERIFICATION.md) for observed
+telemetry, outage/recovery results and resource measurements. The historical
+[Phase 2 report](docs/PHASE2_VERIFICATION.md) records the original business proof.
 
 | Service | Responsibility / endpoint | Host and container port | Local image / container |
 | --- | --- | --- | --- |
@@ -57,7 +59,7 @@ recorded runtime evidence, the complete file inventory and component tree.
 | postgres | Synthetic document storage | 5432 | `docker.io/library/postgres:17.6` / `postgres` |
 | traffic-generator | Send transactions to payment only | None | `traffic-generator:latest` / `traffic-generator` |
 
-All Spring applications expose health. The mock services additionally expose
+All Spring applications expose health and `/actuator/prometheus`. The mock services additionally expose
 `/actuator/health/liveness` and `/actuator/health/readiness`; document readiness
 includes its database. No `/actuator/env` endpoint is exposed.
 
@@ -228,14 +230,125 @@ podman compose down
 # podman compose down -v
 ```
 
+## Phase 3 telemetry and reproducible experiments
+
+| Component / pinned official image | Host API (loopback only) | Internal ingestion |
+| --- | --- | --- |
+| Collector `docker.io/otel/opentelemetry-collector-contrib:0.157.0` | 13133 health | OTLP HTTP 4318 |
+| Prometheus `docker.io/prom/prometheus:v3.14.0` | 9090 | Scrapes service DNS at 5-second intervals |
+| Tempo `docker.io/grafana/tempo:2.10.7` | 3200 query/readiness | OTLP HTTP 4318 |
+| Loki `docker.io/grafana/loki:3.7.8` | 3100 query/readiness | Native OTLP `/otlp/v1/logs` |
+
+The three mock images include checksum-verified OpenTelemetry Java agent **2.31.1**.
+Compose activates it through `JAVA_TOOL_OPTIONS` and the shared
+`infrastructure/observability/otel/javaagent.properties`. Local Maven tests/source
+runs do not activate the agent. Standard W3C trace context links HTTP/JDBC spans.
+`X-Correlation-ID` remains a separate business ID, present in response headers,
+logging MDC and the database; it is never used as a trace ID. Logs carry the active
+trace/span IDs, allowing correlation-ID → trace lookup. Python traffic stays small
+and uninstrumented; its requests create traces at payment-service.
+
+Metrics: all four Spring applications → `/actuator/prometheus` → Prometheus.
+Logs: controlled application Logback events → agent OTLP → Collector → Loki.
+Traces: agent HTTP/JDBC instrumentation → OTLP → Collector → Tempo.
+Health: direct Actuator root/liveness/readiness calls, recorded by the verification
+script. Prometheus `up` means scraping works; it is not database readiness.
+
+After the build/start commands above, run:
+
+```bash
+./scripts/verify-observability.sh --output /tmp/blast-radius-phase3
+# Original business acceptance remains available:
+python3 scripts/verify-phase2.py
+```
+
+The Phase 3 script makes uniquely named healthy/failure/recovery requests, proves
+real rows, retrieves all four evidence families and saves timestamped JSON evidence.
+It deliberately stops PostgreSQL, then restores it in `finally`. It also stops the
+Collector, verifies HTTP 201/persistence/metrics/health while new logs and traces are
+unavailable, restores the Collector, waits for agent export reconnection using fresh synthetic
+probe transactions, and verifies telemetry again. Collector readiness alone does
+not guarantee exporter reconnection; probes record gaps rather than claiming replay. Run only against
+this synthetic lab and avoid running both experiment scripts concurrently.
+A failed assertion exits nonzero; container startup alone is not acceptance.
+
+For a bounded, fresh-evidence check without stopping any services:
+
+```bash
+./scripts/verify-observability.sh --availability-only \
+  --availability-timeout 60 --poll-interval 1
+# Only the Collector timeout + recovery cases (no PostgreSQL experiment):
+./scripts/verify-observability.sh --availability-cases \
+  --availability-timeout 60 --poll-interval 1 --timeout-case-seconds 8
+```
+
+The same focused checks can use Docker Desktop without changing Compose or business
+configuration (stop Podman first to avoid port conflicts):
+
+```bash
+DOCKER_CONTEXT=desktop-linux ./scripts/verify-observability.sh \
+  --runtime docker --availability-cases \
+  --availability-timeout 60 --poll-interval 1 --timeout-case-seconds 8
+```
+
+The availability probe uses unique correlation and W3C trace IDs, requires logs from
+all three services, a connected trace including JDBC evidence, counters advancing
+with fresh scrape timestamps, and current health. One monotonic deadline bounds
+network calls and polling. Missing families are listed in JSON; `--availability-only`
+exits 1 on timeout and never calls missing evidence healthy. These probes belong to
+verification only. A DOWN health response or error span is still available evidence;
+availability does not mean business health. Business requests never wait for observability. The focused
+cases restore the Collector in `finally`, then prove fresh telemetry after recovery.
+
+For manual API inspection (use the actual correlation/trace ID printed by the script):
+
+```bash
+curl --fail http://localhost:13133/
+curl --fail http://localhost:9090/-/ready
+curl --fail http://localhost:3200/ready
+curl --fail http://localhost:3100/ready
+curl --fail --get http://localhost:9090/api/v1/query \
+  --data-urlencode 'query=http_server_requests_seconds_count{uri=~"/api/payments|/api/customers/validate|/api/documents"}'
+curl --fail --get http://localhost:3100/loki/api/v1/query_range \
+  --data-urlencode 'query={service_name=~"payment-service|customer-service|document-service"} | correlation_id="REPLACE_WITH_CORRELATION_ID"' \
+  --data-urlencode 'since=10m'
+curl --fail -H 'Accept: application/json' \
+  http://localhost:3200/api/traces/REPLACE_WITH_TRACE_ID
+podman compose logs --tail=100 otel-collector prometheus tempo loki
+podman stats --no-stream
+```
+
+There are no business startup dependencies on observability. Agent/exporter queues
+are bounded and asynchronous; a backend outage may buffer briefly or lose telemetry,
+but does not create fallback business success or application retries. Collector
+health and Tempo/Loki `/ready` are checked through host APIs; their minimal upstream
+images are not rebuilt just to add a health-check shell. Compose reports them as
+running, while applications/PostgreSQL/Prometheus have container health checks.
+
+All ten containers have memory limits (2,816 MiB total). Agent-enabled JVM heaps are
+160 MiB, with bounded metaspace/code cache and Serial GC. The API heap is 96 MiB.
+This is a low-throughput lab, not a capacity guarantee; see measured use in the
+verification report. No Podman Machine settings are changed. Prometheus retains
+2 hours / 128 MB of blocks, Tempo 1 hour and Loki 24 hours (its minimum retention
+period); compaction/active data may exceed these targets temporarily. Observability
+storage is disposable container storage and is lost on recreation. PostgreSQL uses
+its existing named volume. Stop the lab when finished to stop traffic/disk growth.
+
+Loki indexes only stable service/environment attributes, not correlation/trace/span
+IDs. Collector allowlists resource/span attributes, removes exception messages and
+stack traces, and exports only controlled application logger scopes. Header/body
+capture and SQL parameter capture are disabled. Framework diagnostics remain local
+container logs; centralized logs are intentionally not a full container-log archive.
+No real data, production tokens or credentials belong in this lab.
+
 ## Repository and package boundaries
 
 - `blast-radius-api/`: independently buildable Spring Boot API.
 - `mock-services/`: independent payment, customer and document applications.
-- `infrastructure/`: local database documentation; reserved observability/failure-driver folders.
+- `infrastructure/`: database documentation and Collector/Prometheus/Tempo/Loki configuration; reserved failure-driver folder.
 - `traffic-generator/`: lightweight synthetic payment traffic and tests.
 - `fixtures/`: synthetic payment request; reserved topology, telemetry, incident and experiment data.
-- `scripts/`: repeatable Phase 2 acceptance check; `docker/`: reserved shared Docker assets.
+- `scripts/`: repeatable Phase 2 and Phase 3 acceptance checks; `docker/`: reserved shared Docker assets.
 - `docs/`: existing requirements, architecture and planning documents.
 
 Within `com.madlanga.blastradius`, `controller` and `dto` will own HTTP contracts;

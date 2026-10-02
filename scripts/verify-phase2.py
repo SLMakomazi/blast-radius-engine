@@ -8,9 +8,10 @@ import json
 import os
 from pathlib import Path
 import shutil
+from http.client import HTTPException
 import subprocess
 import time
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 import uuid
 
@@ -31,7 +32,7 @@ def get_health(port, path="/actuator/health"):
     except HTTPError as error:
         with error:
             return error.code, json.load(error)["status"]
-    except (URLError, TimeoutError):
+    except (OSError, HTTPException):
         return 0, "UNREACHABLE"
 
 
@@ -44,10 +45,11 @@ def wait_healthy(port):
     raise AssertionError(f"Port {port} did not become healthy")
 
 
-def pay(correlation):
+def pay(correlation, extra_headers=None):
     request = Request("http://127.0.0.1:8081/api/payments",
                       data=(ROOT / "fixtures/payment-request.json").read_bytes(), method="POST",
-                      headers={"Content-Type": "application/json", "X-Correlation-ID": correlation})
+                      headers={"Content-Type": "application/json", "X-Correlation-ID": correlation,
+                               **(extra_headers or {})})
     try:
         response = urlopen(request, timeout=20)
     except HTTPError as error:

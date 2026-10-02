@@ -100,3 +100,35 @@ coupling them to the Blast Radius domain. Container startup follows health-based
 Compose dependencies; document readiness includes DB health, liveness does not.
 The Podman-primary lab uses standard Compose fields and OCI images, with no engine
 socket mounts or Docker Desktop dependency.
+
+## ADR-016 — Independent lightweight local evidence pipelines
+**Status:** Accepted — Phase 3
+
+Use the standard OpenTelemetry Java agent for the three independently built mock
+services. It instruments their existing RestClient/JDK HTTP/JDBC path without
+changing business logic or introducing telemetry vendors into the Blast Radius
+domain. Preserve business correlation IDs independently of W3C trace context.
+The agent is pinned and SHA-256 verified during each image build.
+
+Route OTLP logs/traces through a small Collector to Loki's native OTLP endpoint and
+Tempo. Scrape Micrometer directly with Prometheus so metrics remain available during
+Collector loss. Actuator health is queried directly, with document readiness tied
+to the DB and liveness tied to the process. Python traffic requires no tracing SDK;
+the distributed trace begins at payment. No Grafana or normalized adapters yet.
+
+Use pinned upstream ARM64 images and short local retention with bounded JVM/Go
+memory/concurrency. Tempo 2.x provides the required monolithic local storage
+without introducing Kafka or a production-scale architecture. Collector 0.157.0
+was selected after 0.162.0 manifests were unavailable in the queried official
+registries; compatibility is verified against the actual downloaded image.
+
+Export only controlled application logger scopes, allowlisted resource/span
+attributes and correlation metadata. Remove exception messages/stack traces and
+SQL text/parameters from centralized telemetry. Loki indexes service/environment
+only; high-cardinality request IDs stay structured metadata. This deliberately
+limits centralized framework diagnostics for privacy and resource use.
+
+Observability is never a business startup dependency. Bounded asynchronous export
+may delay/drop evidence during outages; it must not break business processing.
+These limits and disposable telemetry storage are local lab choices, not production
+deployment assumptions. Phase 4 will interpret provider coverage and provenance.

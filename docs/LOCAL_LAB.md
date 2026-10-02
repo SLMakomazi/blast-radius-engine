@@ -82,9 +82,8 @@ tempo
 loki
 ```
 
-Do not add a `blast-radius-engine-` prefix. Phase 2 contains the API, payment,
-customer, document, PostgreSQL and traffic generator; observability services remain
-planned. Keep the Compose configuration
+Do not add a `blast-radius-engine-` prefix. Phase 3 contains all ten services listed
+above. Keep the Compose configuration
 compatible with Podman and validate it with `podman compose config`.
 
 Compose **service names** remain the canonical DNS names for service-to-service
@@ -215,6 +214,42 @@ persistence, correlated failure at every hop, and recovery without an applicatio
 rebuild. It restores PostgreSQL even when a failure assertion fails. A passing
 container startup alone is not Phase 2 acceptance.
 
-Phase 3 will add logs/metrics/traces collection and instrumentation. The earlier
-full-lab criteria in this document remain future requirements, not claims that
-Phase 2 implements topology analysis, normalized telemetry or observability backends.
+The earlier full-lab analysis/normalization criteria remain future requirements.
+Phase 3 implements evidence collection only; it does not implement analysis.
+
+## Implemented Phase 3 observability
+
+The [README](../README.md#phase-3-telemetry-and-reproducible-experiments) contains
+exact versions, ports, build/query/experiment commands and retention/memory limits.
+The [verification report](PHASE3_VERIFICATION.md) records actual retrieved evidence.
+
+```text
+payment/customer/document -- Java agent / OTLP HTTP --> otel-collector:4318
+                                                       | traces -> tempo:4318
+                                                       | logs   -> loki:3100/otlp
+API/payment/customer/document -- /actuator/prometheus --> prometheus (5s scrape)
+API/payment/customer/document -- /actuator/health/* --> verification script
+```
+
+Only service/environment attributes become Loki index labels. Correlation ID and
+trace/span IDs are queryable structured metadata. Backend API responses preserve
+timestamps and service identity; verification records health observation time and
+local environment. Micrometer exposes count/status/latency, JVM/process, HTTP client
+and Hikari pool metrics. No per-request IDs are metric tags.
+
+No instrumentation SDK/vendor is introduced into the Blast Radius domain. The
+traffic generator remains Python stdlib; tracing begins at payment. The API exposes
+metrics/health independently of the synthetic trace chain. Direct health probes
+retain document DB readiness vs process liveness; upstream readiness is not made
+artificially dependent on the database.
+
+Telemetry export queues are bounded and independent of business calls. Brief
+backend loss may delay or lose data; metrics and health remain available when the
+Collector stops. Coverage classification is future Phase 4 work. Application
+requests still have no retries, circuit breakers or fallback success.
+
+The local ARM64 stack uses no socket mounts, host networking or Docker Desktop.
+Loopback host bindings protect unauthenticated development query endpoints from
+remote access. Collector, Tempo and Loki expose API readiness rather than adding
+shells to their upstream images. PostgreSQL retains its named volume; telemetry
+backends use short-retention disposable storage.
