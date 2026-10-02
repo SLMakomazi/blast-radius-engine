@@ -33,12 +33,13 @@ class IncidentAnalysisServiceTest {
         TelemetryCoverage partial=TelemetryCoverage.builder().logs(CoverageStatus.UNAVAILABLE)
                 .metrics(CoverageStatus.AVAILABLE).traces(CoverageStatus.AVAILABLE)
                 .health(CoverageStatus.PARTIAL).build();
-        TelemetryBundle base=bundle(partial);
-        TelemetryBundle withoutPaymentError=TelemetryBundle.builder().logs(base.getLogs()).metrics(base.getMetrics())
-                .spans(base.getSpans().stream().filter(s -> !"payment-service".equals(s.getService())).toList())
-                .health(base.getHealth()).coverage(partial).build();
+        TelemetryBundle partialBundle=TelemetryBundle.builder().coverage(partial).spans(List.of(
+                span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(4),Map.of()),
+                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
+        )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
 
-        IncidentAnalysis result=new IncidentAnalysisService(q -> withoutPaymentError)
+        IncidentAnalysis result=new IncidentAnalysisService(q -> partialBundle)
                 .analyze("document-platform","local",FROM,TO,"postgres");
 
         assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
