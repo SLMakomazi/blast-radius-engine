@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 from http.client import HTTPException
 import time
 from urllib.error import HTTPError
@@ -347,7 +348,8 @@ def availability_cases(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=Path("/tmp/blast-radius-phase3"))
+    parser.add_argument("--output", type=Path, default=None,
+                        help="Evidence directory. Must resolve inside the current working directory.")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--availability-only", action="store_true", help="Probe telemetry without stopping any service")
     modes.add_argument("--availability-cases", action="store_true", help="Run only Collector timeout/recovery cases")
@@ -360,7 +362,18 @@ def main():
     if any(not 0 < value < float("inf") for value in
            (args.availability_timeout, args.poll_interval, args.timeout_case_seconds)):
         parser.error("timeouts and poll interval must be finite positive numbers")
-    args.output.mkdir(parents=True, exist_ok=True)
+    workspace = Path.cwd().resolve()
+    if args.output is None:
+        args.output = Path(tempfile.mkdtemp(prefix=".phase3-evidence-", dir=workspace))
+    else:
+        args.output = args.output.expanduser().resolve()
+        try:
+            args.output.relative_to(workspace)
+        except ValueError:
+            parser.error("--output must resolve inside the current working directory")
+        args.output.mkdir(parents=True, exist_ok=True)
+    if args.output.is_symlink():
+        parser.error("--output must not be a symbolic link")
     p2.PODMAN = args.runtime
     if args.availability_cases:
         availability_cases(args)
