@@ -2,7 +2,7 @@
 
 **Original Podman acceptance: PASSED on 2026-10-02.** Real logs, metrics, traces and health were retrieved for healthy, PostgreSQL outage and recovery requests. Collector loss preserved business functionality; fresh evidence was retrieved after export recovered. No analysis/normalization/AI implementation was added.
 
-Branch: `feat/full-observability-stack`. Changes remain uncommitted. The original run left all ten services running; runtime recovery during the continuation is recorded below.
+Branch: `feat/full-observability-stack`. The Phase 3 implementation was committed and pushed before the final documentation review. The original Podman acceptance and the final Docker recovery verification are both recorded below.
 
 ## Architecture and exact versions
 
@@ -243,6 +243,62 @@ image store had none of the five application images, requiring builds from the
 existing Dockerfiles and downloads of the unchanged pinned infrastructure images.
 The probe accepts `--runtime docker`; the Compose/business configuration is unchanged.
 The resource measurements above belong to the earlier successful Podman run.
+
+## Final Docker telemetry-availability verification
+
+After the runtime switch, all ten services were brought up unchanged under Docker
+Compose. A baseline payment using correlation ID
+`manual-before-collector-test-001` returned HTTP **201** and persisted the document.
+
+The Collector was then stopped while the business services, PostgreSQL, Prometheus
+and direct health endpoints remained running. Payment
+`manual-collector-down-001` still returned HTTP **201** and persisted successfully,
+proving that business traffic does not wait on observability.
+
+A bounded availability-only probe was run with an 8-second timeout and 1-second poll
+interval. It returned:
+
+```json
+{
+  "telemetryAvailable": false,
+  "timedOut": true,
+  "families": {
+    "logs": false,
+    "traces": false,
+    "metrics": true,
+    "health": true
+  },
+  "missingEvidenceFamilies": ["logs", "traces"],
+  "elapsedSeconds": 8.0
+}
+```
+
+This is the intended partial-observability result: missing logs/traces are reported
+as missing and are never interpreted as proof that dependencies are healthy.
+
+The Collector was restarted and the availability probe was invoked immediately,
+without an artificial settle delay. A fresh synthetic transaction returned HTTP
+**201** and fresh evidence was observed from all four families:
+
+```json
+{
+  "telemetryAvailable": true,
+  "timedOut": false,
+  "families": {
+    "logs": true,
+    "traces": true,
+    "metrics": true,
+    "health": true
+  },
+  "missingEvidenceFamilies": [],
+  "elapsedSeconds": 2.455
+}
+```
+
+This closes the Phase 3 exporter-reconnection gap. Collector/container readiness is
+not used as a substitute for end-to-end telemetry availability. Business traffic
+never waits for telemetry; only verification and future analysis-side consumers may
+perform a bounded wait for fresh required evidence.
 
 ## Phase 2 regression retained during continuation
 
