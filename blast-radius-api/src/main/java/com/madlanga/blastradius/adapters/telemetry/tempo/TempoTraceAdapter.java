@@ -52,6 +52,8 @@ import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
 public class TempoTraceAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(TempoTraceAdapter.class);
+    private static final int TRACE_FETCH_ATTEMPTS = 3;
+    private static final long TRACE_FETCH_RETRY_DELAY_MS = 200L;
 
     private final TempoProperties properties;
     private final TelemetrySanitizer sanitizer;
@@ -140,10 +142,7 @@ public class TempoTraceAdapter {
         for (TempoSearchResponse.TraceSummary summary : summaries) {
             if (summary.traceId == null || summary.traceId.isBlank()) continue;
             try {
-                TempoResponse trace = restClient.get()
-                        .uri("/api/traces/{traceId}", summary.traceId)
-                        .retrieve()
-                        .body(TempoResponse.class);
+                TempoResponse trace = fetchTraceWithRetry(summary.traceId);
 
                 if (trace != null && trace.batches != null) {
                     allSpans.addAll(mapBatchesToSpans(
@@ -169,6 +168,28 @@ public class TempoTraceAdapter {
         }
 
         return new TraceAdapterResult(allSpans, coverage, warnings);
+    }
+
+    private TempoResponse fetchTraceWithRetry(String traceId) {
+        RestClientException lastFailure = null;
+        for (int attempt = 1; attempt <= TRACE_FETCH_ATTEMPTS; attempt++) {
+            try {
+                return restClient.get()
+                        .uri("/api/traces/{traceId}", traceId)
+                        .retrieve()
+                        .body(TempoResponse.class);
+            } catch (RestClientException e) {
+                lastFailure = e;
+                if (attempt == TRACE_FETCH_ATTEMPTS) break;
+                try {
+                    Thread.sleep(TRACE_FETCH_RETRY_DELAY_MS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        throw lastFailure;
     }
 
     // -------------------------------------------------------------------------
