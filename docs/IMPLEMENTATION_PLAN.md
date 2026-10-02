@@ -25,6 +25,15 @@ which is preserved as the planning baseline:
    also passed against real Loki, Prometheus, Tempo and Actuator backends. See
    `docs/PHASE4_VERIFICATION.md` and `docs/DECISIONS.md` ADR-018 through ADR-022.
 
+5. **Phase 5 — Deterministic graph engine:** technology-neutral topology model,
+   provider port, topology validation, reverse traversal, shortest path/minimum distance,
+   direct/indirect classification and deterministic handling of fan-out/fan-in/cycles/
+   disconnected nodes/duplicate edges. **Implementation complete on
+   `feat/deterministic-graph-engine`; manual Maven verification pending.**
+   Topology discovery is outside the graph algorithm: production adapters will populate
+   `DependencyTopologyProvider` from MadlangaAI architecture analysis and/or approved
+   runtime discovery sources rather than requiring a manually maintained graph per system.
+
 Subsequent domain/telemetry/analysis work follows the requirements below.
 
 ## Original design roadmap
