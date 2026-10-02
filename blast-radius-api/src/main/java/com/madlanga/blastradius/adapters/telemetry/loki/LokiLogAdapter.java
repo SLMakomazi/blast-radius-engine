@@ -77,11 +77,15 @@ public class LokiLogAdapter {
             LokiResponse response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/loki/api/v1/query_range")
-                            .queryParam("query", logql)
-                            .queryParam("start", toNanoString(query.getFrom()))
-                            .queryParam("end", toNanoString(query.getTo()))
-                            .queryParam("limit", properties.getLimit())
-                            .build())
+                            .queryParam("query", "{query}")
+                            .queryParam("start", "{start}")
+                            .queryParam("end", "{end}")
+                            .queryParam("limit", "{limit}")
+                            .build(Map.of(
+                                    "query", logql,
+                                    "start", toNanoString(query.getFrom()),
+                                    "end", toNanoString(query.getTo()),
+                                    "limit", properties.getLimit())))
                     .retrieve()
                     .body(LokiResponse.class);
 
@@ -157,7 +161,7 @@ public class LokiLogAdapter {
               .append("\"");
         }
         if (query.hasTraceId()) {
-            sb.append(" | traceId=\"")
+            sb.append(" | trace_id=\"")
               .append(escapeLogQLStringLiteral(query.getTraceId()))
               .append("\"");
         }
