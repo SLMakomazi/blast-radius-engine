@@ -268,12 +268,15 @@ public class TempoTraceAdapter {
             errorType = sanitizedAttrs.get("error.type");
         }
 
-        // Derive peer service from db.system or server.address attribute
-        String peerService = sanitizedAttrs.get("server.address");
-        String dbSystem = sanitizedAttrs.getOrDefault("db.system",
-                sanitizedAttrs.get("db.system.name"));
-        if (peerService == null && dbSystem != null) {
-            peerService = dbSystem;
+        // Derive the dependency peer without turning generic server-side
+        // "server.address" values (for example localhost on an Actuator/server span)
+        // into topology nodes. Database spans prefer the DB system identity because
+        // it is stable even when the endpoint host is localhost, an IP, or provider-specific.
+        String dbSystem = sanitizedAttrs.getOrDefault("db.system.name",
+                sanitizedAttrs.get("db.system"));
+        String peerService = dbSystem;
+        if (peerService == null && isClientSpan(span.kind)) {
+            peerService = sanitizedAttrs.get("server.address");
         }
 
         EvidenceProvenance provenance = EvidenceProvenance.of(
@@ -337,6 +340,12 @@ public class TempoTraceAdapter {
             }
         }
         return "unknown";
+    }
+
+    private static boolean isClientSpan(String kind) {
+        if (kind == null) return false;
+        String normalized = kind.trim().toUpperCase(java.util.Locale.ROOT);
+        return "SPAN_KIND_CLIENT".equals(normalized) || "3".equals(normalized);
     }
 
     private static SpanStatus mapSpanStatus(TempoResponse.SpanStatusDto statusDto) {
