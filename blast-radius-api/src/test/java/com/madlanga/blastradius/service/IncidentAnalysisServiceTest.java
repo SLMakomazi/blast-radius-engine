@@ -47,6 +47,55 @@ class IncidentAnalysisServiceTest {
         assertThat(result.warnings()).anyMatch(w -> w.contains("missing evidence is not healthy evidence"));
     }
 
+
+    @Test
+    void fullCoverageDistinguishesTheoreticalOnlyFromObserved() {
+        TelemetryBundle bundle=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable()).spans(List.of(
+                span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(4),Map.of()),
+                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
+        )).build();
+        IncidentAnalysis result=new IncidentAnalysisService(q -> bundle)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+                .isEqualTo(ObservedState.THEORETICAL_ONLY);
+    }
+
+    @Test
+    void reportsFailureEvidenceOutsideTheoreticalRadiusAsUnexpected() {
+        TelemetryBundle base=bundle(TelemetryCoverage.allAvailable());
+        TelemetryBundle withUnexpected=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(base.getSpans()).health(base.getHealth())
+                .logs(List.of(log("blast-radius-api","ERROR",FROM.plusSeconds(5)))).build();
+        IncidentAnalysis result=new IncidentAnalysisService(q -> withUnexpected)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.impacts()).anyMatch(i -> i.component().equals("blast-radius-api")
+                && i.state()==ObservedState.UNEXPECTED);
+    }
+
+    @Test
+    void counterMetricMustIncreaseInsideWindowBeforeItCountsAsFailureEvidence() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(metric("m1","payment-service",5,FROM.plusSeconds(1)),
+                        metric("m2","payment-service",5,FROM.plusSeconds(30)))).build();
+        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+                .isEqualTo(ObservedState.THEORETICAL_ONLY);
+    }
+
+    @Test
+    void rejectsOriginHintThatIsNotInDiscoveredTopology() {
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> new IncidentAnalysisService(q -> bundle(TelemetryCoverage.allAvailable()))
+                .analyze("document-platform","local",FROM,TO,"missing-service")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not present in discovered topology");
+    }
+
     private TelemetryBundle bundle(TelemetryCoverage coverage) {
         return TelemetryBundle.builder().coverage(coverage).spans(List.of(
                 span("p","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
@@ -65,6 +114,17 @@ class IncidentAnalysisServiceTest {
         return HealthEvidence.builder().id("h-"+service).timestamp(at).service(service).environment("local")
                 .endpoint("/actuator/health/readiness").state(state).provenance(provenance(EvidenceFamily.HEALTH)).build();
     }
+
+    private LogEvidence log(String service,String level,Instant at){
+        return LogEvidence.builder().id("l-"+service).timestamp(at).service(service).environment("local")
+                .level(level).message("sanitized test error").provenance(provenance(EvidenceFamily.LOGS)).build();
+    }
+    private MetricEvidence metric(String id,String service,double value,Instant at){
+        return MetricEvidence.builder().id(id).timestamp(at).service(service).environment("local")
+                .name("http.server.requests.seconds.count").value(value).unit("requests")
+                .dimensions(Map.of("status","500")).provenance(provenance(EvidenceFamily.METRICS)).build();
+    }
+
     private EvidenceProvenance provenance(EvidenceFamily family){
         return EvidenceProvenance.of(family,"test",TO,"fixture");
     }
