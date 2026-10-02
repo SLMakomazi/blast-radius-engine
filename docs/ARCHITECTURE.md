@@ -71,7 +71,7 @@ com.madlanga.blastradius
 │       └── HealthEvidence
 ├── ports
 │   ├── TelemetryProvider           ← Phase 4 complete
-│   ├── DependencyTopologyProvider  ← Phase 5+
+│   ├── DependencyTopologyProvider  ← Phase 5 complete
 │   ├── FailureExperimentProvider   ← Phase 7+
 │   └── AiDiagnosisProvider         ← Phase 9+
 ├── sanitization
@@ -117,6 +117,24 @@ com.madlanga.blastradius
 - **SeverityCalculator** — deterministic/configurable; separate from MadlangaAI health score.
 - **FailureExperimentProvider** — optional controlled-failure metadata.
 - **AiDiagnosisProvider** — sanitized structured context only.
+
+## Topology acquisition vs graph calculation
+
+Topology **acquisition** and blast-radius **calculation** are separate responsibilities.
+
+The deterministic graph engine never hardcodes the canonical local chain and never requires
+operators to manually redraw every monitored system. It accepts a `DependencyTopology`
+through `DependencyTopologyProvider`. A provider adapter may build that topology from:
+
+- MadlangaAI's existing architecture/dependency analysis and dependency map;
+- distributed-trace/runtime dependency discovery;
+- service catalogs or approved cloud/platform metadata;
+- local fixtures for deterministic tests and synthetic-lab validation.
+
+Phase 5 implements the provider contract and pure graph semantics. It intentionally does
+not invent a production discovery adapter before the upstream MadlangaAI topology contract
+is available. Phase 12 supplies the MadlangaAI adapter; additional discovery adapters can
+be added without changing traversal.
 
 ## MadlangaAI integration
 Reuse MadlangaAI topology, Datadog/MCP and AI capabilities where they satisfy Blast Radius contracts. Add adapters/providers for missing evidence. Never couple the core to one database, language, messaging platform, AWS component or telemetry vendor.
