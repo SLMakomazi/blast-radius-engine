@@ -59,7 +59,7 @@ public final class TraceDiscoveredTopologyProvider implements DependencyTopology
         return discover(applicationId, environment, telemetry.getSpans());
     }
 
-    DependencyTopology discover(String applicationId, String environment, List<SpanEvidence> spans) {
+    public DependencyTopology discover(String applicationId, String environment, List<SpanEvidence> spans) {
         Map<String, SpanEvidence> bySpanId = new HashMap<>();
         for (SpanEvidence span : spans) {
             if (hasText(span.getSpanId())) bySpanId.put(span.getSpanId(), span);
