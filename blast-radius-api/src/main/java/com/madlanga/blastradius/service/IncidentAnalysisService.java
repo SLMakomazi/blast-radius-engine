@@ -43,7 +43,7 @@ public class IncidentAnalysisService {
         for (TheoreticalImpact impact : theoretical.getImpacts()) {
             List<EvidenceSignal> componentSignals = signals.getOrDefault(impact.getComponent().getId(), List.of());
             ObservedState state = componentSignals.isEmpty()
-                    ? (telemetry.getCoverage().hasAnyEvidence() ? ObservedState.THEORETICAL_ONLY : ObservedState.UNKNOWN)
+                    ? (telemetry.isFullyCovered() ? ObservedState.THEORETICAL_ONLY : ObservedState.UNKNOWN)
                     : ObservedState.OBSERVED;
             impacts.add(new ComponentImpact(impact.getComponent().getId(), state, impact.getDistance(),
                     impact.getPath(), componentSignals));
@@ -89,11 +89,7 @@ public class IncidentAnalysisService {
                     new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
                             "health " + health.getState(), health.getId()));
         }
-        for (MetricEvidence metric : telemetry.getMetrics()) {
-            if (metricIndicatesFailure(metric)) add(result, metric.getService(),
-                    new EvidenceSignal(metric.getTimestamp(), metric.getService(), "METRIC",
-                            metric.getName() + "=" + metric.getValue(), metric.getId()));
-        }
+        correlateMetricDeltas(telemetry.getMetrics(), result);
         result.replaceAll((k,v) -> v.stream().sorted(Comparator.comparing(EvidenceSignal::timestamp)).toList());
         return result;
     }
@@ -116,18 +112,37 @@ public class IncidentAnalysisService {
 
     private int score(List<EvidenceSignal> evidence) {
         int score=0;
-        for(EvidenceSignal s:evidence) score += switch(s.family()) { case "HEALTH" -> 50; case "TRACE" -> 40; case "LOG" -> 30; case "METRIC" -> 20; default -> 0; };
+        for(EvidenceSignal s:evidence) score += switch(s.family()) {
+            case "HEALTH" -> 50;
+            case "TRACE" -> s.signal().startsWith("dependency error observed by") ? 80 : 40;
+            case "LOG" -> 30;
+            case "METRIC" -> 20;
+            default -> 0;
+        };
         return score;
     }
     private ConfidenceLevel confidence(int score) { return score>=80?ConfidenceLevel.HIGH:score>=40?ConfidenceLevel.MEDIUM:ConfidenceLevel.LOW; }
     private Instant earliest(List<EvidenceSignal> evidence) { return evidence.stream().map(EvidenceSignal::timestamp).min(Instant::compareTo).orElse(Instant.MAX); }
     private void add(Map<String,List<EvidenceSignal>> map,String service,EvidenceSignal signal) { if(hasText(service)&&!"unknown".equalsIgnoreCase(service)) map.computeIfAbsent(service,k->new ArrayList<>()).add(signal); }
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
-    private boolean metricIndicatesFailure(MetricEvidence m) {
-        String status=m.getDimensions().getOrDefault("status",m.getDimensions().get("code"));
-        boolean serverError=status!=null && status.matches("5\\d\\d") && m.getValue()>0;
-        boolean timeout=m.getName().toLowerCase(Locale.ROOT).contains("timeout") && m.getValue()>0;
-        return serverError||timeout;
+    private void correlateMetricDeltas(List<MetricEvidence> metrics, Map<String,List<EvidenceSignal>> result) {
+        Map<String,List<MetricEvidence>> series = new LinkedHashMap<>();
+        for (MetricEvidence m : metrics) {
+            String status=m.getDimensions().getOrDefault("status",m.getDimensions().get("code"));
+            boolean candidate=(status!=null && status.matches("5\\d\\d"))
+                    || m.getName().toLowerCase(Locale.ROOT).contains("timeout");
+            if (!candidate) continue;
+            String key=m.getService()+"|"+m.getName()+"|"+m.getDimensions();
+            series.computeIfAbsent(key,k->new ArrayList<>()).add(m);
+        }
+        for (List<MetricEvidence> points : series.values()) {
+            points.sort(Comparator.comparing(MetricEvidence::getTimestamp));
+            if (points.size()<2) continue;
+            MetricEvidence first=points.get(0), last=points.get(points.size()-1);
+            double delta=last.getValue()-first.getValue();
+            if (delta>0) add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
+                    "METRIC",last.getName()+" increased by "+delta,last.getId()));
+        }
     }
     private boolean hasText(String value) { return value!=null&&!value.isBlank(); }
 }
