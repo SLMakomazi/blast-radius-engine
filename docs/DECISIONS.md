@@ -55,6 +55,27 @@ The core graph must support heterogeneous application components. The MadlangaAI
 
 Node type and technology are separate concepts. PostgreSQL is the first local scenario, not a Blast Radius limitation. New supported technologies must be addable without rewriting traversal/correlation fundamentals.
 
+## ADR-023 — Topology acquisition is a provider concern; traversal stays deterministic
+**Status:** Accepted — Phase 5
+
+The Blast Radius graph engine consumes a technology-neutral `DependencyTopology` and
+does not discover dependencies itself. `DependencyTopologyProvider` is the boundary
+between topology acquisition and graph calculation.
+
+This avoids a manually maintained graph per monitored application without coupling the
+core algorithm to a single discovery mechanism. MadlangaAI's architecture/dependency
+model is the intended enterprise source when integrated. Runtime traces, service catalogs,
+cloud/platform metadata, or local fixtures may be implemented as alternate adapters.
+
+An edge `A -> B` means A depends on B. Theoretical blast radius traverses those edges
+in reverse from the origin. Traversal is cycle-safe, retains minimum hop distance and a
+deterministic shortest path, classifies one-hop dependents DIRECT and deeper dependents
+INDIRECT, and excludes disconnected nodes. Duplicate edges are normalized at topology
+construction.
+
+Phase 5 does not infer the incident origin and does not use telemetry to mark observed
+impact; those remain later analysis phases.
+
 ---
 Add new decisions for significant architectural choices.
 
