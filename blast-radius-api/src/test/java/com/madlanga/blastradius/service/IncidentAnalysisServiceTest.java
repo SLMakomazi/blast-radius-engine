@@ -29,6 +29,25 @@ class IncidentAnalysisServiceTest {
     }
 
     @Test
+    void infersPeerlessFailedDependencyWhenTopologyHasSingleCandidate() {
+        TelemetryBundle bundle=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable()).spans(List.of(
+                span("p","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
+                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("topology-db","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system","postgresql")),
+                span("failed-jdbc","document-service",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())
+        )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
+
+        IncidentAnalysis result=new IncidentAnalysisService(q -> bundle)
+                .analyze("document-platform","local",FROM,TO,null);
+
+        assertThat(result.origin().component()).isEqualTo("postgres");
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("TRACE")
+                        && signal.signal().contains("dependency error inferred from topology")
+                        && signal.signal().contains("document-service"));
+    }
+
+    @Test
     void marksUnobservedTheoreticalNodeUnknownWhenCoverageIsPartial() {
         TelemetryCoverage partial=TelemetryCoverage.builder().logs(CoverageStatus.UNAVAILABLE)
                 .metrics(CoverageStatus.AVAILABLE).traces(CoverageStatus.AVAILABLE)
