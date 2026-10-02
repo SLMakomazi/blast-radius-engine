@@ -340,10 +340,10 @@ public class TempoTraceAdapter {
     }
 
     private static SpanStatus mapSpanStatus(TempoResponse.SpanStatusDto statusDto) {
-        if (statusDto == null) return SpanStatus.UNSET;
-        return switch (statusDto.code) {
-            case 1 -> SpanStatus.OK;
-            case 2 -> SpanStatus.ERROR;
+        if (statusDto == null || statusDto.code == null) return SpanStatus.UNSET;
+        return switch (statusDto.code.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "1", "STATUS_CODE_OK", "OK" -> SpanStatus.OK;
+            case "2", "STATUS_CODE_ERROR", "ERROR" -> SpanStatus.ERROR;
             default -> SpanStatus.UNSET;
         };
     }
