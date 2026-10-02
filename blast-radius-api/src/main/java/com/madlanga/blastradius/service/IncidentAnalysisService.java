@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class IncidentAnalysisService {
+    private static final java.time.Duration TOPOLOGY_LOOKBACK = java.time.Duration.ofHours(1);
+
     private final TelemetryProvider telemetryProvider;
     private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
 
@@ -26,8 +28,25 @@ public class IncidentAnalysisService {
         TelemetryQuery query = TelemetryQuery.builder().applicationId(applicationId).environment(environment)
                 .from(from).to(to).build();
         TelemetryBundle telemetry = telemetryProvider.getTelemetry(query);
+
+        // Incident evidence and topology discovery intentionally use different windows.
+        // A dependency that is already unavailable may stop producing successful spans
+        // that identify its peer. Reconstruct topology from evidence immediately before
+        // the incident window, then merge those spans with the current incident spans.
+        // Historical telemetry affects topology only; it must not become incident evidence
+        // or alter the requested window's coverage.
+        TelemetryQuery topologyQuery = TelemetryQuery.builder()
+                .applicationId(applicationId)
+                .environment(environment)
+                .from(from.minus(TOPOLOGY_LOOKBACK))
+                .to(from)
+                .build();
+        TelemetryBundle topologyTelemetry = telemetryProvider.getTelemetry(topologyQuery);
+        List<SpanEvidence> topologySpans = new ArrayList<>(topologyTelemetry.getSpans());
+        topologySpans.addAll(telemetry.getSpans());
+
         DependencyTopology topology = new TraceDiscoveredTopologyProvider(telemetryProvider)
-                .discover(applicationId, environment, telemetry.getSpans());
+                .discover(applicationId, environment, topologySpans);
 
         Map<String,List<EvidenceSignal>> signals = correlate(telemetry, topology);
         OriginAssessment origin = assessOrigin(originHint, topology, signals);
