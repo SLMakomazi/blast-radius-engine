@@ -8,6 +8,8 @@ import java.time.Instant;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.temporal.ChronoUnit;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -53,7 +55,7 @@ public class BlastRadiusController {
     @Operation(summary = "Analyze incident blast radius", description = "Correlates topology and available telemetry to calculate deterministic theoretical and observed impact. AI does not determine blast radius.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Analysis completed"),
-            @ApiResponse(responseCode = "400", description = "Invalid request or analysis cannot be completed for the requested evidence/window")
+            @ApiResponse(responseCode = "400", description = "Invalid request or analysis cannot be completed for the requested evidence/window", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/analyze")
     public IncidentAnalysis analyze(@RequestBody AnalyzeIncidentRequest request) {
@@ -118,7 +120,10 @@ public class BlastRadiusController {
         return value != null && !value.isBlank();
     }
 
-    record ErrorResponse(String code, String message) {}
+    @Schema(description = "Stable API error contract.")
+    record ErrorResponse(
+            @Schema(description = "Machine-readable error code.", example = "INVALID_REQUEST") String code,
+            @Schema(description = "Human-readable error detail.", example = "applicationId is required") String message) {}
 
     private static final class ApiRequestException extends IllegalArgumentException {
         private final String code;
