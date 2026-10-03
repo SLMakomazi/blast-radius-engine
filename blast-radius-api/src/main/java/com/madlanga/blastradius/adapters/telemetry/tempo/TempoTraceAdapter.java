@@ -270,8 +270,7 @@ public class TempoTraceAdapter {
 
         // Derive the dependency peer without turning generic server-side
         // "server.address" values (for example localhost on an Actuator/server span)
-        // into topology nodes. Database spans prefer the DB system identity because
-        // it is stable even when the endpoint host is localhost, an IP, or provider-specific.
+        // into topology nodes. Technology alone never identifies a concrete dependency.
         String dbSystem = sanitizedAttrs.getOrDefault("db.system.name",
                 sanitizedAttrs.get("db.system"));
         String serverAddress = sanitizedAttrs.get("server.address");
@@ -280,8 +279,8 @@ public class TempoTraceAdapter {
             // For DB spans the endpoint address identifies the concrete dependency
             // instance/service (for example "postgres"), while db.system identifies
             // its technology (for example "postgresql"). Keep those concepts separate.
-            peerService = hasUsablePeerAddress(serverAddress) ? serverAddress : dbSystem;
-        } else if (isClientSpan(span.kind)) {
+            peerService = hasUsablePeerAddress(serverAddress) ? serverAddress.trim() : null;
+        } else if (isClientSpan(span.kind) && hasUsablePeerAddress(serverAddress)) {
             peerService = serverAddress;
         }
 

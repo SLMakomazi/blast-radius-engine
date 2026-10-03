@@ -255,7 +255,7 @@ class TempoTraceAdapterTest {
     }
 
     @Test
-    void prefersDatabaseSystemIdentityOverEndpointAddress() {
+    void doesNotInventTechnologyIdentityForLoopbackDatabase() {
         TempoResponse response = buildHealthyTrace();
         TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
         span.kind = "SPAN_KIND_CLIENT";
@@ -277,7 +277,8 @@ class TempoTraceAdapterTest {
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
-        assertEquals("postgresql", result.getSpans().get(0).getPeerService());
+        assertNull(result.getSpans().get(0).getPeerService());
+        assertEquals("postgresql", result.getSpans().get(0).getAttributes().get("db.system.name"));
     }
 
     @Test
