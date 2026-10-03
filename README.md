@@ -51,6 +51,14 @@ curl -fsS 'http://localhost:8080/api/v1/blast-radius/analyze?applicationId=docum
 
 The `topology-data` volume contains local knowledge, not incident payloads. Recovery testing requires separate approval for the current outage experiment.
 
+## Current status — Phase 9 AI diagnosis
+
+Phase 9 implementation and verification are complete on `feat/phase9-ai-diagnosis`. The deterministic engine remains authoritative for origin, blast radius, severity and containment; the optional AI layer receives sanitized evidence and explains it without recalculating impact.
+
+The initial provider adapter uses Gemini when explicitly enabled. Provider failures are isolated behind a deterministic fallback, and transient HTTP 503 receives one bounded retry. Recovery actions remain human-controlled. Persisted incidents expose `POST /api/v1/blast-radius/incidents/{id}/diagnosis`, which is present in the runtime OpenAPI contract.
+
+Final Phase 9 regression: **186 tests, 0 failures, 0 errors, 0 skipped.** Real runtime verification covered Gemini diagnosis, provider failure fallback, PostgreSQL outage impact, business recovery, explicit incident resolution and retained history. See [Phase 9 verification](docs/PHASE9_VERIFICATION.md) and [ADR-028](docs/DECISIONS.md).
+
 ## Current status — Phase 5 deterministic graph engine
 
 Phase 5 implementation and verification are complete on `feat/deterministic-graph-engine`. **Final clean Maven regression passed on 2026-10-02: 125 tests, 0 failures, 0 errors, 0 skipped.** The separate live topology-discovery acceptance also passed against real Docker/Tempo evidence. See [Phase 5 verification](docs/PHASE5_VERIFICATION.md).
