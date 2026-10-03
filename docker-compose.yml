@@ -18,7 +18,23 @@ services:
       GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
       GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-20}
     depends_on:
-      blast-radius-db:
+      frontend:
+    image: blast-radius-frontend:latest
+    container_name: blast-radius-frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    mem_limit: 64m
+    depends_on:
+      blast-radius-api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:5173:80"
+    networks:
+      - blast-radius
+
+  blast-radius-db:
         condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
