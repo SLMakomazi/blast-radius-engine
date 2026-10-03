@@ -334,6 +334,28 @@ class TempoTraceAdapterTest {
     }
 
     @Test
+    void filtersMixedTraceBySpanStartWithInclusiveFromAndExclusiveTo() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span inside = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoResponse.Span old = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
+        old.startTimeUnixNano = String.valueOf(FROM.minusSeconds(60).getEpochSecond() * 1_000_000_000L);
+        old.status.code = "STATUS_CODE_ERROR";
+        TempoResponse.Span atEnd = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
+        atEnd.startTimeUnixNano = String.valueOf(TO.getEpochSecond() * 1_000_000_000L);
+        atEnd.status.code = "STATUS_CODE_ERROR";
+        response.batches.get(0).scopeSpans.get(0).spans = List.of(old, inside, atEnd);
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        var result = adapter.fetchSpans(queryWithTraceId());
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertEquals(1, result.getSpans().size());
+        assertEquals(FROM, result.getSpans().getFirst().getStartTime());
+        assertFalse(result.getSpans().getFirst().isError());
+    }
+
+    @Test
     void returnsUnavailableWhenResponseHasNoBatches() {
         TempoResponse empty = new TempoResponse();
         empty.batches = List.of();

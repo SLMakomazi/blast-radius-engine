@@ -20,6 +20,7 @@ import com.madlanga.blastradius.domain.evidence.EvidenceFamily;
 import com.madlanga.blastradius.domain.evidence.EvidenceProvenance;
 import com.madlanga.blastradius.domain.evidence.SpanEvidence;
 import com.madlanga.blastradius.domain.evidence.SpanStatus;
+import com.madlanga.blastradius.domain.evidence.SpanKind;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
 import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
 
@@ -75,10 +76,17 @@ public class TempoTraceAdapter {
 
     public TraceAdapterResult fetchSpans(TelemetryQuery query) {
         try {
-            if (query.hasTraceId()) {
-                return fetchByTraceId(query.getTraceId(), query.getEnvironment());
+            TraceAdapterResult result = query.hasTraceId()
+                    ? fetchByTraceId(query.getTraceId(), query.getEnvironment()) : fetchByTimeWindow(query);
+            List<SpanEvidence> inWindow = result.getSpans().stream()
+                    .filter(span -> !span.getStartTime().isBefore(query.getFrom())
+                            && span.getStartTime().isBefore(query.getTo())).toList();
+            if (!result.getSpans().isEmpty() && inWindow.isEmpty()) {
+                List<String> warnings = new ArrayList<>(result.getWarnings());
+                warnings.add("Tempo: fetched traces contain no spans starting in the requested window");
+                return new TraceAdapterResult(inWindow, CoverageStatus.UNAVAILABLE, warnings);
             }
-            return fetchByTimeWindow(query);
+            return new TraceAdapterResult(inWindow, result.getCoverage(), result.getWarnings());
         } catch (RestClientException e) {
             log.warn("Tempo adapter: HTTP request failed [{}]", e.getClass().getSimpleName());
             return TraceAdapterResult.unavailable("Tempo: provider unreachable — HTTP client error");
@@ -130,9 +138,8 @@ public class TempoTraceAdapter {
         List<SpanEvidence> allSpans = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
-        // Tempo search returns newest traces first. Prefer traces that Tempo itself
-        // marks as failed so a busy healthy traffic stream cannot crowd incident
-        // traces out of the bounded search result.
+        // Prioritize failures within this bounded sample. Sorting cannot recover traces
+        // omitted by the backend and must not be treated as complete topology discovery.
         List<TempoSearchResponse.TraceSummary> summaries = new ArrayList<>(searchResponse.traces);
         summaries.sort(java.util.Comparator
                 .comparing((TempoSearchResponse.TraceSummary s) -> !s.isFailed())
@@ -301,6 +308,7 @@ public class TempoTraceAdapter {
                 .startTime(startTime)
                 .durationMs(durationMs)
                 .status(status)
+                .kind(mapSpanKind(span.kind))
                 .peerService(peerService)
                 .attributes(sanitizedAttrs)
                 .errorType(errorType)
@@ -353,6 +361,18 @@ public class TempoTraceAdapter {
         return !"localhost".equals(normalized)
                 && !"127.0.0.1".equals(normalized)
                 && !"::1".equals(normalized);
+    }
+
+    private static SpanKind mapSpanKind(String kind) {
+        if (kind == null) return SpanKind.UNKNOWN;
+        return switch (kind.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "1", "SPAN_KIND_INTERNAL" -> SpanKind.INTERNAL;
+            case "2", "SPAN_KIND_SERVER" -> SpanKind.SERVER;
+            case "3", "SPAN_KIND_CLIENT" -> SpanKind.CLIENT;
+            case "4", "SPAN_KIND_PRODUCER" -> SpanKind.PRODUCER;
+            case "5", "SPAN_KIND_CONSUMER" -> SpanKind.CONSUMER;
+            default -> SpanKind.UNKNOWN;
+        };
     }
 
     private static boolean isClientSpan(String kind) {

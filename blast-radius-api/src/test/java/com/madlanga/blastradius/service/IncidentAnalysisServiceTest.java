@@ -16,7 +16,7 @@ class IncidentAnalysisServiceTest {
     @Test
     void findsDeepestFailingDependencyAndClassifiesObservedRadius() {
         TelemetryBundle bundle=bundle(TelemetryCoverage.allAvailable());
-        IncidentAnalysis result=new IncidentAnalysisService(q -> bundle)
+        IncidentAnalysis result=service(q -> bundle)
                 .analyze("document-platform","local",FROM,TO,null);
 
         assertThat(result.origin().component()).isEqualTo("postgres");
@@ -50,7 +50,7 @@ class IncidentAnalysisServiceTest {
 
         TelemetryProvider provider = query -> query.getTo().equals(FROM) ? history : incident;
 
-        IncidentAnalysis result = new IncidentAnalysisService(provider)
+        IncidentAnalysis result = service(provider)
                 .analyze("document-platform","local",FROM,TO,null);
 
         assertThat(result.origin().component()).isEqualTo("postgres");
@@ -72,7 +72,7 @@ class IncidentAnalysisServiceTest {
                 span("failed-jdbc","document-service",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())
         )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
 
-        IncidentAnalysis result=new IncidentAnalysisService(q -> bundle)
+        IncidentAnalysis result=service(q -> bundle)
                 .analyze("document-platform","local",FROM,TO,null);
 
         assertThat(result.origin().component()).isEqualTo("postgres");
@@ -93,7 +93,7 @@ class IncidentAnalysisServiceTest {
                 span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
         )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
 
-        IncidentAnalysis result=new IncidentAnalysisService(q -> partialBundle)
+        IncidentAnalysis result=service(q -> partialBundle)
                 .analyze("document-platform","local",FROM,TO,"postgres");
 
         assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
@@ -109,7 +109,7 @@ class IncidentAnalysisServiceTest {
                 span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
                 span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
         )).build();
-        IncidentAnalysis result=new IncidentAnalysisService(q -> bundle)
+        IncidentAnalysis result=service(q -> bundle)
                 .analyze("document-platform","local",FROM,TO,"postgres");
         assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
                 .isEqualTo(ObservedState.THEORETICAL_ONLY);
@@ -121,7 +121,7 @@ class IncidentAnalysisServiceTest {
         TelemetryBundle withUnexpected=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(base.getSpans()).health(base.getHealth())
                 .logs(List.of(log("blast-radius-api","ERROR",FROM.plusSeconds(5)))).build();
-        IncidentAnalysis result=new IncidentAnalysisService(q -> withUnexpected)
+        IncidentAnalysis result=service(q -> withUnexpected)
                 .analyze("document-platform","local",FROM,TO,"postgres");
         assertThat(result.impacts()).anyMatch(i -> i.component().equals("blast-radius-api")
                 && i.state()==ObservedState.UNEXPECTED);
@@ -136,7 +136,7 @@ class IncidentAnalysisServiceTest {
                         span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(metric("m1","payment-service",5,FROM.plusSeconds(1)),
                         metric("m2","payment-service",5,FROM.plusSeconds(30)))).build();
-        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+        IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
         assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
                 .isEqualTo(ObservedState.THEORETICAL_ONLY);
@@ -144,7 +144,7 @@ class IncidentAnalysisServiceTest {
 
     @Test
     void rejectsOriginHintThatIsNotInDiscoveredTopology() {
-        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> new IncidentAnalysisService(q -> bundle(TelemetryCoverage.allAvailable()))
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> service(q -> bundle(TelemetryCoverage.allAvailable()))
                 .analyze("document-platform","local",FROM,TO,"missing-service")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not present in discovered topology");
@@ -162,7 +162,7 @@ class IncidentAnalysisServiceTest {
                         metricNamed("s1","payment-service","http.server.requests.seconds.sum",100,FROM.plusSeconds(1),Map.of("status","500")),
                         metricNamed("s2","payment-service","http.server.requests.seconds.sum",250,FROM.plusSeconds(30),Map.of("status","500"))))
                 .build();
-        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+        IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
         assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
                 .isEqualTo(ObservedState.THEORETICAL_ONLY);
@@ -179,7 +179,7 @@ class IncidentAnalysisServiceTest {
                         metricNamed("t1","document-service","hikaricp.connections.timeout.total",1,FROM.plusSeconds(1),Map.of()),
                         metricNamed("t2","document-service","hikaricp.connections.timeout.total",5,FROM.plusSeconds(30),Map.of())))
                 .build();
-        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+        IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
         assertThat(result.impacts().stream().filter(i->i.component().equals("document-service")).findFirst().orElseThrow().state())
                 .isEqualTo(ObservedState.THEORETICAL_ONLY);
@@ -196,10 +196,53 @@ class IncidentAnalysisServiceTest {
                         metricNamed("e1","payment-service","http.server.requests.seconds.count",5,FROM.plusSeconds(1),Map.of("status","500")),
                         metricNamed("e2","payment-service","http.server.requests.seconds.count",7,FROM.plusSeconds(30),Map.of("status","500"))))
                 .build();
-        IncidentAnalysis result=new IncidentAnalysisService(q -> metricsOnly)
+        IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
         assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
                 .isEqualTo(ObservedState.OBSERVED);
+    }
+
+    @Test
+    void excludesHistoricalFailuresFromEveryEvidenceFamilyAndKeepsCoverageIndependent() {
+        var healthy = TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(span("known-edge","api","database",SpanStatus.OK,FROM.plusSeconds(1),Map.of()))).build();
+        var supplied = TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(span("old-error","api","database",SpanStatus.ERROR,FROM.minusSeconds(1),Map.of())))
+                .logs(List.of(log("api","ERROR",FROM.minusSeconds(1))))
+                .health(List.of(health("api",HealthState.DOWN,FROM.minusSeconds(1))))
+                .metrics(List.of(metric("old-1","api",1,FROM.minusSeconds(30)), metric("old-2","api",5,FROM.minusSeconds(1))))
+                .build();
+        var topology = new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                .discover("test","local",healthy.getSpans());
+        var service = new IncidentAnalysisService(q -> supplied, (a,e) -> topology);
+        var result = service.analyze("test","local",FROM,TO,"database");
+        assertThat(result.timeline()).isEmpty();
+        assertThat(result.origin().evidenceScore()).isZero();
+        assertThat(result.coverage().isFullyCovered()).isTrue();
+        assertThat(result.impacts().getLast().state()).isEqualTo(ObservedState.THEORETICAL_ONLY);
+    }
+
+    @Test
+    void serverFailureAloneDoesNotAccuseRetainedDependency() {
+        var topology = new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                .discover("test","local",List.of(span("old","api","database",SpanStatus.OK,FROM.minusSeconds(5),Map.of())));
+        var serverError = SpanEvidence.builder().id("server").traceId("trace").spanId("server").service("api")
+                .environment("local").startTime(FROM.plusSeconds(1)).kind(SpanKind.SERVER).status(SpanStatus.ERROR)
+                .provenance(provenance(EvidenceFamily.TRACES)).build();
+        var service = new IncidentAnalysisService(q -> TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(serverError)).build(), (a,e) -> topology);
+        assertThat(service.analyze("test","local",FROM,TO,null).origin().component()).isEqualTo("api");
+    }
+
+    private IncidentAnalysisService service(TelemetryProvider provider) {
+        return new IncidentAnalysisService(provider, (app, env) -> {
+            var spans = new java.util.ArrayList<>(provider.getTelemetry(TelemetryQuery.builder()
+                    .applicationId(app).environment(env).from(FROM.minusSeconds(3600)).to(FROM).build()).getSpans());
+            spans.addAll(provider.getTelemetry(TelemetryQuery.builder()
+                    .applicationId(app).environment(env).from(FROM).to(TO).build()).getSpans());
+            return new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                    .discover(app, env, spans);
+        });
     }
 
     private TelemetryBundle bundle(TelemetryCoverage coverage) {
@@ -213,7 +256,7 @@ class IncidentAnalysisServiceTest {
     private SpanEvidence span(String id,String service,String peer,SpanStatus status,Instant at,Map<String,String> attrs){
         return SpanEvidence.builder().id(id).traceId("0123456789abcdef0123456789abcdef").spanId(id)
                 .service(service).environment("local").operation("call "+peer).startTime(at).durationMs(10)
-                .status(status).peerService(peer).attributes(attrs)
+                .status(status).kind(peer == null ? SpanKind.INTERNAL : SpanKind.CLIENT).peerService(peer).attributes(attrs)
                 .provenance(provenance(EvidenceFamily.TRACES)).build();
     }
     private HealthEvidence health(String service,HealthState state,Instant at){

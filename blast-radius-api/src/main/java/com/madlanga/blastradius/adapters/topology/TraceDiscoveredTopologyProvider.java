@@ -62,7 +62,7 @@ public final class TraceDiscoveredTopologyProvider implements DependencyTopology
     public DependencyTopology discover(String applicationId, String environment, List<SpanEvidence> spans) {
         Map<String, SpanEvidence> bySpanId = new HashMap<>();
         for (SpanEvidence span : spans) {
-            if (hasText(span.getSpanId())) bySpanId.put(span.getSpanId(), span);
+            if (hasText(span.getSpanId())) bySpanId.put(span.getTraceId() + ":" + span.getSpanId(), span);
         }
 
         Set<String> components = new LinkedHashSet<>();
@@ -76,7 +76,7 @@ public final class TraceDiscoveredTopologyProvider implements DependencyTopology
 
             String parentId = normalized(span.getParentSpanId());
             if (service != null && parentId != null) {
-                SpanEvidence parent = bySpanId.get(parentId);
+                SpanEvidence parent = bySpanId.get(span.getTraceId() + ":" + parentId);
                 if (parent != null) {
                     String parentService = normalized(parent.getService());
                     if (parentService != null && !parentService.equals(service)) {

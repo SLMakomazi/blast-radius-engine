@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.service;
 
-import com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider;
+import com.madlanga.blastradius.ports.DependencyTopologyProvider;
 import com.madlanga.blastradius.domain.evidence.*;
 import com.madlanga.blastradius.domain.incident.*;
 import com.madlanga.blastradius.domain.topology.*;
@@ -15,53 +15,21 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class IncidentAnalysisService {
-    private static final java.time.Duration RECENT_TOPOLOGY_LOOKBACK = java.time.Duration.ofHours(1);
-    private static final java.time.Duration HISTORICAL_TOPOLOGY_LOOKBACK = java.time.Duration.ofHours(24);
-
     private final TelemetryProvider telemetryProvider;
+    private final DependencyTopologyProvider topologyProvider;
     private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
 
-    public IncidentAnalysisService(TelemetryProvider telemetryProvider) {
+    public IncidentAnalysisService(TelemetryProvider telemetryProvider, DependencyTopologyProvider topologyProvider) {
         this.telemetryProvider = telemetryProvider;
+        this.topologyProvider = topologyProvider;
     }
 
     public IncidentAnalysis analyze(String applicationId, String environment, Instant from, Instant to, String originHint) {
         TelemetryQuery query = TelemetryQuery.builder().applicationId(applicationId).environment(environment)
                 .from(from).to(to).build();
-        TelemetryBundle telemetry = telemetryProvider.getTelemetry(query);
+        TelemetryBundle telemetry = withinWindow(telemetryProvider.getTelemetry(query), from, to);
 
-        // Incident evidence and topology discovery intentionally use different windows.
-        // A dependency that is already unavailable may stop producing successful spans
-        // that identify its peer. Reconstruct topology from evidence immediately before
-        // the incident window, then merge those spans with the current incident spans.
-        // Historical telemetry affects topology only; it must not become incident evidence
-        // or alter the requested window's coverage.
-        TelemetryQuery recentTopologyQuery = TelemetryQuery.builder()
-                .applicationId(applicationId)
-                .environment(environment)
-                .from(from.minus(RECENT_TOPOLOGY_LOOKBACK))
-                .to(from)
-                .build();
-        TelemetryBundle recentTopologyTelemetry = telemetryProvider.getTelemetry(recentTopologyQuery);
-
-        // Tempo's bounded search returns the newest traces in a window. During a
-        // long outage those newest traces can all be failures and no longer carry
-        // the successful DB peer identity. Query an older, non-overlapping window
-        // as well so a long-running outage cannot erase the last-known topology.
-        TelemetryQuery historicalTopologyQuery = TelemetryQuery.builder()
-                .applicationId(applicationId)
-                .environment(environment)
-                .from(from.minus(HISTORICAL_TOPOLOGY_LOOKBACK))
-                .to(from.minus(RECENT_TOPOLOGY_LOOKBACK))
-                .build();
-        TelemetryBundle historicalTopologyTelemetry = telemetryProvider.getTelemetry(historicalTopologyQuery);
-
-        List<SpanEvidence> topologySpans = new ArrayList<>(historicalTopologyTelemetry.getSpans());
-        topologySpans.addAll(recentTopologyTelemetry.getSpans());
-        topologySpans.addAll(telemetry.getSpans());
-
-        DependencyTopology topology = new TraceDiscoveredTopologyProvider(telemetryProvider)
-                .discover(applicationId, environment, topologySpans);
+        DependencyTopology topology = topologyProvider.getTopology(applicationId, environment);
 
         Map<String,List<EvidenceSignal>> signals = correlate(telemetry, topology);
         OriginAssessment origin = assessOrigin(originHint, topology, signals);
@@ -102,6 +70,18 @@ public class IncidentAnalysisService {
                 telemetry.getCoverage(), impacts, timeline, warnings);
     }
 
+    private TelemetryBundle withinWindow(TelemetryBundle bundle, Instant from, Instant to) {
+        java.util.function.Predicate<Instant> inWindow = at -> !at.isBefore(from) && at.isBefore(to);
+        List<String> warnings = new ArrayList<>(bundle.getWarnings());
+        if (bundle.getHealth().stream().anyMatch(h -> !inWindow.test(h.getTimestamp())))
+            warnings.add("Live health snapshots outside the incident window were excluded from correlation; coverage describes provider availability.");
+        return TelemetryBundle.builder().coverage(bundle.getCoverage()).warnings(warnings)
+                .spans(bundle.getSpans().stream().filter(s -> inWindow.test(s.getStartTime())).toList())
+                .logs(bundle.getLogs().stream().filter(l -> inWindow.test(l.getTimestamp())).toList())
+                .metrics(bundle.getMetrics().stream().filter(m -> inWindow.test(m.getTimestamp())).toList())
+                .health(bundle.getHealth().stream().filter(h -> inWindow.test(h.getTimestamp())).toList()).build();
+    }
+
     private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry, DependencyTopology topology) {
         Map<String,List<EvidenceSignal>> result = new LinkedHashMap<>();
         for (LogEvidence log : telemetry.getLogs()) {
@@ -138,6 +118,9 @@ public class IncidentAnalysisService {
     }
 
     private Optional<String> inferFailedDependencyFromTopology(SpanEvidence span, DependencyTopology topology) {
+        // A server error alone does not prove that a dependency failed.
+        if (span.getKind() != SpanKind.INTERNAL && span.getKind() != SpanKind.CLIENT
+                && span.getKind() != SpanKind.PRODUCER) return Optional.empty();
         List<String> dependencies = topology.getEdges().stream()
                 .filter(edge -> edge.getDependentId().equals(span.getService()))
                 .map(DependencyEdge::getDependencyId)

@@ -20,3 +20,6 @@
 # Python traffic generator
 __pycache__/
 *.pyc
+
+# Local retained topology (Compose uses a named volume)
+**/data/topology/
