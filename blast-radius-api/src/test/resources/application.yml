@@ -8,6 +8,12 @@
 spring:
   application:
     name: blast-radius-api-test
+  # Unit/context tests do not require the external incident store. Database and
+  # Flyway integration are verified against blast-radius-db in the Docker lab.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 
 blast-radius:
   topology:
