@@ -4,6 +4,8 @@ services:
     container_name: blast-radius-api
     build:
       context: ./blast-radius-api
+    volumes:
+      - topology-data:/app/data/topology
     mem_limit: 256m
     environment:
       JAVA_TOOL_OPTIONS: -Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=2
@@ -202,4 +204,5 @@ networks:
     driver: bridge
 
 volumes:
+  topology-data:
   postgres-data:

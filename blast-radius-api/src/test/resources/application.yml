@@ -10,6 +10,8 @@ spring:
     name: blast-radius-api-test
 
 blast-radius:
+  topology:
+    refresh-enabled: false
   telemetry:
     loki:
       base-url: http://localhost:3100

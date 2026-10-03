@@ -29,6 +29,14 @@ management:
 # Override via environment variables or a profile-specific application-*.yml.
 # ---------------------------------------------------------------------------
 blast-radius:
+  topology:
+    directory: ${TOPOLOGY_DIRECTORY:./data/topology}
+    ttl: ${TOPOLOGY_TTL:7d}
+    discovery-window: ${TOPOLOGY_DISCOVERY_WINDOW:5m}
+    refresh-interval: ${TOPOLOGY_REFRESH_INTERVAL:30s}
+    refresh-enabled: ${TOPOLOGY_REFRESH_ENABLED:true}
+    application-id: ${TOPOLOGY_APPLICATION_ID:document-platform}
+    environment: ${TOPOLOGY_ENVIRONMENT:local}
   telemetry:
     loki:
       base-url: ${LOKI_BASE_URL:http://loki:3100}

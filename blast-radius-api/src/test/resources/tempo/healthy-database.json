@@ -1,0 +1,429 @@
+{
+  "batches": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "deployment.environment.name",
+            "value": {
+              "stringValue": "local"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "payment-service"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "io.opentelemetry.java-http-client",
+            "version": "2.31.1-alpha"
+          },
+          "spans": [
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "eDw7qkAx0cc=",
+              "parentSpanId": "XZfy3H/9vKI=",
+              "name": "POST",
+              "kind": "SPAN_KIND_CLIENT",
+              "startTimeUnixNano": "1790950809486573546",
+              "endTimeUnixNano": "1790950809517353129",
+              "attributes": [
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "8082"
+                  }
+                },
+                {
+                  "key": "http.response.status_code",
+                  "value": {
+                    "intValue": "200"
+                  }
+                },
+                {
+                  "key": "network.protocol.version",
+                  "value": {
+                    "stringValue": "1.1"
+                  }
+                },
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "customer-service"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        },
+        {
+          "scope": {
+            "name": "io.opentelemetry.tomcat-10.0",
+            "version": "2.31.1-alpha"
+          },
+          "spans": [
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "XZfy3H/9vKI=",
+              "name": "POST /api/payments",
+              "kind": "SPAN_KIND_SERVER",
+              "startTimeUnixNano": "1790950809481571671",
+              "endTimeUnixNano": "1790950809522955671",
+              "attributes": [
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "8081"
+                  }
+                },
+                {
+                  "key": "http.response.status_code",
+                  "value": {
+                    "intValue": "201"
+                  }
+                },
+                {
+                  "key": "network.protocol.version",
+                  "value": {
+                    "stringValue": "1.1"
+                  }
+                },
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "payment-service"
+                  }
+                },
+                {
+                  "key": "http.route",
+                  "value": {
+                    "stringValue": "/api/payments"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "deployment.environment.name",
+            "value": {
+              "stringValue": "local"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "document-service"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "io.opentelemetry.jdbc",
+            "version": "2.31.1-alpha"
+          },
+          "spans": [
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "ixiC61cqiw4=",
+              "parentSpanId": "gKLZ4o6eGgE=",
+              "name": "HikariDataSource.getConnection",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1790950809502157546",
+              "endTimeUnixNano": "1790950809502191379",
+              "attributes": [
+                {
+                  "key": "db.system",
+                  "value": {
+                    "stringValue": "postgresql"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "9u/7PP3KUms=",
+              "parentSpanId": "gKLZ4o6eGgE=",
+              "name": "INSERT synthetic_lab.synthetic_documents",
+              "kind": "SPAN_KIND_CLIENT",
+              "startTimeUnixNano": "1790950809502934296",
+              "endTimeUnixNano": "1790950809504056713",
+              "attributes": [
+                {
+                  "key": "db.operation",
+                  "value": {
+                    "stringValue": "INSERT"
+                  }
+                },
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "5432"
+                  }
+                },
+                {
+                  "key": "db.system",
+                  "value": {
+                    "stringValue": "postgresql"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "postgres"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "3V/I0SGVcrA=",
+              "parentSpanId": "gKLZ4o6eGgE=",
+              "name": "SELECT synthetic_lab.synthetic_documents",
+              "kind": "SPAN_KIND_CLIENT",
+              "startTimeUnixNano": "1790950809504211379",
+              "endTimeUnixNano": "1790950809504451838",
+              "attributes": [
+                {
+                  "key": "db.operation",
+                  "value": {
+                    "stringValue": "SELECT"
+                  }
+                },
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "5432"
+                  }
+                },
+                {
+                  "key": "db.system",
+                  "value": {
+                    "stringValue": "postgresql"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "postgres"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        },
+        {
+          "scope": {
+            "name": "io.opentelemetry.tomcat-10.0",
+            "version": "2.31.1-alpha"
+          },
+          "spans": [
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "gKLZ4o6eGgE=",
+              "parentSpanId": "87CCWqwlsbM=",
+              "name": "POST /api/documents",
+              "kind": "SPAN_KIND_SERVER",
+              "startTimeUnixNano": "1790950809497299838",
+              "endTimeUnixNano": "1790950809508422254",
+              "attributes": [
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "8083"
+                  }
+                },
+                {
+                  "key": "http.response.status_code",
+                  "value": {
+                    "intValue": "201"
+                  }
+                },
+                {
+                  "key": "network.protocol.version",
+                  "value": {
+                    "stringValue": "1.1"
+                  }
+                },
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "document-service"
+                  }
+                },
+                {
+                  "key": "http.route",
+                  "value": {
+                    "stringValue": "/api/documents"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "deployment.environment.name",
+            "value": {
+              "stringValue": "local"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "customer-service"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "io.opentelemetry.java-http-client",
+            "version": "2.31.1-alpha"
+          },
+          "spans": [
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "87CCWqwlsbM=",
+              "parentSpanId": "tFkb7fQzSiI=",
+              "name": "POST",
+              "kind": "SPAN_KIND_CLIENT",
+              "startTimeUnixNano": "1790950809493920671",
+              "endTimeUnixNano": "1790950809509340005",
+              "attributes": [
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "8083"
+                  }
+                },
+                {
+                  "key": "http.response.status_code",
+                  "value": {
+                    "intValue": "201"
+                  }
+                },
+                {
+                  "key": "network.protocol.version",
+                  "value": {
+                    "stringValue": "1.1"
+                  }
+                },
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "document-service"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        },
+        {
+          "scope": {
+            "name": "io.opentelemetry.tomcat-10.0",
+            "version": "2.31.1-alpha"
+          },
+          "spans": [
+            {
+              "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
+              "spanId": "tFkb7fQzSiI=",
+              "parentSpanId": "eDw7qkAx0cc=",
+              "name": "POST /api/customers/validate",
+              "kind": "SPAN_KIND_SERVER",
+              "startTimeUnixNano": "1790950809490227255",
+              "endTimeUnixNano": "1790950809515796963",
+              "attributes": [
+                {
+                  "key": "server.port",
+                  "value": {
+                    "intValue": "8082"
+                  }
+                },
+                {
+                  "key": "http.response.status_code",
+                  "value": {
+                    "intValue": "200"
+                  }
+                },
+                {
+                  "key": "network.protocol.version",
+                  "value": {
+                    "stringValue": "1.1"
+                  }
+                },
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "server.address",
+                  "value": {
+                    "stringValue": "customer-service"
+                  }
+                },
+                {
+                  "key": "http.route",
+                  "value": {
+                    "stringValue": "/api/customers/validate"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

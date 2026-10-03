@@ -182,3 +182,7 @@ mvn -f blast-radius-api/pom.xml test
 
 Total new Phase 4 test methods: approximately **60** across 13 test classes.
 These supplement the existing 36 Java + 4 Python tests from Phases 1–3.
+
+## Phase 6 retained-topology regression
+
+Use the focused test command in [Phase 6 verification](PHASE6_VERIFICATION.md#tests-actually-executed) before an API-only image build. Captured OTLP fixtures reproduce the healthy technology-only pool span and the failed peer-less span. Tests must distinguish knowledge retention from current failure evidence, cover expiry/restart/scope/duplicates/ambiguous dependencies, and reject out-of-window evidence. Live acceptance must report actual topology, current origin/paths, provider coverage and timestamp bounds. Recovery is a separate approved experiment; never start an intentionally stopped database as part of these regressions.

@@ -90,10 +90,11 @@ class TempoTraceAdapterTest {
         span.spanId = "a08f368e31e4992c";
         span.parentSpanId = "41c503f305ad0e47";
         span.name = "POST /api/documents";
+        span.kind = "SPAN_KIND_SERVER";
         span.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
         span.endTimeUnixNano   = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L + 1_250_000_000L);
         span.status = new TempoResponse.SpanStatusDto();
-        span.status.code = 1; // OK
+        span.status.code = "1"; // OK
         span.attributes = List.of();
         scope.spans = List.of(span);
         batch.scopeSpans = List.of(scope);
@@ -193,7 +194,7 @@ class TempoTraceAdapterTest {
     void mapsErrorSpanCorrectly() {
         TempoResponse response = buildHealthyTrace();
         TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
-        errorSpan.status.code = 2; // ERROR
+        errorSpan.status.code = "2"; // ERROR
         TempoResponse.KeyValue errorKv = new TempoResponse.KeyValue();
         errorKv.key = "error.type";
         errorKv.value = new TempoResponse.AnyValue();
@@ -211,6 +212,147 @@ class TempoTraceAdapterTest {
         SpanEvidence span = result.getSpans().get(0);
         assertTrue(span.isError());
         assertEquals("ConnectionException", span.getErrorType());
+    }
+
+    @Test
+    void mapsRealTempoSymbolicErrorStatus() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        errorSpan.status.code = "STATUS_CODE_ERROR";
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertTrue(result.getSpans().get(0).isError());
+    }
+
+    @Test
+    void doesNotTreatServerAddressOnServerSpanAsDependencyPeer() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        span.kind = "SPAN_KIND_SERVER";
+
+        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        address.key = "server.address";
+        address.value = new TempoResponse.AnyValue();
+        address.value.stringValue = "localhost";
+        span.attributes = List.of(address);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertNull(result.getSpans().get(0).getPeerService());
+    }
+
+    @Test
+    void doesNotInventTechnologyIdentityForLoopbackDatabase() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        span.kind = "SPAN_KIND_CLIENT";
+
+        TempoResponse.KeyValue db = new TempoResponse.KeyValue();
+        db.key = "db.system.name";
+        db.value = new TempoResponse.AnyValue();
+        db.value.stringValue = "postgresql";
+        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        address.key = "server.address";
+        address.value = new TempoResponse.AnyValue();
+        address.value.stringValue = "localhost";
+        span.attributes = List.of(db, address);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertNull(result.getSpans().get(0).getPeerService());
+        assertEquals("postgresql", result.getSpans().get(0).getAttributes().get("db.system.name"));
+    }
+
+    @Test
+    void usesConcreteDatabaseEndpointAsPeerAndKeepsTechnologyInAttributes() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        span.kind = "SPAN_KIND_INTERNAL";
+
+        TempoResponse.KeyValue db = new TempoResponse.KeyValue();
+        db.key = "db.system.name";
+        db.value = new TempoResponse.AnyValue();
+        db.value.stringValue = "postgresql";
+        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        address.key = "server.address";
+        address.value = new TempoResponse.AnyValue();
+        address.value.stringValue = "postgres";
+        span.attributes = List.of(db, address);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
+
+        assertEquals("postgres", result.getSpans().get(0).getPeerService());
+        assertEquals("postgresql", result.getSpans().get(0).getAttributes().get("db.system.name"));
+    }
+
+    @Test
+    void retriesTransientTraceFetchFailureAfterSuccessfulSearch() {
+        TempoSearchResponse search = new TempoSearchResponse();
+        TempoSearchResponse.TraceSummary summary = new TempoSearchResponse.TraceSummary();
+        summary.traceId = TRACE_ID;
+        summary.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
+        search.traces = List.of(summary);
+
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.any(java.util.function.Function.class));
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        when(responseSpec.body(TempoSearchResponse.class)).thenReturn(search);
+        when(responseSpec.body(TempoResponse.class))
+                .thenThrow(new ResourceAccessException("transient Tempo read failure"))
+                .thenReturn(buildHealthyTrace());
+
+        TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithoutTraceId());
+
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertEquals(1, result.getSpans().size());
+        assertTrue(result.getWarnings().isEmpty());
+        verify(responseSpec, times(2)).body(TempoResponse.class);
+    }
+
+    @Test
+    void filtersMixedTraceBySpanStartWithInclusiveFromAndExclusiveTo() {
+        TempoResponse response = buildHealthyTrace();
+        TempoResponse.Span inside = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoResponse.Span old = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
+        old.startTimeUnixNano = String.valueOf(FROM.minusSeconds(60).getEpochSecond() * 1_000_000_000L);
+        old.status.code = "STATUS_CODE_ERROR";
+        TempoResponse.Span atEnd = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
+        atEnd.startTimeUnixNano = String.valueOf(TO.getEpochSecond() * 1_000_000_000L);
+        atEnd.status.code = "STATUS_CODE_ERROR";
+        response.batches.get(0).scopeSpans.get(0).spans = List.of(old, inside, atEnd);
+        doReturn(uriSpec).when(restClient).get();
+        doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
+        doReturn(responseSpec).when(uriSpec).retrieve();
+        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        var result = adapter.fetchSpans(queryWithTraceId());
+        assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
+        assertEquals(1, result.getSpans().size());
+        assertEquals(FROM, result.getSpans().getFirst().getStartTime());
+        assertFalse(result.getSpans().getFirst().isError());
     }
 
     @Test

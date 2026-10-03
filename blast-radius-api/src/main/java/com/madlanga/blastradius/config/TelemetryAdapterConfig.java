@@ -29,6 +29,9 @@ public class TelemetryAdapterConfig {
      */
     @Bean
     RestClient.Builder restClientBuilder() {
-        return RestClient.builder();
+        var client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build();
+        var requests = new org.springframework.http.client.JdkClientHttpRequestFactory(client);
+        requests.setReadTimeout(java.time.Duration.ofSeconds(10));
+        return RestClient.builder().requestFactory(requests);
     }
 }

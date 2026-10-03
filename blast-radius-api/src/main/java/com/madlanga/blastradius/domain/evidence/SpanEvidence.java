@@ -35,6 +35,7 @@ public final class SpanEvidence {
     private final Instant startTime;
     private final long durationMs;
     private final SpanStatus status;
+    private final SpanKind kind;
     /**
      * Peer service when this span represents a client-side call to another component.
      * E.g. "postgres" for a JDBC span emitted by document-service.
@@ -56,6 +57,7 @@ public final class SpanEvidence {
         this.operation = builder.operation != null ? builder.operation : "";
         this.startTime = Objects.requireNonNull(builder.startTime, "startTime must not be null");
         this.durationMs = builder.durationMs;
+        this.kind = builder.kind;
         this.status = builder.status != null ? builder.status : SpanStatus.UNSET;
         this.peerService = builder.peerService;
         this.attributes = Collections.unmodifiableMap(
@@ -73,6 +75,7 @@ public final class SpanEvidence {
     public String getOperation() { return operation; }
     public Instant getStartTime() { return startTime; }
     public long getDurationMs() { return durationMs; }
+    public SpanKind getKind() { return kind; }
     public SpanStatus getStatus() { return status; }
     public String getPeerService() { return peerService; }
     public Map<String, String> getAttributes() { return attributes; }
@@ -95,6 +98,7 @@ public final class SpanEvidence {
         private Instant startTime;
         private long durationMs;
         private SpanStatus status;
+        private SpanKind kind = SpanKind.UNKNOWN;
         private String peerService;
         private Map<String, String> attributes = new LinkedHashMap<>();
         private String errorType;
@@ -111,6 +115,7 @@ public final class SpanEvidence {
         public Builder operation(String operation) { this.operation = operation; return this; }
         public Builder startTime(Instant startTime) { this.startTime = startTime; return this; }
         public Builder durationMs(long durationMs) { this.durationMs = durationMs; return this; }
+        public Builder kind(SpanKind kind) { this.kind = kind == null ? SpanKind.UNKNOWN : kind; return this; }
         public Builder status(SpanStatus status) { this.status = status; return this; }
         public Builder peerService(String peerService) { this.peerService = peerService; return this; }
         public Builder attributes(Map<String, String> attributes) {

@@ -79,6 +79,9 @@ class TempoResponse {
         @JsonProperty("name")
         String name;
 
+        @JsonProperty("kind")
+        String kind;
+
         @JsonProperty("startTimeUnixNano")
         String startTimeUnixNano;
 
@@ -95,10 +98,11 @@ class TempoResponse {
     @JsonIgnoreProperties(ignoreUnknown = true)
     static class SpanStatusDto {
         /**
-         * OTLP status codes: 0=UNSET, 1=OK, 2=ERROR.
+         * Tempo OTLP/JSON may serialize status codes either numerically
+         * (0/1/2) or symbolically (STATUS_CODE_UNSET/OK/ERROR).
          */
         @JsonProperty("code")
-        int code;
+        String code;
 
         @JsonProperty("message")
         String message;

@@ -237,3 +237,14 @@ dependency is healthy.
 The Phase 3 verification probe proves this behavior without introducing the future
 Phase 4 provider/domain API. Required evidence families remain a provider-neutral
 concept rather than a Collector-specific contract.
+
+## ADR-024 — Retain runtime topology separately from incident evidence
+**Status:** Accepted — Phase 6 investigation and approved correction
+
+The live outage proved that disposable Tempo history cannot serve as durable application topology. It also exposed a false second database node created from technology-only pool spans. Treat concrete peer identity and technology separately; do not infer identity from `db.system` or `db.system.name`.
+
+Use `DependencyTopologyProvider` for analysis and a replaceable `TopologyStore` for scoped, timestamped knowledge. The single-instance local adapter stores snapshots atomically in a named volume, automatically merges runtime discovery, and expires observations after a configurable seven-day default. No vendor or persistence concerns enter deterministic graph traversal. Retained edges establish potential relationships, never current failure evidence. A future MadlangaAI architecture provider can replace the acquisition path.
+
+Filter fetched trace spans and incident evidence to the requested interval. Historical spans cannot inflate origin scores or timelines. Keep span roles so server errors alone cannot trigger peer-less dependency inference, and refuse inference when multiple real dependencies remain possible.
+
+Captured real traces are permitted only as regression/offline acceptance inputs when the original healthy evidence has expired. They are never the normal runtime topology mechanism. See [topology retention](TOPOLOGY_RETENTION.md) for freshness, scope, single-writer and partial-coverage limitations.

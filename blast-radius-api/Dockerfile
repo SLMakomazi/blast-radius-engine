@@ -10,6 +10,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
+RUN mkdir -p /app/data/topology && chown -R app:app /app/data
 WORKDIR /app
 COPY --from=build --chown=app:app /workspace/target/blast-radius-api.jar ./app.jar
 USER app:app

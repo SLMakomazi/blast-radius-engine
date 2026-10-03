@@ -36,6 +36,21 @@ The services emit logs, metrics, traces and health signals. A controlled failure
 - optional chaos containment assessment;
 - sanitized AI diagnosis/remediation context.
 
+## Phase 6 — retained topology and incident correlation
+
+The local API automatically retains discovered dependency topology independently of raw trace retention. Database identity stays separate from technology; incident evidence is restricted to its requested window. See [topology retention and configuration](docs/TOPOLOGY_RETENTION.md) and [Phase 6 verification](docs/PHASE6_VERIFICATION.md).
+
+Only rebuild/recreate the API when testing this change; `--no-deps` keeps the intentionally stopped database stopped:
+
+```bash
+docker compose build blast-radius-api
+docker compose up -d --no-deps blast-radius-api
+curl -fsS 'http://localhost:8080/api/v1/blast-radius/topology?applicationId=document-platform&environment=local'
+curl -fsS 'http://localhost:8080/api/v1/blast-radius/analyze?applicationId=document-platform&environment=local'
+```
+
+The `topology-data` volume contains local knowledge, not incident payloads. Recovery testing requires separate approval for the current outage experiment.
+
 ## Current status — Phase 5 deterministic graph engine
 
 Phase 5 implementation and verification are complete on `feat/deterministic-graph-engine`. **Final clean Maven regression passed on 2026-10-02: 125 tests, 0 failures, 0 errors, 0 skipped.** The separate live topology-discovery acceptance also passed against real Docker/Tempo evidence. See [Phase 5 verification](docs/PHASE5_VERIFICATION.md).
