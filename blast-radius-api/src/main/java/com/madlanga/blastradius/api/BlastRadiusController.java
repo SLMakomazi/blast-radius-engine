@@ -38,7 +38,7 @@ public class BlastRadiusController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(required = false) String originHint,
             @RequestParam(required = false) String experimentId) {
-        return analyze(applicationId, environment, from, to, originHint, experimentId);
+        return executeAnalysis(applicationId, environment, from, to, originHint, experimentId);
     }
 
     /**
@@ -54,7 +54,7 @@ public class BlastRadiusController {
                 request.originHint(), request.experimentId());
     }
 
-    private IncidentAnalysis analyze(String applicationId, String environment, Instant from, Instant to,
+    private IncidentAnalysis executeAnalysis(String applicationId, String environment, Instant from, Instant to,
             String originHint, String experimentId) {
         String resolvedApplicationId = requireText(applicationId, "applicationId");
         String resolvedEnvironment = hasText(environment) ? environment.trim() : "local";
