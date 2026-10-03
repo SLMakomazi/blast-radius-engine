@@ -35,21 +35,12 @@ public class IncidentLifecycleService {
         Optional<PersistedIncident> active = repository.findActive(
                 analysis.applicationId(), analysis.environment(), analysis.origin().component());
 
-        if (!failureObserved && active.isEmpty()) {
+        if (!failureObserved) {
             return Optional.empty();
         }
 
         Instant now = Instant.now();
         String snapshot = snapshot(analysis);
-
-        if (!failureObserved) {
-            PersistedIncident existing = active.orElseThrow();
-            return Optional.of(repository.save(new PersistedIncident(
-                    existing.id(), existing.applicationId(), existing.environment(), IncidentStatus.RESOLVED,
-                    existing.startedAt(), analysis.to(), existing.originComponent(), analysis.origin().confidence(),
-                    analysis.severity().level(), analysis.severity().score(), analysis.from(), analysis.to(),
-                    snapshot, existing.createdAt(), now)));
-        }
 
         if (active.isPresent()) {
             PersistedIncident existing = active.get();
@@ -69,6 +60,26 @@ public class IncidentLifecycleService {
                 startedAt, null, analysis.origin().component(), analysis.origin().confidence(),
                 analysis.severity().level(), analysis.severity().score(), analysis.from(), analysis.to(),
                 snapshot, now, now)));
+    }
+
+    public Optional<PersistedIncident> resolve(UUID incidentId, Instant resolvedAt) {
+        PersistedIncident existing = repository.findById(incidentId)
+                .orElseThrow(() -> new IllegalArgumentException("incident not found: " + incidentId));
+        if (existing.status() == IncidentStatus.RESOLVED) {
+            return Optional.of(existing);
+        }
+
+        Instant resolutionTime = resolvedAt == null ? Instant.now() : resolvedAt;
+        if (resolutionTime.isBefore(existing.startedAt())) {
+            throw new IllegalArgumentException("resolvedAt must not be before incident startedAt");
+        }
+
+        Instant now = Instant.now();
+        return Optional.of(repository.save(new PersistedIncident(
+                existing.id(), existing.applicationId(), existing.environment(), IncidentStatus.RESOLVED,
+                existing.startedAt(), resolutionTime, existing.originComponent(), existing.originConfidence(),
+                existing.severityLevel(), existing.severityScore(), existing.analysisFrom(), existing.analysisTo(),
+                existing.analysisSnapshot(), existing.createdAt(), now)));
     }
 
     private boolean hasFailureEvidence(IncidentAnalysis analysis) {
