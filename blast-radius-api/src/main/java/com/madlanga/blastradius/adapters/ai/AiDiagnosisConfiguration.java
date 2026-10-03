@@ -4,6 +4,8 @@ import com.madlanga.blastradius.ports.AiDiagnosisPort;
 import com.madlanga.blastradius.service.AiDiagnosisService;
 import com.madlanga.blastradius.service.DeterministicDiagnosisAdapter;
 import com.madlanga.blastradius.service.DiagnosisContextFactory;
+import com.madlanga.blastradius.service.StoredAnalysisDiagnosisContextMapper;
+import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +19,12 @@ public class AiDiagnosisConfiguration {
     @Bean
     DiagnosisContextFactory diagnosisContextFactory() {
         return new DiagnosisContextFactory();
+    }
+
+    @Bean
+    StoredAnalysisDiagnosisContextMapper storedAnalysisDiagnosisContextMapper(JsonMapper jsonMapper,
+            TelemetrySanitizer sanitizer) {
+        return new StoredAnalysisDiagnosisContextMapper(jsonMapper, sanitizer);
     }
 
     @Bean
