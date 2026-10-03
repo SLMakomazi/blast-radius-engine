@@ -2,6 +2,7 @@ package com.madlanga.blastradius.api;
 
 import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
 import com.madlanga.blastradius.service.IncidentAnalysisService;
+import com.madlanga.blastradius.service.IncidentLifecycleService;
 import com.madlanga.blastradius.ports.DependencyTopologyProvider;
 import com.madlanga.blastradius.domain.topology.DependencyTopology;
 import java.time.Instant;
@@ -20,10 +21,18 @@ import org.springframework.web.bind.annotation.*;
 public class BlastRadiusController {
     private final IncidentAnalysisService service;
     private final DependencyTopologyProvider topologyProvider;
+    private final IncidentLifecycleService lifecycleService;
 
     public BlastRadiusController(IncidentAnalysisService service, DependencyTopologyProvider topologyProvider) {
+        this(service, topologyProvider, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public BlastRadiusController(IncidentAnalysisService service, DependencyTopologyProvider topologyProvider,
+            IncidentLifecycleService lifecycleService) {
         this.service = service;
         this.topologyProvider = topologyProvider;
+        this.lifecycleService = lifecycleService;
     }
 
     @Operation(summary = "Get dependency topology", description = "Returns the deterministic dependency topology used to calculate potential blast radius.")
@@ -45,7 +54,7 @@ public class BlastRadiusController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(required = false) String originHint,
             @RequestParam(required = false) String experimentId) {
-        return executeAnalysis(applicationId, environment, from, to, originHint, experimentId);
+        return executeAnalysis(applicationId, environment, from, to, originHint, experimentId, false);
     }
 
     /**
@@ -63,11 +72,16 @@ public class BlastRadiusController {
             throw new IllegalArgumentException("request body is required");
         }
         return executeAnalysis(request.applicationId(), request.environment(), request.from(), request.to(),
-                request.originHint(), request.experimentId());
+                request.originHint(), request.experimentId(), true);
     }
 
     private IncidentAnalysis executeAnalysis(String applicationId, String environment, Instant from, Instant to,
             String originHint, String experimentId) {
+        return executeAnalysis(applicationId, environment, from, to, originHint, experimentId, false);
+    }
+
+    private IncidentAnalysis executeAnalysis(String applicationId, String environment, Instant from, Instant to,
+            String originHint, String experimentId, boolean persistLifecycle) {
         String resolvedApplicationId = requireText(applicationId, "applicationId");
         String resolvedEnvironment = hasText(environment) ? environment.trim() : "local";
         Instant resolvedTo = to == null ? Instant.now() : to;
@@ -75,8 +89,14 @@ public class BlastRadiusController {
         if (!resolvedFrom.isBefore(resolvedTo)) {
             throw new ApiRequestException("INVALID_TIME_WINDOW", "from must be before to");
         }
+        String resolvedOriginHint = trimToNull(originHint);
+        String resolvedExperimentId = trimToNull(experimentId);
+        if (persistLifecycle && lifecycleService != null) {
+            return lifecycleService.analyzeAndPersist(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
+                    resolvedOriginHint, resolvedExperimentId);
+        }
         return service.analyze(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
-                trimToNull(originHint), trimToNull(experimentId));
+                resolvedOriginHint, resolvedExperimentId);
     }
 
     @ExceptionHandler(ApiRequestException.class)
