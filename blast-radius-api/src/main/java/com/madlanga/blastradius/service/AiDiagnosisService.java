@@ -16,7 +16,10 @@ public final class AiDiagnosisService {
     }
 
     public AiDiagnosis diagnose(IncidentAnalysis analysis) {
-        var context = contextFactory.from(analysis);
+        return diagnose(contextFactory.from(analysis));
+    }
+
+    public AiDiagnosis diagnose(com.madlanga.blastradius.domain.diagnosis.DiagnosisContext context) {
         try {
             return primary.diagnose(context);
         } catch (RuntimeException e) {
