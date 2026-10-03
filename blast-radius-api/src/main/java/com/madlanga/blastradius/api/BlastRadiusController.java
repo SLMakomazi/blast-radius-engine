@@ -61,20 +61,41 @@ public class BlastRadiusController {
         Instant resolvedTo = to == null ? Instant.now() : to;
         Instant resolvedFrom = from == null ? resolvedTo.minus(15, ChronoUnit.MINUTES) : from;
         if (!resolvedFrom.isBefore(resolvedTo)) {
-            throw new IllegalArgumentException("from must be before to");
+            throw new ApiRequestException("INVALID_TIME_WINDOW", "from must be before to");
         }
         return service.analyze(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
                 trimToNull(originHint), trimToNull(experimentId));
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
-    ResponseEntity<ErrorResponse> badRequest(RuntimeException e) {
-        return ResponseEntity.badRequest().body(new ErrorResponse("ANALYSIS_NOT_AVAILABLE", e.getMessage()));
+    @ExceptionHandler(ApiRequestException.class)
+    ResponseEntity<ErrorResponse> requestError(ApiRequestException e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse(e.code(), e.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ErrorResponse> invalidAnalysisRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse(classifyIllegalArgument(e), e.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<ErrorResponse> analysisUnavailable(IllegalStateException e) {
+        String code = e.getMessage() != null && e.getMessage().startsWith("No failure evidence found")
+                ? "NO_FAILURE_EVIDENCE"
+                : "ANALYSIS_NOT_AVAILABLE";
+        return ResponseEntity.badRequest().body(new ErrorResponse(code, e.getMessage()));
+    }
+
+    private String classifyIllegalArgument(IllegalArgumentException e) {
+        String message = e.getMessage() == null ? "" : e.getMessage();
+        if (message.startsWith("unknown failure experiment:")) return "UNKNOWN_EXPERIMENT";
+        if (message.startsWith("originHint is not present in discovered topology:")) return "ORIGIN_NOT_IN_TOPOLOGY";
+        if (message.startsWith("originHint conflicts with controlled experiment origin:")) return "ORIGIN_CONFLICT";
+        return "INVALID_REQUEST";
     }
 
     private String requireText(String value, String field) {
         if (!hasText(value)) {
-            throw new IllegalArgumentException(field + " is required");
+            throw new ApiRequestException("INVALID_REQUEST", field + " is required");
         }
         return value.trim();
     }
@@ -87,5 +108,5 @@ public class BlastRadiusController {
         return value != null && !value.isBlank();
     }
 
-    record ErrorResponse(String code, String message) {}
+    record ErrorResponse(String code, String message) {}\n\n    private static final class ApiRequestException extends IllegalArgumentException {\n        private final String code;\n\n        private ApiRequestException(String code, String message) {\n            super(message);\n            this.code = code;\n        }\n\n        private String code() { return code; }\n    }
 }
