@@ -271,3 +271,17 @@ Blast Radius persists incident lifecycle/history in a diagnostic-plane PostgreSQ
 Persist incident metadata and the sanitized deterministic analysis snapshot; telemetry backends remain the systems of record for raw logs, metrics and traces. A partial unique index permits only one ACTIVE incident per application/environment/origin.
 
 Failure evidence creates or updates an ACTIVE incident. Absence of failure evidence never implies recovery. Resolution is an explicit lifecycle transition through the incident API so a historical or evidence-empty analysis window cannot accidentally close a live incident. Resolution preserves the incident UUID, original failure snapshot and peak severity; it records resolvedAt without rewriting a HIGH incident as LOW merely because the system recovered.
+
+
+## ADR-028 — AI diagnosis is advisory, evidence-bounded and failure-isolated
+**Status:** Accepted — Phase 9
+
+Phase 9 introduces a provider-neutral `AiDiagnosisPort`. The AI receives a compact
+`DiagnosisContext` derived only from the already-sanitized deterministic
+`IncidentAnalysis`. It may explain evidence and recommend Immediate, Medium-term
+and Strategic actions, but it must not calculate or alter origin, blast radius,
+severity, telemetry coverage or containment. The initial optional provider is Gemini.
+Provider failure is isolated by returning a deterministic evidence-based fallback;
+deterministic incident analysis remains available independently of AI availability.
+Credentials are supplied only through environment configuration and are never persisted
+inside incident snapshots or source-controlled configuration.
