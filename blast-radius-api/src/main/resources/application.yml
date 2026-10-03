@@ -1,6 +1,13 @@
 spring:
   application:
     name: blast-radius-api
+  datasource:
+    url: ${BLAST_RADIUS_DB_URL:jdbc:postgresql://blast-radius-db:5432/blast_radius}
+    username: ${BLAST_RADIUS_DB_USER:blast_radius}
+    password: ${BLAST_RADIUS_DB_PASSWORD:blast-radius-local-only}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 server:
   port: 8080

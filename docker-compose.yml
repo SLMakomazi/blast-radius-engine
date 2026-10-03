@@ -9,8 +9,35 @@ services:
     mem_limit: 256m
     environment:
       JAVA_TOOL_OPTIONS: -Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=2
+      BLAST_RADIUS_DB_URL: jdbc:postgresql://blast-radius-db:5432/${BLAST_RADIUS_DB_NAME:-blast_radius}
+      BLAST_RADIUS_DB_USER: ${BLAST_RADIUS_DB_USER:-blast_radius}
+      BLAST_RADIUS_DB_PASSWORD: ${BLAST_RADIUS_DB_PASSWORD:-blast-radius-local-only}
+    depends_on:
+      blast-radius-db:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
+    networks:
+      - blast-radius
+
+  blast-radius-db:
+    image: docker.io/library/postgres:17.6
+    container_name: blast-radius-db
+    mem_limit: 192m
+    environment:
+      POSTGRES_DB: ${BLAST_RADIUS_DB_NAME:-blast_radius}
+      POSTGRES_USER: ${BLAST_RADIUS_DB_USER:-blast_radius}
+      POSTGRES_PASSWORD: ${BLAST_RADIUS_DB_PASSWORD:-blast-radius-local-only}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - blast-radius-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
     networks:
       - blast-radius
 
@@ -206,3 +233,4 @@ networks:
 volumes:
   topology-data:
   postgres-data:
+  blast-radius-db-data:

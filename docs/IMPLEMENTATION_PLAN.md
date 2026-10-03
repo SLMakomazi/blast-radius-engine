@@ -113,15 +113,17 @@ Exit: full TelemetryBundle can be built from the local lab without secrets/PII l
 - expected vs observed vs unexpected impact;
 - containment assessment.
 
-Implementation is staged on `feat/phase7-severity-chaos-assessment`: deterministic severity, the provider-neutral failure-experiment contract, expected/observed/unexpected comparison, and containment HELD/BREACHED/INCONCLUSIVE semantics are implemented. Manual verification is pending; see `PHASE7_VERIFICATION.md`.
+**Implementation and manual verification complete and merged.** Deterministic severity, the provider-neutral failure-experiment contract, expected/observed/unexpected comparison, and containment HELD/BREACHED/INCONCLUSIVE semantics were verified against the controlled PostgreSQL outage scenario. See `PHASE7_VERIFICATION.md`.
 
 ## Phase 8 — API and persistence
 - `POST /api/v1/blast-radius/analyze`;
 - error/warning contracts;
-- incident/evidence persistence if needed for local history;
+- incident lifecycle/history persistence in an independent diagnostic PostgreSQL database;
+- ACTIVE/RESOLVED history queries and explicit incident resolution;
+- preservation of incident identity, peak severity and deterministic failure snapshot;
 - OpenAPI docs.
 
-If persistence is used, include its database/container in Docker Compose; do not reuse target PostgreSQL in a way that prevents analysis during its simulated outage.
+**Implemented and manually verified on `feat/phase8-api-persistence`.** POST analysis persists failure-backed ACTIVE incidents while GET analysis remains non-persisting. Flyway V1 creates incident history and V2 enforces one ACTIVE incident per application/environment/origin. The diagnostic database is isolated from the monitored target PostgreSQL and remained available during the target outage. Manual verification proved ACTIVE HIGH/50 persistence, explicit resolution of the same UUID, retained HIGH/50 peak severity, empty ACTIVE history after resolution, and retained RESOLVED history. Absence of failure evidence does not automatically resolve an incident.
 
 ## Phase 9 — AI diagnosis
 - sanitized DiagnosisContext;
