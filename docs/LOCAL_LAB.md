@@ -253,3 +253,7 @@ Loopback host bindings protect unauthenticated development query endpoints from
 remote access. Collector, Tempo and Loki expose API readiness rather than adding
 shells to their upstream images. PostgreSQL retains its named volume; telemetry
 backends use short-retention disposable storage.
+
+## Phase 6 retained knowledge
+
+The API now owns a `topology-data` named volume. Runtime discovery automatically retains scoped dependency knowledge with first/last observation times and a configurable seven-day TTL; raw Tempo history remains disposable. The engine's deterministic graph has no storage/vendor dependency. See [topology retention](TOPOLOGY_RETENTION.md) for settings and the strictly offline acceptance bootstrap. During the current outage acceptance, use API-only Compose operations with `--no-deps`; do not start PostgreSQL or run recovery without approval.

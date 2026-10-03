@@ -156,3 +156,7 @@ Exit: a new developer can run the documented commands and reproduce expected res
 - autonomous production fixes;
 - production chaos orchestration;
 - replacement of unrelated MadlangaAI modules.
+
+### Phase 6 correction — verified 2026-10-03
+
+Concrete dependency identity, automatic retained runtime topology, scoped seven-day expiry and incident-window integrity are implemented. The stopped-database acceptance passed with the expected four-node origin/observed-impact chain and no historical evidence in the incident timeline. See [actual results](PHASE6_VERIFICATION.md). PostgreSQL remains stopped; recovery and Phase 7 require further approval.

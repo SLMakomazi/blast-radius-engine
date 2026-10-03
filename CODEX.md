@@ -54,3 +54,10 @@ Small branches/commits; tests with behavior changes; interfaces at integration b
 - Run `scripts/verify-observability.sh` for actual healthy/failure/recovery and partial-observability proof; record observed results in `docs/PHASE3_VERIFICATION.md`.
 - Keep backend retention/concurrency/memory bounded for the small ARM64 Podman VM. Never change machine resources automatically.
 - No normalized ingestion, provider adapters, graph calculations or diagnosis are implemented in Phase 3.
+
+## Implemented Phase 6 topology conventions
+- Incident analysis depends on `DependencyTopologyProvider`; graph traversal remains independent of discovery/storage.
+- Concrete component identity and technology metadata are distinct. Technology-only spans never invent dependencies.
+- Runtime knowledge is retained through `TopologyStore`, scoped by application/environment, with observation timestamps/provenance and configurable expiry. Never renew an edge from a peer-less failure or from read time.
+- Current incident evidence is restricted to its requested interval; historical topology cannot change observed impact, scores, timeline or current telemetry coverage.
+- Captured traces are regression/offline-bootstrap inputs only, never normal production topology configuration. See `docs/TOPOLOGY_RETENTION.md` and `docs/PHASE6_VERIFICATION.md`.
