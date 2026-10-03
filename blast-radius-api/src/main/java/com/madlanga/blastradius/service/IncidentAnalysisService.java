@@ -3,6 +3,8 @@ package com.madlanga.blastradius.service;
 import com.madlanga.blastradius.ports.DependencyTopologyProvider;
 import com.madlanga.blastradius.domain.evidence.*;
 import com.madlanga.blastradius.domain.incident.*;
+import com.madlanga.blastradius.domain.experiment.*;
+import com.madlanga.blastradius.ports.FailureExperimentProvider;
 import com.madlanga.blastradius.domain.topology.*;
 import com.madlanga.blastradius.ports.TelemetryProvider;
 import java.time.Instant;
@@ -19,13 +21,32 @@ public class IncidentAnalysisService {
     private final DependencyTopologyProvider topologyProvider;
     private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
     private final IncidentSeverityCalculator severityCalculator = new IncidentSeverityCalculator();
+    private final FailureExperimentAssessmentService experimentAssessmentService = new FailureExperimentAssessmentService();
+    private final FailureExperimentProvider failureExperimentProvider;
 
     public IncidentAnalysisService(TelemetryProvider telemetryProvider, DependencyTopologyProvider topologyProvider) {
+        this(telemetryProvider, topologyProvider, experimentId -> Optional.empty());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public IncidentAnalysisService(TelemetryProvider telemetryProvider, DependencyTopologyProvider topologyProvider,
+            FailureExperimentProvider failureExperimentProvider) {
         this.telemetryProvider = telemetryProvider;
         this.topologyProvider = topologyProvider;
+        this.failureExperimentProvider = failureExperimentProvider;
     }
 
     public IncidentAnalysis analyze(String applicationId, String environment, Instant from, Instant to, String originHint) {
+        return analyze(applicationId, environment, from, to, originHint, null);
+    }
+
+    public IncidentAnalysis analyze(String applicationId, String environment, Instant from, Instant to,
+            String originHint, String experimentId) {
+        FailureExperiment experiment = resolveExperiment(experimentId);
+        String effectiveOriginHint = experiment == null ? originHint : experiment.originComponent();
+        if (experiment != null && hasText(originHint) && !originHint.trim().equals(experiment.originComponent())) {
+            throw new IllegalArgumentException("originHint conflicts with controlled experiment origin: " + experiment.originComponent());
+        }
         TelemetryQuery query = TelemetryQuery.builder().applicationId(applicationId).environment(environment)
                 .from(from).to(to).build();
         TelemetryBundle telemetry = withinWindow(telemetryProvider.getTelemetry(query), from, to);
@@ -33,7 +54,7 @@ public class IncidentAnalysisService {
         DependencyTopology topology = topologyProvider.getTopology(applicationId, environment);
 
         Map<String,List<EvidenceSignal>> signals = correlate(telemetry, topology);
-        OriginAssessment origin = assessOrigin(originHint, topology, signals);
+        OriginAssessment origin = assessOrigin(effectiveOriginHint, topology, signals);
         GraphAnalysisResult theoretical = graphEngine.calculate(topology, origin.component());
 
         Map<String,TheoreticalImpact> theoreticalById = new LinkedHashMap<>();
@@ -68,8 +89,16 @@ public class IncidentAnalysisService {
         if (!telemetry.isFullyCovered()) warnings.add("Observed impact is constrained by partial telemetry coverage; missing evidence is not healthy evidence.");
 
         IncidentSeverity severity = severityCalculator.calculate(topology, origin, impacts);
+        ExperimentAssessment experimentAssessment = experiment == null ? null
+                : experimentAssessmentService.assess(experiment, impacts, telemetry.isFullyCovered());
         return new IncidentAnalysis(applicationId, environment, from, to, origin,
-                telemetry.getCoverage(), impacts, timeline, severity, warnings);
+                telemetry.getCoverage(), impacts, timeline, severity, experimentAssessment, warnings);
+    }
+
+    private FailureExperiment resolveExperiment(String experimentId) {
+        if (!hasText(experimentId)) return null;
+        return failureExperimentProvider.getExperiment(experimentId.trim())
+                .orElseThrow(() -> new IllegalArgumentException("unknown failure experiment: " + experimentId.trim()));
     }
 
     private TelemetryBundle withinWindow(TelemetryBundle bundle, Instant from, Instant to) {
