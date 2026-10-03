@@ -12,6 +12,11 @@ services:
       BLAST_RADIUS_DB_URL: jdbc:postgresql://blast-radius-db:5432/${BLAST_RADIUS_DB_NAME:-blast_radius}
       BLAST_RADIUS_DB_USER: ${BLAST_RADIUS_DB_USER:-blast_radius}
       BLAST_RADIUS_DB_PASSWORD: ${BLAST_RADIUS_DB_PASSWORD:-blast-radius-local-only}
+      GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
+      GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-20}
     depends_on:
       blast-radius-db:
         condition: service_healthy
