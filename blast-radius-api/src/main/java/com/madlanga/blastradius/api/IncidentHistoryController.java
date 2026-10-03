@@ -6,7 +6,8 @@ import com.madlanga.blastradius.ports.IncidentRepository;
 import com.madlanga.blastradius.service.IncidentLifecycleService;
 import com.madlanga.blastradius.service.AiDiagnosisService;
 import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
+import com.madlanga.blastradius.domain.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.service.StoredAnalysisDiagnosisContextMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import java.time.Instant;
 import java.util.List;
@@ -25,13 +26,16 @@ public class IncidentHistoryController {
     private final JsonMapper jsonMapper;
     private final IncidentLifecycleService lifecycleService;
     private final AiDiagnosisService aiDiagnosisService;
+    private final StoredAnalysisDiagnosisContextMapper diagnosisContextMapper;
 
     public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
-            IncidentLifecycleService lifecycleService, AiDiagnosisService aiDiagnosisService) {
+            IncidentLifecycleService lifecycleService, AiDiagnosisService aiDiagnosisService,
+            StoredAnalysisDiagnosisContextMapper diagnosisContextMapper) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
         this.lifecycleService = lifecycleService;
         this.aiDiagnosisService = aiDiagnosisService;
+        this.diagnosisContextMapper = diagnosisContextMapper;
     }
 
     @Operation(summary = "List persisted blast radius incidents")
@@ -69,8 +73,8 @@ public class IncidentHistoryController {
             return ResponseEntity.status(404).body(new HistoryErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
         }
         try {
-            IncidentAnalysis analysis = jsonMapper.readValue(incident.get().analysisSnapshot(), IncidentAnalysis.class);
-            AiDiagnosis diagnosis = aiDiagnosisService.diagnose(analysis);
+            DiagnosisContext context = diagnosisContextMapper.fromJson(incident.get().analysisSnapshot());
+            AiDiagnosis diagnosis = aiDiagnosisService.diagnose(context);
             return ResponseEntity.ok(diagnosis);
         } catch (Exception e) {
             throw new IllegalStateException("stored incident snapshot cannot be diagnosed", e);
