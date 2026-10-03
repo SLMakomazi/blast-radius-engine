@@ -18,6 +18,7 @@ public class IncidentAnalysisService {
     private final TelemetryProvider telemetryProvider;
     private final DependencyTopologyProvider topologyProvider;
     private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
+    private final IncidentSeverityCalculator severityCalculator = new IncidentSeverityCalculator();
 
     public IncidentAnalysisService(TelemetryProvider telemetryProvider, DependencyTopologyProvider topologyProvider) {
         this.telemetryProvider = telemetryProvider;
@@ -66,8 +67,9 @@ public class IncidentAnalysisService {
         List<String> warnings = new ArrayList<>(telemetry.getWarnings());
         if (!telemetry.isFullyCovered()) warnings.add("Observed impact is constrained by partial telemetry coverage; missing evidence is not healthy evidence.");
 
+        IncidentSeverity severity = severityCalculator.calculate(topology, origin, impacts);
         return new IncidentAnalysis(applicationId, environment, from, to, origin,
-                telemetry.getCoverage(), impacts, timeline, warnings);
+                telemetry.getCoverage(), impacts, timeline, severity, warnings);
     }
 
     private TelemetryBundle withinWindow(TelemetryBundle bundle, Instant from, Instant to) {
