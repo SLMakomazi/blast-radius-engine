@@ -26,6 +26,20 @@ class IncidentSeverityCalculatorTest {
     }
 
     @Test
+    void theoreticalDepthDoesNotEscalateIncidentSeverityWithoutObservedPropagation() {
+        var impacts = List.of(
+                impact("postgres", ObservedState.ORIGIN, 0, List.of()),
+                impact("document-service", ObservedState.THEORETICAL_ONLY, 1, List.of()),
+                impact("customer-service", ObservedState.THEORETICAL_ONLY, 2, List.of()),
+                impact("payment-service", ObservedState.THEORETICAL_ONLY, 3, List.of()));
+        var severity = calculator.calculate(topology(Map.of()),
+                new OriginAssessment("postgres", ConfidenceLevel.LOW, 0, List.of()), impacts);
+        assertThat(severity.score()).isZero();
+        assertThat(severity.level()).isEqualTo(SeverityLevel.LOW);
+        assertThat(severity.reasons()).containsExactly("no configured severity escalation factor was observed");
+    }
+
+    @Test
     void containmentBreachCanEscalateSeverity() {
         var impacts = List.of(
                 impact("postgres", ObservedState.ORIGIN, 0, List.of()),
