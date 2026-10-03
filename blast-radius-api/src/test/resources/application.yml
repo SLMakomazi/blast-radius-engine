@@ -10,10 +10,17 @@ spring:
     name: blast-radius-api-test
   # Unit/context tests do not require the external incident store. Database and
   # Flyway integration are verified against blast-radius-db in the Docker lab.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
-      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+  # Spring Boot 4's Flyway starter participates in the context before the
+  # previous autoconfigure exclusion can keep this test database-free. Give
+  # context tests an in-memory datasource instead; production still uses
+  # blast-radius-db through the main application.yml.
+  datasource:
+    url: jdbc:h2:mem:blast_radius_test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
 
 blast-radius:
   topology:
