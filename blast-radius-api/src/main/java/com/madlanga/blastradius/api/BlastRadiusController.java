@@ -50,7 +50,7 @@ public class BlastRadiusController {
         if (request == null) {
             throw new IllegalArgumentException("request body is required");
         }
-        return analyze(request.applicationId(), request.environment(), request.from(), request.to(),
+        return executeAnalysis(request.applicationId(), request.environment(), request.from(), request.to(),
                 request.originHint(), request.experimentId());
     }
 
@@ -108,5 +108,16 @@ public class BlastRadiusController {
         return value != null && !value.isBlank();
     }
 
-    record ErrorResponse(String code, String message) {}\n\n    private static final class ApiRequestException extends IllegalArgumentException {\n        private final String code;\n\n        private ApiRequestException(String code, String message) {\n            super(message);\n            this.code = code;\n        }\n\n        private String code() { return code; }\n    }
+    record ErrorResponse(String code, String message) {}
+
+    private static final class ApiRequestException extends IllegalArgumentException {
+        private final String code;
+
+        private ApiRequestException(String code, String message) {
+            super(message);
+            this.code = code;
+        }
+
+        private String code() { return code; }
+    }
 }
