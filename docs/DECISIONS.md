@@ -261,3 +261,13 @@ Captured real traces are permitted only as regression/offline acceptance inputs 
 **Decision:** Failure experiment metadata enters through `FailureExperimentProvider`. Blast Radius compares expected, observed and unexpected impact and evaluates containment. Failure injection remains behind a separate driver/orchestrator boundary.
 
 **Why:** This lets the engine validate local controlled failures and later consume TsakaniQA/chaos experiment metadata without coupling deterministic diagnosis to a specific chaos tool or granting the analysis engine production mutation authority. Partial telemetry yields `INCONCLUSIVE`, never a false containment success.
+
+
+## ADR-027 — Incident history uses an independent diagnostic database and explicit lifecycle resolution
+**Status:** Accepted — Phase 8
+
+Blast Radius persists incident lifecycle/history in a diagnostic-plane PostgreSQL database that is separate from the monitored target PostgreSQL. The target database may be the failure origin under analysis, so diagnostic history must remain writable and queryable while that dependency is unavailable.
+
+Persist incident metadata and the sanitized deterministic analysis snapshot; telemetry backends remain the systems of record for raw logs, metrics and traces. A partial unique index permits only one ACTIVE incident per application/environment/origin.
+
+Failure evidence creates or updates an ACTIVE incident. Absence of failure evidence never implies recovery. Resolution is an explicit lifecycle transition through the incident API so a historical or evidence-empty analysis window cannot accidentally close a live incident. Resolution preserves the incident UUID, original failure snapshot and peak severity; it records resolvedAt without rewriting a HIGH incident as LOW merely because the system recovered.
