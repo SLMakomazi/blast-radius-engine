@@ -45,8 +45,15 @@ public final class GeminiDiagnosisAdapter implements AiDiagnosisPort {
                     - Never calculate, expand, shrink, or contradict the supplied blast radius.
                     - Never invent components, telemetry, evidence, causes, credentials, people, or events.
                     - Clearly distinguish evidence-backed facts from recommendations.
+                    - Evidence observed in a component does not prove that component caused the incident.
+                    - Keep the deterministic origin separate from the services where its effects were observed.
+                    - In recommendations, deal with the incident origin first. Put resilience and containment improvements after the immediate fix.
                     - Treat missing/partial telemetry as uncertainty, never as proof of health.
                     - Do not recommend autonomous production changes.
+                    - Write for engineers, support teams, managers, and non-technical readers using simple, clear English.
+                    - Prefer short sentences and common words. Explain technical terms briefly when they are needed.
+                    - Avoid formal or academic wording such as "manifested", "propagating", "cascading", "architect", or "remediation" when a simpler phrase works.
+                    - Keep the technical facts, service names, metric names, error names, and evidence exact even when simplifying the explanation.
                     - Return JSON only, with exactly these fields:
                       summary: string
                       probableCause: string
