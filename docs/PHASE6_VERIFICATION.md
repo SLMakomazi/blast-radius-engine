@@ -1,6 +1,6 @@
 # Phase 6 — Evidence Correlation and Observed Impact
 
-Status: **stopped-database retained-topology acceptance PASS**, 2026-10-03. Recovery testing remains explicitly deferred pending approval.
+Status: **manual Phase 6 lifecycle validation PASS**, 2026-10-03. Healthy recovery, live topology relearning, fresh outage detection, automatic origin inference, three-hop observed blast radius, and final recovery were all validated manually.
 
 Phase 6 combines the normalized Phase 4 telemetry boundary with the Phase 5 dependency graph to distinguish potential impact from evidence-backed observed impact.
 
@@ -100,7 +100,7 @@ The database edge retained:
 - source: `captured-tempo-bootstrap`;
 - sourceRef: `trace/00213806d536843849e3cc53fdcd1534`.
 
-After analysis, live automatic learning had refreshed the HTTP edges to `2026-10-03T03:27:17Z` with `local-tempo` provenance. The peer-less outage did **not** renew the database edge. This separates real runtime refresh from bootstrap knowledge and preserves honest freshness.
+After the stopped-database acceptance, PostgreSQL was started and a real successful payment request traversed `payment-service -> customer-service -> document-service -> postgres`. A subsequent analysis refreshed the retained database node and `document-service -> postgres` edge from `captured-tempo-bootstrap` to `local-tempo` using live trace `20df4398e3bfd8d58a3b1ae5b531cdfa`, with `lastSeen=2026-10-03T03:51:03.778381835Z`. This proved automatic healthy database dependency rediscovery without bootstrap reliance.
 
 ## Actual stopped-database result
 
@@ -149,11 +149,37 @@ The initial acceptance checker used a Python ISO parser that rejected nine-digit
 
 Machine-readable observed results: [outage acceptance](../fixtures/experiments/phase6-retained-topology-outage.json).
 
+## Manual lifecycle validation after bootstrap acceptance
+
+The full local lifecycle was then exercised manually without rebuilding application code:
+
+1. PostgreSQL was started while the existing `document-service` process remained running and returned healthy.
+2. A real request with correlation ID `phase6-live-learning-1790999603` returned **HTTP 201 PROCESSED** and traversed the full synthetic chain.
+3. Retained topology automatically refreshed `document-service -> postgres` from bootstrap provenance to `local-tempo`, preserving `postgres` as the concrete database identity and `POSTGRESQL` only as technology metadata.
+4. PostgreSQL was stopped again.
+5. A fresh request with correlation ID `phase6-no-bootstrap-outage-1790999920` returned **HTTP 502 DOWNSTREAM_FAILURE**.
+6. Analysis for the isolated incident window `2026-10-03T03:58:30Z` to `2026-10-03T03:59:30Z` used **no `originHint`** and selected `postgres` as **HIGH-confidence ORIGIN** with evidence score `600`.
+7. Observed propagation was exactly:
+
+| Component | State | Distance | Path |
+|---|---|---:|---|
+| postgres | ORIGIN | 0 | postgres |
+| document-service | OBSERVED | 1 | postgres → document-service |
+| customer-service | OBSERVED | 2 | postgres → document-service → customer-service |
+| payment-service | OBSERVED | 3 | postgres → document-service → customer-service → payment-service |
+
+8. Coverage remained **logs AVAILABLE, metrics AVAILABLE, traces AVAILABLE, health AVAILABLE; fullyCovered=true**.
+9. All shown incident evidence fell inside the requested time window; no historical outage evidence contaminated the result.
+10. PostgreSQL was started again and both PostgreSQL and `document-service` reported healthy.
+11. A final recovery request with correlation ID `phase6-final-recovery-1791000201` returned **HTTP 201 PROCESSED**.
+
+This validates the intended lifecycle: **healthy -> learn topology -> dependency outage -> detect origin -> calculate observed blast radius -> recover -> healthy**.
+
 ## Limitations and stopping point
 
 - Origin is an inference from a current failed dependency operation and its unique retained relationship, not a fresh successful database measurement.
 - Local topology is single-writer and scoped to one configured application/environment per backend. Runtime discovery is bounded/sampled; available providers do not prove complete topology.
 - TTL eventually removes unrefreshed knowledge. A future architecture provider can supply durable managed relationships with a different lifecycle policy.
 - Health is currently live snapshot evidence; historical health coverage is not supplied by Actuator.
-- The stored database relationship was bootstrapped for this acceptance. Healthy automatic database rediscovery/recovery was not tested live because PostgreSQL must remain stopped; automatic discovery/persistence/restart behavior is regression-tested.
-- No recovery, Phase 7, AI, remediation, PR, push or merge was performed. Stop here pending approval.
+- The earlier stopped-database acceptance used bootstrap knowledge because the original healthy trace had expired; the later manual lifecycle test subsequently replaced that dependency provenance with live `local-tempo` evidence and proved recovery.
+- No Phase 7, AI remediation, autonomous fixes or merge is included in this phase.
