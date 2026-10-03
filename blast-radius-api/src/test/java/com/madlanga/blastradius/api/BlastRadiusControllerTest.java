@@ -78,7 +78,33 @@ class BlastRadiusControllerTest {
                 .hasMessage("from must be before to");
     }
 
-    private IncidentAnalysis analysis(Instant from, Instant to) {
+
+    @Test\n    void illegalArgumentHandlerClassifiesKnownDomainFailures() {
+        var controller = new BlastRadiusController(service, topologyProvider);
+
+        assertThat(controller.invalidAnalysisRequest(
+                new IllegalArgumentException("unknown failure experiment: missing")).getBody().code())
+                .isEqualTo("UNKNOWN_EXPERIMENT");
+        assertThat(controller.invalidAnalysisRequest(
+                new IllegalArgumentException("originHint is not present in discovered topology: missing")).getBody().code())
+                .isEqualTo("ORIGIN_NOT_IN_TOPOLOGY");
+        assertThat(controller.invalidAnalysisRequest(
+                new IllegalArgumentException("originHint conflicts with controlled experiment origin: postgres")).getBody().code())
+                .isEqualTo("ORIGIN_CONFLICT");
+    }
+
+    @Test
+    void illegalStateHandlerDistinguishesMissingEvidence() {
+        var controller = new BlastRadiusController(service, topologyProvider);
+
+        assertThat(controller.analysisUnavailable(
+                new IllegalStateException("No failure evidence found in the requested window; provide originHint for theoretical analysis."))
+                .getBody().code()).isEqualTo("NO_FAILURE_EVIDENCE");
+        assertThat(controller.analysisUnavailable(
+                new IllegalStateException("provider unavailable")).getBody().code())
+                .isEqualTo("ANALYSIS_NOT_AVAILABLE");
+    }
+\n    private IncidentAnalysis analysis(Instant from, Instant to) {
         return new IncidentAnalysis("document-platform", "local", from, to,
                 null, null, List.of(), List.of(), null, null, List.of());
     }
