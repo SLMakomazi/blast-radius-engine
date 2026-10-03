@@ -4,6 +4,9 @@ import com.madlanga.blastradius.domain.incident.IncidentStatus;
 import com.madlanga.blastradius.domain.incident.PersistedIncident;
 import com.madlanga.blastradius.ports.IncidentRepository;
 import com.madlanga.blastradius.service.IncidentLifecycleService;
+import com.madlanga.blastradius.service.AiDiagnosisService;
+import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
+import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
 import io.swagger.v3.oas.annotations.Operation;
 import java.time.Instant;
 import java.util.List;
@@ -21,12 +24,14 @@ public class IncidentHistoryController {
     private final IncidentRepository repository;
     private final JsonMapper jsonMapper;
     private final IncidentLifecycleService lifecycleService;
+    private final AiDiagnosisService aiDiagnosisService;
 
     public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
-            IncidentLifecycleService lifecycleService) {
+            IncidentLifecycleService lifecycleService, AiDiagnosisService aiDiagnosisService) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
         this.lifecycleService = lifecycleService;
+        this.aiDiagnosisService = aiDiagnosisService;
     }
 
     @Operation(summary = "List persisted blast radius incidents")
@@ -53,6 +58,23 @@ public class IncidentHistoryController {
                 .map(this::response)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Generate an advisory AI diagnosis for a persisted incident",
+            description = "Uses the persisted sanitized deterministic analysis as the source of truth. The AI does not calculate blast radius. If the configured AI provider fails, a deterministic fallback is returned.")
+    @PostMapping("/{id}/diagnosis")
+    public ResponseEntity<?> diagnose(@PathVariable UUID id) {
+        var incident = repository.findById(id);
+        if (incident.isEmpty()) {
+            return ResponseEntity.status(404).body(new HistoryErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
+        }
+        try {
+            IncidentAnalysis analysis = jsonMapper.readValue(incident.get().analysisSnapshot(), IncidentAnalysis.class);
+            AiDiagnosis diagnosis = aiDiagnosisService.diagnose(analysis);
+            return ResponseEntity.ok(diagnosis);
+        } catch (Exception e) {
+            throw new IllegalStateException("stored incident snapshot cannot be diagnosed", e);
+        }
     }
 
     @Operation(summary = "Explicitly resolve an active blast radius incident")
