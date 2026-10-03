@@ -26,13 +26,13 @@ class IncidentLifecycleServiceTest {
     @BeforeEach
     void setUp() {
         service = new IncidentLifecycleService(analysisService, repository, JsonMapper.builder().build());
-        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
     void createsActiveIncidentWhenFailureEvidenceExists() {
         IncidentAnalysis analysis = analysis(true);
         when(repository.findActive("document-platform", "local", "postgres")).thenReturn(Optional.empty());
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         PersistedIncident saved = service.persistLifecycle(analysis).orElseThrow();
 
@@ -56,6 +56,7 @@ class IncidentLifecycleServiceTest {
     @Test
     void healthyFollowUpResolvesExistingIncidentWithoutDeletingHistory() {
         IncidentAnalysis recovered = analysis(false);
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         PersistedIncident active = new PersistedIncident(
                 java.util.UUID.randomUUID(), "document-platform", "local", IncidentStatus.ACTIVE,
                 Instant.parse("2026-10-03T05:20:12Z"), null, "postgres", ConfidenceLevel.HIGH,
