@@ -7,6 +7,7 @@ import com.madlanga.blastradius.service.DiagnosisContextFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
@@ -31,8 +32,10 @@ public class AiDiagnosisConfiguration {
     }
 
     @Bean
-    AiDiagnosisService aiDiagnosisService(AiDiagnosisPort aiDiagnosisPort,
-            DeterministicDiagnosisAdapter fallback, DiagnosisContextFactory contextFactory) {
+    AiDiagnosisService aiDiagnosisService(
+            @Qualifier("aiDiagnosisPort") AiDiagnosisPort aiDiagnosisPort,
+            @Qualifier("deterministicDiagnosisAdapter") DeterministicDiagnosisAdapter fallback,
+            DiagnosisContextFactory contextFactory) {
         return new AiDiagnosisService(aiDiagnosisPort, fallback, contextFactory);
     }
 }
