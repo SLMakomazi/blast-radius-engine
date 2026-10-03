@@ -234,6 +234,63 @@ class IncidentAnalysisServiceTest {
         assertThat(service.analyze("test","local",FROM,TO,null).origin().component()).isEqualTo("api");
     }
 
+    @Test
+    void controlledExperimentUsesDeclaredOriginAndReportsHeldContainment() {
+        var experiment = new com.madlanga.blastradius.domain.experiment.FailureExperiment(
+                "postgres-outage-local", "postgres",
+                java.util.Set.of("document-service", "customer-service", "payment-service"),
+                java.util.Set.of("postgres", "document-service", "customer-service", "payment-service"));
+        TelemetryProvider provider = q -> bundle(TelemetryCoverage.allAvailable());
+        var topologyProvider = (com.madlanga.blastradius.ports.DependencyTopologyProvider) (app, env) ->
+                new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                        .discover(app, env, bundle(TelemetryCoverage.allAvailable()).getSpans());
+        var service = new IncidentAnalysisService(provider, topologyProvider,
+                id -> "postgres-outage-local".equals(id) ? java.util.Optional.of(experiment) : java.util.Optional.empty());
+
+        var result = service.analyze("document-platform", "local", FROM, TO, null, "postgres-outage-local");
+
+        assertThat(result.origin().component()).isEqualTo("postgres");
+        assertThat(result.experimentAssessment()).isNotNull();
+        assertThat(result.experimentAssessment().containment())
+                .isEqualTo(com.madlanga.blastradius.domain.experiment.ContainmentStatus.HELD);
+        assertThat(result.experimentAssessment().expectedButUnobserved()).isEmpty();
+        assertThat(result.experimentAssessment().unexpectedImpact()).isEmpty();
+    }
+
+    @Test
+    void controlledExperimentIsInconclusiveWhenTelemetryCoverageIsPartial() {
+        var experiment = new com.madlanga.blastradius.domain.experiment.FailureExperiment(
+                "postgres-outage-local", "postgres",
+                java.util.Set.of("document-service", "customer-service", "payment-service"),
+                java.util.Set.of("postgres", "document-service", "customer-service", "payment-service"));
+        var partial = TelemetryCoverage.builder().logs(CoverageStatus.UNAVAILABLE)
+                .metrics(CoverageStatus.AVAILABLE).traces(CoverageStatus.AVAILABLE)
+                .health(CoverageStatus.PARTIAL).build();
+        TelemetryProvider provider = q -> bundle(partial);
+        var topologyProvider = (com.madlanga.blastradius.ports.DependencyTopologyProvider) (app, env) ->
+                new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                        .discover(app, env, bundle(partial).getSpans());
+        var service = new IncidentAnalysisService(provider, topologyProvider, id -> java.util.Optional.of(experiment));
+
+        var result = service.analyze("document-platform", "local", FROM, TO, null, "postgres-outage-local");
+
+        assertThat(result.experimentAssessment().containment())
+                .isEqualTo(com.madlanga.blastradius.domain.experiment.ContainmentStatus.INCONCLUSIVE);
+    }
+
+    @Test
+    void rejectsUnknownControlledExperiment() {
+        var service = new IncidentAnalysisService(q -> bundle(TelemetryCoverage.allAvailable()),
+                (app, env) -> new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                        .discover(app, env, bundle(TelemetryCoverage.allAvailable()).getSpans()),
+                id -> java.util.Optional.empty());
+
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() ->
+                service.analyze("document-platform", "local", FROM, TO, null, "missing-experiment")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unknown failure experiment");
+    }
+
     private IncidentAnalysisService service(TelemetryProvider provider) {
         return new IncidentAnalysisService(provider, (app, env) -> {
             var spans = new java.util.ArrayList<>(provider.getTelemetry(TelemetryQuery.builder()

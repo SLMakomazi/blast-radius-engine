@@ -113,6 +113,8 @@ Exit: full TelemetryBundle can be built from the local lab without secrets/PII l
 - expected vs observed vs unexpected impact;
 - containment assessment.
 
+Implementation is staged on `feat/phase7-severity-chaos-assessment`: deterministic severity, the provider-neutral failure-experiment contract, expected/observed/unexpected comparison, and containment HELD/BREACHED/INCONCLUSIVE semantics are implemented. Manual verification is pending; see `PHASE7_VERIFICATION.md`.
+
 ## Phase 8 — API and persistence
 - `POST /api/v1/blast-radius/analyze`;
 - error/warning contracts;
@@ -159,4 +161,4 @@ Exit: a new developer can run the documented commands and reproduce expected res
 
 ### Phase 6 correction — verified 2026-10-03
 
-Concrete dependency identity, automatic retained runtime topology, scoped seven-day expiry and incident-window integrity are implemented. The stopped-database acceptance passed with the expected four-node origin/observed-impact chain and no historical evidence in the incident timeline. See [actual results](PHASE6_VERIFICATION.md). PostgreSQL remains stopped; recovery and Phase 7 require further approval.
+Concrete dependency identity, automatic retained runtime topology, scoped seven-day expiry and incident-window integrity are implemented. The stopped-database acceptance passed with the expected four-node origin/observed-impact chain and no historical evidence in the incident timeline. See [actual results](PHASE6_VERIFICATION.md). The subsequent manual lifecycle validation proved healthy recovery, live database-edge relearning, a fresh no-hint PostgreSQL outage with the correct three-hop observed radius, and final recovery. Phase 7 now builds on that merged baseline.
