@@ -26,11 +26,16 @@ public final class IncidentSeverityCalculator {
             reasons.add(observed + " dependent component(s) have observed failure evidence");
         }
 
-        int depth = impacts.stream().filter(i -> i.distance() != null).mapToInt(ComponentImpact::distance).max().orElse(0);
-        if (depth >= 3) {
+        int observedDepth = impacts.stream()
+                .filter(i -> i.state() == ObservedState.OBSERVED)
+                .filter(i -> i.distance() != null)
+                .mapToInt(ComponentImpact::distance)
+                .max()
+                .orElse(0);
+        if (observedDepth >= 3) {
             score += 20;
             reasons.add("failure propagated at least 3 dependency hops");
-        } else if (depth >= 2) {
+        } else if (observedDepth >= 2) {
             score += 10;
             reasons.add("failure propagated at least 2 dependency hops");
         }
