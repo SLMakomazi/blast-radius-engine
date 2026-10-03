@@ -5,6 +5,9 @@ import com.madlanga.blastradius.service.IncidentAnalysisService;
 import com.madlanga.blastradius.ports.DependencyTopologyProvider;
 import com.madlanga.blastradius.domain.topology.DependencyTopology;
 import java.time.Instant;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.time.temporal.ChronoUnit;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,7 @@ public class BlastRadiusController {
         this.topologyProvider = topologyProvider;
     }
 
+    @Operation(summary = "Get dependency topology", description = "Returns the deterministic dependency topology used to calculate potential blast radius.")
     @GetMapping("/topology")
     public DependencyTopology topology(@RequestParam String applicationId,
             @RequestParam(defaultValue = "local") String environment) {
@@ -30,6 +34,7 @@ public class BlastRadiusController {
     /**
      * Backward-compatible query endpoint retained while clients migrate to POST.
      */
+    @Operation(summary = "Analyze blast radius using query parameters", description = "Backward-compatible analysis endpoint retained while clients migrate to POST.")
     @GetMapping("/analyze")
     public IncidentAnalysis analyze(
             @RequestParam String applicationId,
@@ -45,6 +50,11 @@ public class BlastRadiusController {
      * Phase 8 analysis contract. The request body is transport-only; deterministic
      * analysis remains unchanged in IncidentAnalysisService.
      */
+    @Operation(summary = "Analyze incident blast radius", description = "Correlates topology and available telemetry to calculate deterministic theoretical and observed impact. AI does not determine blast radius.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Analysis completed"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or analysis cannot be completed for the requested evidence/window")
+    })
     @PostMapping("/analyze")
     public IncidentAnalysis analyze(@RequestBody AnalyzeIncidentRequest request) {
         if (request == null) {
