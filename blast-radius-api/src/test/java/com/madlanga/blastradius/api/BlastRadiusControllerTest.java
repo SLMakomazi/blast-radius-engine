@@ -79,7 +79,8 @@ class BlastRadiusControllerTest {
     }
 
 
-    @Test\n    void illegalArgumentHandlerClassifiesKnownDomainFailures() {
+    @Test
+    void illegalArgumentHandlerClassifiesKnownDomainFailures() {
         var controller = new BlastRadiusController(service, topologyProvider);
 
         assertThat(controller.invalidAnalysisRequest(
@@ -104,7 +105,8 @@ class BlastRadiusControllerTest {
                 new IllegalStateException("provider unavailable")).getBody().code())
                 .isEqualTo("ANALYSIS_NOT_AVAILABLE");
     }
-\n    private IncidentAnalysis analysis(Instant from, Instant to) {
+
+    private IncidentAnalysis analysis(Instant from, Instant to) {
         return new IncidentAnalysis("document-platform", "local", from, to,
                 null, null, List.of(), List.of(), null, null, List.of());
     }
