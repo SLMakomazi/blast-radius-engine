@@ -81,3 +81,11 @@ blast-radius:
         payment-service:  ${PAYMENT_SERVICE_URL:http://payment-service:8081}
         customer-service: ${CUSTOMER_SERVICE_URL:http://customer-service:8082}
         document-service: ${DOCUMENT_SERVICE_URL:http://document-service:8083}
+
+  ai:
+    gemini:
+      enabled: ${GEMINI_ENABLED:false}
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.8-flash}
+      base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+      timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:20}
