@@ -49,7 +49,7 @@ public final class GeminiDiagnosisAdapter implements AiDiagnosisPort {
                     - Keep the deterministic origin separate from the services where its effects were observed.
                     - In recommendations, deal with the incident origin first. Put resilience and containment improvements after the immediate fix.
                     - Treat missing/partial telemetry as uncertainty, never as proof of health.
-                    - Do not recommend autonomous production changes.
+                    - Do not recommend autonomous production changes.\n                    - Never tell an operator to restart, fail over, roll back, or change production infrastructure directly. If recovery may require such an action, say to confirm the condition and follow the approved recovery procedure.
                     - Write for engineers, support teams, managers, and non-technical readers using simple, clear English.
                     - Prefer short sentences and common words. Explain technical terms briefly when they are needed.
                     - Avoid formal or academic wording such as "manifested", "propagating", "cascading", "architect", or "remediation" when a simpler phrase works.
@@ -79,7 +79,11 @@ public final class GeminiDiagnosisAdapter implements AiDiagnosisPort {
                     .POST(HttpRequest.BodyPublishers.ofString(jsonMapper.writeValueAsString(body)))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = send(request);
+            if (response.statusCode() == 503) {
+                // One bounded retry for a transient provider-side availability failure.
+                response = send(request);
+            }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Gemini request failed with HTTP " + response.statusCode());
             }
@@ -108,6 +112,10 @@ public final class GeminiDiagnosisAdapter implements AiDiagnosisPort {
         } catch (Exception e) {
             throw new IllegalStateException("Gemini diagnosis failed", e);
         }
+    }
+
+    private HttpResponse<String> send(HttpRequest request) throws java.io.IOException, InterruptedException {
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private String normalizedBaseUrl() {
