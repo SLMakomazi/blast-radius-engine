@@ -1,0 +1,38 @@
+package com.madlanga.blastradius.adapters.ai;
+
+import com.madlanga.blastradius.ports.AiDiagnosisPort;
+import com.madlanga.blastradius.service.AiDiagnosisService;
+import com.madlanga.blastradius.service.DeterministicDiagnosisAdapter;
+import com.madlanga.blastradius.service.DiagnosisContextFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
+
+@Configuration
+@EnableConfigurationProperties(GeminiProperties.class)
+public class AiDiagnosisConfiguration {
+
+    @Bean
+    DiagnosisContextFactory diagnosisContextFactory() {
+        return new DiagnosisContextFactory();
+    }
+
+    @Bean
+    DeterministicDiagnosisAdapter deterministicDiagnosisAdapter() {
+        return new DeterministicDiagnosisAdapter();
+    }
+
+    @Bean
+    AiDiagnosisPort aiDiagnosisPort(GeminiProperties properties, JsonMapper jsonMapper,
+            DeterministicDiagnosisAdapter fallback) {
+        if (!properties.enabled()) return fallback;
+        return new GeminiDiagnosisAdapter(properties, jsonMapper);
+    }
+
+    @Bean
+    AiDiagnosisService aiDiagnosisService(AiDiagnosisPort aiDiagnosisPort,
+            DeterministicDiagnosisAdapter fallback, DiagnosisContextFactory contextFactory) {
+        return new AiDiagnosisService(aiDiagnosisPort, fallback, contextFactory);
+    }
+}
