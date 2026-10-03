@@ -156,6 +156,6 @@ public class TelemetrySanitizer {
      */
     private static final java.util.regex.Pattern BEARER_PATTERN =
             java.util.regex.Pattern.compile(
-                    "(?i)Authorization\\s*:\\s*\\S+",
+                    "(?i)Authorization\\s*:\\s*(?:Bearer\\s+)?[^\\s,;]+",
                     java.util.regex.Pattern.CASE_INSENSITIVE);
 }
