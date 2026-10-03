@@ -3,6 +3,7 @@ package com.madlanga.blastradius.api;
 import com.madlanga.blastradius.domain.incident.IncidentStatus;
 import com.madlanga.blastradius.domain.incident.PersistedIncident;
 import com.madlanga.blastradius.ports.IncidentRepository;
+import com.madlanga.blastradius.service.IncidentLifecycleService;
 import io.swagger.v3.oas.annotations.Operation;
 import java.time.Instant;
 import java.util.List;
@@ -19,10 +20,13 @@ import tools.jackson.databind.json.JsonMapper;
 public class IncidentHistoryController {
     private final IncidentRepository repository;
     private final JsonMapper jsonMapper;
+    private final IncidentLifecycleService lifecycleService;
 
-    public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper) {
+    public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
+            IncidentLifecycleService lifecycleService) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
+        this.lifecycleService = lifecycleService;
     }
 
     @Operation(summary = "List persisted blast radius incidents")
@@ -49,6 +53,20 @@ public class IncidentHistoryController {
                 .map(this::response)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Explicitly resolve an active blast radius incident")
+    @PostMapping("/{id}/resolve")
+    public ResponseEntity<?> resolve(@PathVariable UUID id, @RequestBody(required = false) ResolveIncidentRequest request) {
+        try {
+            Instant resolvedAt = request == null ? null : request.resolvedAt();
+            return ResponseEntity.ok(response(lifecycleService.resolve(id, resolvedAt).orElseThrow()));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().startsWith("incident not found:")) {
+                return ResponseEntity.status(404).body(new HistoryErrorResponse("INCIDENT_NOT_FOUND", e.getMessage()));
+            }
+            throw e;
+        }
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -96,6 +114,9 @@ public class IncidentHistoryController {
             JsonNode analysis,
             Instant createdAt,
             Instant updatedAt) {
+    }
+
+    public record ResolveIncidentRequest(Instant resolvedAt) {
     }
 
     record HistoryErrorResponse(String code, String message) {
