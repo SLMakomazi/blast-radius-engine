@@ -31,11 +31,12 @@ public class BlastRadiusController {
             @RequestParam(defaultValue="local") String environment,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @RequestParam(required=false) String originHint) {
+            @RequestParam(required=false) String originHint,
+            @RequestParam(required=false) String experimentId) {
         Instant resolvedTo=to==null?Instant.now():to;
         Instant resolvedFrom=from==null?resolvedTo.minus(15, ChronoUnit.MINUTES):from;
         if(!resolvedFrom.isBefore(resolvedTo)) throw new IllegalArgumentException("from must be before to");
-        return service.analyze(applicationId,environment,resolvedFrom,resolvedTo,originHint);
+        return service.analyze(applicationId,environment,resolvedFrom,resolvedTo,originHint,experimentId);
     }
 
     @ExceptionHandler({IllegalArgumentException.class,IllegalStateException.class})
