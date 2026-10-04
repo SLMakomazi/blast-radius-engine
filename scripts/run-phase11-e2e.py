@@ -185,7 +185,7 @@ def partial_observability(runtime):
     """Prove missing telemetry cannot falsely resolve an active incident."""
     baseline_ids = {str(item["id"]) for item in incidents("ACTIVE")}
     incident = None
-    collector_stopped = False
+    tempo_stopped = False
     customer_stopped = False
     try:
         compose(runtime, "stop", "customer-service")
@@ -200,13 +200,13 @@ def partial_observability(runtime):
         incident = eventually(detect, "customer incident for partial-observability test")
         incident_id = str(incident["id"])
 
-        compose(runtime, "stop", "otel-collector")
-        collector_stopped = True
+        compose(runtime, "stop", "tempo")
+        tempo_stopped = True
         compose(runtime, "start", "customer-service")
         customer_stopped = False
 
-        # Three healthy windows would normally resolve in ~30s. With logs/traces
-        # unavailable, the incident must remain ACTIVE.
+        # Three healthy windows would normally resolve in ~30s. With the trace
+        # provider unavailable, the incident must remain ACTIVE.
         time.sleep(45)
         still_active = active_for_origin("customer-service")
         if not still_active or str(still_active["id"]) != incident_id:
@@ -225,8 +225,8 @@ def partial_observability(runtime):
     finally:
         if customer_stopped:
             compose(runtime, "start", "customer-service")
-        if collector_stopped:
-            compose(runtime, "start", "otel-collector")
+        if tempo_stopped:
+            compose(runtime, "start", "tempo")
         if incident is not None:
             eventually(lambda: resolved_by_id(incident["id"]), "resolution after telemetry restoration", timeout=150)
 
