@@ -75,7 +75,7 @@ class GeminiDiagnosisAdapterTest {
 
     @Test
     void missingApiKeyFailsBeforeProviderCall() {
-        GeminiProperties properties = new GeminiProperties(true, "", "gemini-test", "http://127.0.0.1:1", 1);
+        GeminiProperties properties = new GeminiProperties(true, "", "gemini-test", List.of(), "http://127.0.0.1:1", 1);
         GeminiDiagnosisAdapter adapter = new GeminiDiagnosisAdapter(properties, JsonMapper.builder().build());
 
         IllegalStateException error = assertThrows(
@@ -87,7 +87,7 @@ class GeminiDiagnosisAdapterTest {
 
     private GeminiDiagnosisAdapter adapter(String apiKey) {
         GeminiProperties properties = new GeminiProperties(
-                true, apiKey, "gemini-test", "http://127.0.0.1:" + server.getAddress().getPort(), 2);
+                true, apiKey, "gemini-test", List.of(), "http://127.0.0.1:" + server.getAddress().getPort(), 2);
         return new GeminiDiagnosisAdapter(properties, JsonMapper.builder().build());
     }
 
