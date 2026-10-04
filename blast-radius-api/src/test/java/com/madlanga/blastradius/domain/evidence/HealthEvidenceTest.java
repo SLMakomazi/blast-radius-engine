@@ -65,7 +65,7 @@ class HealthEvidenceTest {
     }
 
     @Test
-    void unknownStateIsNeitherHealthyNorDefinitelyDegraded() {
+    void unknownStateIsFailureEvidenceWhenProbeWasAttempted() {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-004")
                 .timestamp(TS)
@@ -76,8 +76,10 @@ class HealthEvidenceTest {
                 .build();
 
         assertFalse(h.isHealthy());
-        // UNKNOWN is not the same as DOWN/DEGRADED — represents missing information
-        assertFalse(h.isDegraded());
+        // UNKNOWN HealthEvidence means the probe was attempted but the component could not
+        // be confirmed healthy. Provider-wide unavailability is represented by coverage,
+        // not by fabricating a healthy observation.
+        assertTrue(h.isDegraded());
     }
 
     @Test
