@@ -15,6 +15,7 @@ services:
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      GEMINI_FALLBACK_MODELS: ${GEMINI_FALLBACK_MODELS:-gemini-3.5-flash-lite,gemini-2.5-flash-lite}
       GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
       GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-20}
     depends_on:
@@ -22,6 +23,22 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
+    networks:
+      - blast-radius
+
+  frontend:
+    image: blast-radius-frontend:latest
+    container_name: blast-radius-frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    mem_limit: 64m
+    depends_on:
+      blast-radius-api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:5173:8080"
     networks:
       - blast-radius
 

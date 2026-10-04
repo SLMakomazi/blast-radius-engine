@@ -50,7 +50,7 @@ class GeminiDiagnosisAdapterTest {
     }
 
     @Test
-    void failsAfterSecond503() throws Exception {
+    void failsAfterSecond503WhenNoFallbackModelsAreConfigured() throws Exception {
         AtomicInteger calls = startServer(503, 503, validResponse());
 
         IllegalStateException error = assertThrows(
@@ -58,7 +58,7 @@ class GeminiDiagnosisAdapterTest {
                 () -> adapter("test-key").diagnose(context()));
 
         assertEquals(2, calls.get());
-        assertEquals("Gemini request failed with HTTP 503", error.getMessage());
+        assertEquals("All configured Gemini models were unavailable", error.getMessage());
     }
 
     @Test
@@ -75,7 +75,7 @@ class GeminiDiagnosisAdapterTest {
 
     @Test
     void missingApiKeyFailsBeforeProviderCall() {
-        GeminiProperties properties = new GeminiProperties(true, "", "gemini-test", "http://127.0.0.1:1", 1);
+        GeminiProperties properties = new GeminiProperties(true, "", "gemini-test", List.of(), "http://127.0.0.1:1", 1);
         GeminiDiagnosisAdapter adapter = new GeminiDiagnosisAdapter(properties, JsonMapper.builder().build());
 
         IllegalStateException error = assertThrows(
@@ -87,7 +87,7 @@ class GeminiDiagnosisAdapterTest {
 
     private GeminiDiagnosisAdapter adapter(String apiKey) {
         GeminiProperties properties = new GeminiProperties(
-                true, apiKey, "gemini-test", "http://127.0.0.1:" + server.getAddress().getPort(), 2);
+                true, apiKey, "gemini-test", List.of(), "http://127.0.0.1:" + server.getAddress().getPort(), 2);
         return new GeminiDiagnosisAdapter(properties, JsonMapper.builder().build());
     }
 

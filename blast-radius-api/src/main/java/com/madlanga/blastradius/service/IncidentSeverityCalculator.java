@@ -19,6 +19,13 @@ public final class IncidentSeverityCalculator {
             reasons.add("origin component is marked " + criticality.toUpperCase(Locale.ROOT) + " criticality");
         }
 
+        // An incident with direct evidence on its origin is a real failure, not merely
+        // theoretical reachability. Give it a baseline before blast-radius escalation.
+        if (!origin.evidence().isEmpty()) {
+            score += 20;
+            reasons.add("failure evidence is confirmed on the origin component");
+        }
+
         long observed = impacts.stream().filter(i -> i.state() == ObservedState.OBSERVED).count();
         if (observed > 0) {
             int points = (int) Math.min(30, observed * 10);
@@ -47,11 +54,24 @@ public final class IncidentSeverityCalculator {
             reasons.add(unexpected + " observed component(s) are outside the theoretical radius");
         }
 
-        boolean availabilityFailure = impacts.stream().flatMap(i -> i.evidence().stream())
-                .anyMatch(e -> "HEALTH".equals(e.family()));
+        // Availability evidence can live on the ORIGIN itself (for example an
+        // unreachable Actuator endpoint). The previous implementation inspected only
+        // impact evidence and therefore missed exactly that case.
+        boolean availabilityFailure = origin.evidence().stream()
+                .anyMatch(e -> "HEALTH".equals(e.family()))
+                || impacts.stream().flatMap(i -> i.evidence().stream())
+                        .anyMatch(e -> "HEALTH".equals(e.family()));
         if (availabilityFailure) {
-            score += 15;
+            score += 20;
             reasons.add("availability/health degradation is observed");
+        }
+
+        // A directly observed dependent failure is user-facing blast radius. This
+        // prevents a total middle-tier outage with upstream 5xx traffic from being
+        // labelled LOW merely because propagation depth is one hop.
+        if (observed > 0) {
+            score += 10;
+            reasons.add("failure has propagated beyond the origin component");
         }
 
         score = Math.min(100, score);

@@ -44,6 +44,14 @@ blast-radius:
     refresh-enabled: ${TOPOLOGY_REFRESH_ENABLED:true}
     application-id: ${TOPOLOGY_APPLICATION_ID:document-platform}
     environment: ${TOPOLOGY_ENVIRONMENT:local}
+  lifecycle:
+    auto-recovery-enabled: true
+    application-id: document-platform
+    environment: local
+    evaluation-interval: 10s
+    initial-delay: 10s
+    recovery-lookback: 20s
+    healthy-windows-required: 3
   telemetry:
     loki:
       base-url: ${LOKI_BASE_URL:http://loki:3100}
@@ -87,5 +95,6 @@ blast-radius:
       enabled: ${GEMINI_ENABLED:false}
       api-key: ${GEMINI_API_KEY:}
       model: ${GEMINI_MODEL:gemini-3.8-flash}
+      fallback-models: ${GEMINI_FALLBACK_MODELS:gemini-3.5-flash-lite,gemini-2.5-flash-lite}
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
       timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:20}

@@ -21,7 +21,7 @@ class IncidentSeverityCalculatorTest {
                 impact("customer-service", ObservedState.OBSERVED, 2, List.of()),
                 impact("payment-service", ObservedState.OBSERVED, 3, List.of()));
         var severity = calculator.calculate(topology, new OriginAssessment("postgres", ConfidenceLevel.HIGH, 100, List.of()), impacts);
-        assertThat(severity.score()).isEqualTo(65);
+        assertThat(severity.score()).isEqualTo(75);
         assertThat(severity.level()).isEqualTo(SeverityLevel.HIGH);
     }
 
@@ -47,9 +47,39 @@ class IncidentSeverityCalculatorTest {
                 impact("external-service", ObservedState.UNEXPECTED, null, List.of()));
         var severity = calculator.calculate(topology(Map.of("criticality","HIGH")),
                 new OriginAssessment("postgres", ConfidenceLevel.HIGH, 100, List.of()), impacts);
-        assertThat(severity.score()).isEqualTo(50);
+        assertThat(severity.score()).isEqualTo(80);
         assertThat(severity.level()).isEqualTo(SeverityLevel.HIGH);
         assertThat(severity.reasons()).anyMatch(r -> r.contains("outside the theoretical radius"));
+    }
+
+    @Test
+    void directOriginAvailabilityFailureIsAtLeastHigh() {
+        var health = new EvidenceSignal(Instant.parse("2026-10-04T06:00:00Z"),
+                "customer-service", "HEALTH", "health UNREACHABLE", "h-customer");
+        var severity = calculator.calculate(topology(Map.of()),
+                new OriginAssessment("customer-service", ConfidenceLevel.HIGH, 100, List.of(health)),
+                List.of(
+                        impact("customer-service", ObservedState.ORIGIN, 0, List.of(health)),
+                        impact("payment-service", ObservedState.OBSERVED, 1, List.of())));
+
+        assertThat(severity.score()).isEqualTo(60);
+        assertThat(severity.level()).isEqualTo(SeverityLevel.HIGH);
+        assertThat(severity.reasons()).contains(
+                "failure evidence is confirmed on the origin component",
+                "availability/health degradation is observed",
+                "failure has propagated beyond the origin component");
+    }
+
+    @Test
+    void directOriginFailureWithoutAvailabilityEvidenceIsMedium() {
+        var trace = new EvidenceSignal(Instant.parse("2026-10-04T06:00:00Z"),
+                "customer-service", "TRACE", "error span: request", "t-customer");
+        var severity = calculator.calculate(topology(Map.of()),
+                new OriginAssessment("customer-service", ConfidenceLevel.MEDIUM, 40, List.of(trace)),
+                List.of(impact("customer-service", ObservedState.ORIGIN, 0, List.of(trace))));
+
+        assertThat(severity.score()).isEqualTo(20);
+        assertThat(severity.level()).isEqualTo(SeverityLevel.MEDIUM);
     }
 
     @Test
