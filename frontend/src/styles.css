@@ -85,3 +85,7 @@
   .kpis { grid-template-columns: 1fr; }
   .incident-top { gap: 6px; flex-wrap: wrap; }
 }
+
+.live-status { display:flex; align-items:center; gap:8px; color:#9eb0c5; font-size:12px; white-space:nowrap; }
+.live-dot { width:8px; height:8px; border-radius:50%; background:#39d98a; box-shadow:0 0 0 4px rgba(57,217,138,.10); }
+@media (max-width:600px) { .live-status { white-space:normal; } }
