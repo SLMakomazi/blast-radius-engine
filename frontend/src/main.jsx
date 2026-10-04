@@ -154,7 +154,7 @@ function App() {
                     <strong>{impact.component}</strong>
                     <span>{impact.state}</span>
                     <small>{impact.distance===0?"Origin":`Distance ${impact.distance}`}</small>
-                  </div>
+                  </button>
                 </React.Fragment>)}
               </div>
             </section>
