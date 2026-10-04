@@ -38,7 +38,7 @@ services:
       blast-radius-api:
         condition: service_started
     ports:
-      - "127.0.0.1:5173:80"
+      - "127.0.0.1:5173:8080"
     networks:
       - blast-radius
 
