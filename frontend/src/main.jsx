@@ -19,6 +19,8 @@ function App() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [evidenceComponent, setEvidenceComponent] = useState(null);
+  const [evidenceFamily, setEvidenceFamily] = useState("ALL");
 
   async function loadIncidents(nextStatus = status) {
     setLoading(true);
@@ -86,6 +88,9 @@ function App() {
   const experiment = analysis.experiment || null;
   const observed = impacts.filter(i => i.state === "OBSERVED").length;
   const maxDepth = impacts.reduce((m, i) => Math.max(m, i.distance ?? 0), 0);
+  const timeline = analysis.timeline || [];
+  const evidenceRows = timeline.filter(e => (!evidenceComponent || e.component === evidenceComponent) && (evidenceFamily === "ALL" || e.family === evidenceFamily));
+  const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
 
   return <div className="app">
     <aside className="sidebar">
@@ -144,7 +149,7 @@ function App() {
               <div className="topology-flow">
                 {impacts.slice().sort((a,b)=>(a.distance??0)-(b.distance??0)).map((impact, idx) => <React.Fragment key={impact.component}>
                   {idx>0 && <ChevronRight className="arrow"/>}
-                  <div className={"node "+statusClass(impact.state)}>
+                  <button className={"node "+statusClass(impact.state)} onClick={()=>{setEvidenceComponent(impact.component);setEvidenceFamily("ALL");}} title={`Inspect ${impact.component} evidence`}>
                     {impact.component==="postgres"?<Database/>:<Server/>}
                     <strong>{impact.component}</strong>
                     <span>{impact.state}</span>
@@ -156,14 +161,24 @@ function App() {
 
             <div className="two-col">
               <section className="panel">
-                <div className="panel-head"><div><span className="eyebrow">OBSERVABILITY</span><h2>Telemetry coverage</h2></div>{coverage.fullyCovered && <CheckCircle2 className="ok"/>}</div>
-                <div className="coverage-grid">{["logs","metrics","traces","health"].map(k=><div key={k}><span>{k}</span><strong className={statusClass(coverage[k])}>{coverage[k] || "UNKNOWN"}</strong></div>)}</div>
+                <div className="panel-head"><div><span className="eyebrow">OBSERVABILITY</span><h2>Telemetry evidence</h2><p>Coverage plus the evidence captured for this incident window.</p></div>{coverage.fullyCovered && <CheckCircle2 className="ok"/>}</div>
+                <div className="coverage-grid">{[["logs","LOG"],["metrics","METRIC"],["traces","TRACE"],["health","HEALTH"]].map(([k,f])=><button key={k} className="coverage-card" onClick={()=>{setEvidenceComponent(null);setEvidenceFamily(f)}}><span>{k}</span><strong className={statusClass(coverage[k])}>{coverage[k] || "UNKNOWN"}</strong><small>{evidenceCounts[f] || 0} evidence events</small></button>)}</div>
               </section>
               <section className="panel">
-                <div className="panel-head"><div><span className="eyebrow">EXPERIMENT</span><h2>Containment</h2></div></div>
-                {experiment ? <div className="containment"><strong>{experiment.containment}</strong><span>{experiment.experimentId}</span><p>{experiment.unexpectedImpact?.length ? `${experiment.unexpectedImpact.length} unexpected components` : "No unexpected impact observed."}</p></div> : <div className="empty">No failure experiment linked.</div>}
+                <div className="panel-head"><div><span className="eyebrow">EXPERIMENT</span><h2>Containment assessment</h2></div></div>
+                {experiment ? <div className="containment"><strong>{experiment.containment}</strong><span>{experiment.experimentId}</span><div className="containment-stats"><div><b>{impacts.filter(i=>i.state==="OBSERVED").length}</b><small>observed</small></div><div><b>{experiment.unexpectedImpact?.length || 0}</b><small>unexpected</small></div><div><b>{coverage.fullyCovered ? "FULL" : "PARTIAL"}</b><small>coverage</small></div></div><p>{experiment.unexpectedImpact?.length ? `${experiment.unexpectedImpact.length} unexpected components exceeded the expected boundary.` : "No unexpected impact observed outside the experiment boundary."}</p></div> : <div className="empty">No failure experiment linked.</div>}
               </section>
             </div>
+
+            <section className="panel evidence-explorer">
+              <div className="panel-head"><div><span className="eyebrow">EVIDENCE EXPLORER</span><h2>{evidenceComponent || "All components"}</h2><p>Sanitized incident evidence captured from logs, metrics, traces and health telemetry.</p></div><span className="evidence-total">{evidenceRows.length} events</span></div>
+              <div className="evidence-tabs">{["ALL","LOG","METRIC","TRACE","HEALTH"].map(f=><button key={f} className={evidenceFamily===f?"selected":""} onClick={()=>setEvidenceFamily(f)}>{f==="ALL"?"All":f[0]+f.slice(1).toLowerCase()}</button>)}{evidenceComponent && <button onClick={()=>setEvidenceComponent(null)}>All components</button>}</div>
+              <div className="evidence-list">
+                {!evidenceRows.length && <div className="empty">No {evidenceFamily==="ALL"?"":evidenceFamily.toLowerCase()+" "}evidence events captured in this incident snapshot.</div>}
+                {evidenceRows.slice(0,100).map((e,i)=><div className="evidence-row" key={e.evidenceId || i}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><p>{e.signal}</p><code>{e.evidenceId}</code></div>)}
+              </div>
+              {evidenceRows.length>100 && <div className="evidence-more">Showing first 100 of {evidenceRows.length} events.</div>}
+            </section>
 
             <section className="panel ai-panel">
               <div className="panel-head"><div><span className="eyebrow">ADVISORY LAYER</span><h2>AI diagnosis</h2><p>AI explains sanitized deterministic evidence. It does not calculate blast radius.</p></div>
