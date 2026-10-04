@@ -12,7 +12,7 @@ class IncidentSeverityCalculatorTest {
     private final IncidentSeverityCalculator calculator = new IncidentSeverityCalculator();
 
     @Test
-    void scoresThreeHopObservedAvailabilityFailureAsHigh() {
+    void scoresThreeHopObservedAvailabilityFailureAsCritical() {
         var topology = topology(Map.of());
         var health = new EvidenceSignal(Instant.parse("2026-10-03T04:00:00Z"), "document-service", "HEALTH", "health DOWN", "h1");
         var impacts = List.of(
@@ -21,8 +21,8 @@ class IncidentSeverityCalculatorTest {
                 impact("customer-service", ObservedState.OBSERVED, 2, List.of()),
                 impact("payment-service", ObservedState.OBSERVED, 3, List.of()));
         var severity = calculator.calculate(topology, new OriginAssessment("postgres", ConfidenceLevel.HIGH, 100, List.of()), impacts);
-        assertThat(severity.score()).isEqualTo(75);
-        assertThat(severity.level()).isEqualTo(SeverityLevel.HIGH);
+        assertThat(severity.score()).isEqualTo(80);
+        assertThat(severity.level()).isEqualTo(SeverityLevel.CRITICAL);
     }
 
     @Test
@@ -40,14 +40,14 @@ class IncidentSeverityCalculatorTest {
     }
 
     @Test
-    void containmentBreachCanEscalateSeverity() {
+    void unexpectedImpactAndCriticalOriginEscalateSeverity() {
         var impacts = List.of(
                 impact("postgres", ObservedState.ORIGIN, 0, List.of()),
                 impact("document-service", ObservedState.OBSERVED, 1, List.of()),
                 impact("external-service", ObservedState.UNEXPECTED, null, List.of()));
         var severity = calculator.calculate(topology(Map.of("criticality","HIGH")),
                 new OriginAssessment("postgres", ConfidenceLevel.HIGH, 100, List.of()), impacts);
-        assertThat(severity.score()).isEqualTo(80);
+        assertThat(severity.score()).isEqualTo(60);
         assertThat(severity.level()).isEqualTo(SeverityLevel.HIGH);
         assertThat(severity.reasons()).anyMatch(r -> r.contains("outside the theoretical radius"));
     }

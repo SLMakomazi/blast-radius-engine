@@ -81,7 +81,11 @@ public class ActuatorHealthAdapter {
             }
 
             probeCount++;
-            Instant probeTime = Instant.now();
+            // A live probe is collected while answering this query. Stamp it at the
+            // query boundary so IncidentAnalysisService's [from,to) window does not
+            // discard the observation merely because the HTTP probe completed after
+            // query.getTo() was captured.
+            Instant probeTime = query.getTo().minusNanos(1);
 
             // Probe /actuator/health (full + liveness + readiness where available)
             HealthProbeResult rootResult = probeEndpoint(
