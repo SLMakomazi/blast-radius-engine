@@ -18,6 +18,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   async function loadIncidents(nextStatus = status) {
     setLoading(true);
@@ -27,6 +28,7 @@ function App() {
       if (!res.ok) throw new Error(`Incident API returned HTTP ${res.status}`);
       const data = await res.json();
       setIncidents(data);
+      setLastUpdated(new Date());
       if (!data.length) {
         setSelected(null);
         setDiagnosis(null);
@@ -67,9 +69,13 @@ function App() {
     }
   }
 
-  useEffect(() => { loadIncidents(status); }, [status]);
+  useEffect(() => {
+    loadIncidents(status);
+    const timer = window.setInterval(() => loadIncidents(status), 5000);
+    return () => window.clearInterval(timer);
+  }, [status]);
 
-  const analysis = selected?.analysisSnapshot || {};
+  const analysis = selected?.analysis || selected?.analysisSnapshot || {};
   const impacts = analysis.impacts || [];
   const coverage = analysis.coverage || {};
   const experiment = analysis.experiment || null;
@@ -92,7 +98,7 @@ function App() {
     <main>
       <header>
         <div><span className="eyebrow">MADLANGAAI / PHASE 10</span><h1>Blast Radius Command Center</h1><p>Evidence-backed incident impact, propagation and diagnosis.</p></div>
-        <button className="refresh" onClick={() => loadIncidents()}><RefreshCw size={16}/> Refresh</button>
+        <div className="live-status"><span className="live-dot"></span><span>Live · auto-updates every 5s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
       </header>
 
       {error && <div className="error"><AlertTriangle size={18}/>{error}</div>}
