@@ -44,6 +44,14 @@ blast-radius:
     refresh-enabled: ${TOPOLOGY_REFRESH_ENABLED:true}
     application-id: ${TOPOLOGY_APPLICATION_ID:document-platform}
     environment: ${TOPOLOGY_ENVIRONMENT:local}
+  lifecycle:
+    auto-recovery-enabled: true
+    application-id: document-platform
+    environment: local
+    evaluation-interval: 10s
+    initial-delay: 10s
+    recovery-lookback: 20s
+    healthy-windows-required: 3
   telemetry:
     loki:
       base-url: ${LOKI_BASE_URL:http://loki:3100}
