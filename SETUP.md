@@ -23,11 +23,8 @@ PostgreSQL, Prometheus, Loki, Tempo and OpenTelemetry do not need to be installe
 ~~~bash
 git clone https://github.com/SLMakomazi/blast-radius-engine.git
 cd blast-radius-engine
-git checkout feat/phase10-local-ui
 cp -n .env.example .env
 ~~~
-
-After Phase 10 is merged, use the main branch instead.
 
 AI is optional. To enable Gemini diagnosis, create your own key and export it locally:
 
@@ -202,6 +199,18 @@ cd frontend
 npm install
 npm run build
 ~~~
+
+## Phase 11 end-to-end acceptance
+
+With the full Compose stack running, execute:
+
+~~~bash
+python3 scripts/run-phase11-e2e.py
+~~~
+
+The runner validates the healthy baseline, PostgreSQL/service outages, dependency-direction correctness, stable incident UUIDs, automatic recovery and partial-observability recovery protection.
+
+See `docs/E2E_VALIDATION.md` for scenario expectations and single-scenario commands.
 
 ## Useful commands
 
