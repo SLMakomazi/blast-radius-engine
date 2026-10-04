@@ -50,7 +50,7 @@ class GeminiDiagnosisAdapterTest {
     }
 
     @Test
-    void failsAfterSecond503() throws Exception {
+    void failsAfterSecond503WhenNoFallbackModelsAreConfigured() throws Exception {
         AtomicInteger calls = startServer(503, 503, validResponse());
 
         IllegalStateException error = assertThrows(
@@ -58,7 +58,7 @@ class GeminiDiagnosisAdapterTest {
                 () -> adapter("test-key").diagnose(context()));
 
         assertEquals(2, calls.get());
-        assertEquals("Gemini request failed with HTTP 503", error.getMessage());
+        assertEquals("All configured Gemini models were unavailable", error.getMessage());
     }
 
     @Test
