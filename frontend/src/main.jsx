@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity, AlertTriangle, Bot, CheckCircle2, ChevronRight, Clock3,
-  Database, GitBranch, RefreshCw, Server, ShieldCheck, Waves
+  Database, GitBranch, Server, Waves
 } from "lucide-react";
 import "./styles.css";
 
@@ -91,9 +91,12 @@ function App() {
   const analysis = selected?.analysis || selected?.analysisSnapshot || {};
   const impacts = analysis.impacts || [];
   const coverage = analysis.coverage || {};
-  const experiment = analysis.experiment || null;
   const observed = impacts.filter(i => i.state === "OBSERVED").length;
   const maxDepth = impacts.reduce((m, i) => Math.max(m, i.distance ?? 0), 0);
+  const originCount = impacts.filter(i => i.state === "ORIGIN").length;
+  const involved = originCount + observed;
+  const impactPercent = impacts.length ? Math.round((involved / impacts.length) * 100) : 0;
+  const impactScope = impacts.length && involved === impacts.length ? "FULL CHAIN" : involved ? "PARTIAL" : "NONE";
   const timeline = analysis.timeline || [];
   const evidenceRows = timeline.filter(e => (!evidenceComponent || e.component === evidenceComponent) && (evidenceFamily === "ALL" || e.family === evidenceFamily));
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
@@ -105,7 +108,6 @@ function App() {
         <button className="nav-active"><Activity size={18}/> Incident analysis</button>
         <div className="nav-label">ENGINE</div>
         <button><GitBranch size={18}/> Topology</button>
-        <button><ShieldCheck size={18}/> Containment</button>
         <button><Bot size={18}/> AI diagnosis</button>
       </nav>
       <div className="principle"><span>CORE PRINCIPLE</span><p>Topology calculates potential impact. Telemetry proves observed impact. AI explains sanitized evidence.</p></div>
@@ -147,7 +149,7 @@ function App() {
               <Kpi icon={<Database/>} label="Origin" value={selected.originComponent} meta={selected.originConfidence+" confidence"}/>
               <Kpi icon={<Activity/>} label="Observed impact" value={observed} meta={impacts.length+" total components"}/>
               <Kpi icon={<GitBranch/>} label="Max depth" value={maxDepth} meta="dependency hops"/>
-              <Kpi icon={<ShieldCheck/>} label="Containment" value={experiment?.containment || "N/A"} meta={experiment?.experimentId || "No experiment"}/>
+              <Kpi icon={<Waves/>} label="Impact scope" value={impactScope} meta={`${involved} / ${impacts.length} components involved`}/>
             </section>
 
             <section className="panel topology">
@@ -171,8 +173,15 @@ function App() {
                 <div className="coverage-grid">{[["logs","LOG"],["metrics","METRIC"],["traces","TRACE"],["health","HEALTH"]].map(([k,f])=><button key={k} className="coverage-card" onClick={()=>{setEvidenceComponent(null);setEvidenceFamily(f)}}><span>{k}</span><strong className={statusClass(coverage[k])}>{coverage[k] || "UNKNOWN"}</strong><small>{evidenceCounts[f] || 0} evidence events</small></button>)}</div>
               </section>
               <section className="panel">
-                <div className="panel-head"><div><span className="eyebrow">EXPERIMENT</span><h2>Containment assessment</h2></div></div>
-                {experiment ? <div className="containment"><strong>{experiment.containment}</strong><span>{experiment.experimentId}</span><div className="containment-stats"><div><b>{impacts.filter(i=>i.state==="OBSERVED").length}</b><small>observed</small></div><div><b>{experiment.unexpectedImpact?.length || 0}</b><small>unexpected</small></div><div><b>{coverage.fullyCovered ? "FULL" : "PARTIAL"}</b><small>coverage</small></div></div><p>{experiment.unexpectedImpact?.length ? `${experiment.unexpectedImpact.length} unexpected components exceeded the expected boundary.` : "No unexpected impact observed outside the experiment boundary."}</p></div> : <div className="empty">No failure experiment linked.</div>}
+                <div className="panel-head"><div><span className="eyebrow">IMPACT ANALYSIS</span><h2>Blast radius scope</h2><p>Deterministic scope calculated from topology and correlated telemetry.</p></div></div>
+                <div className="impact-summary">
+                  <div><b>{impactScope}</b><small>scope</small></div>
+                  <div><b>{observed}</b><small>observed dependants</small></div>
+                  <div><b>{maxDepth}</b><small>dependency hops</small></div>
+                  <div><b>{impactPercent}%</b><small>topology involved</small></div>
+                  <div><b>{coverage.fullyCovered ? "FULL" : "PARTIAL"}</b><small>telemetry coverage</small></div>
+                  <div><b>{selected.originConfidence || "UNKNOWN"}</b><small>origin confidence</small></div>
+                </div>
               </section>
             </div>
 
