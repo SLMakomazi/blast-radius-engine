@@ -1,9 +1,11 @@
 package com.madlanga.blastradius.service;
 
+import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
 import com.madlanga.blastradius.domain.incident.PersistedIncident;
 import com.madlanga.blastradius.ports.IncidentRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,11 +17,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Phase 10 automatic incident recovery monitor.
+ * Phase 10 proactive incident lifecycle monitor.
  *
- * Re-evaluates each persisted ACTIVE incident against a recent telemetry window.
- * Consecutive windows with no failure evidence confirm recovery. The original
- * incident snapshot remains unchanged when the incident is resolved.
+ * Continuously evaluates a recent telemetry window without waiting for a user
+ * request. New failure evidence creates or updates an ACTIVE incident. Existing
+ * incidents are resolved only after multiple consecutive fully-covered windows
+ * show that the incident origin no longer has failure evidence.
+ *
+ * AI is deliberately absent from this path. Detection, blast-radius calculation,
+ * persistence and recovery confirmation remain deterministic.
  */
 @Component
 @ConditionalOnProperty(name = "blast-radius.lifecycle.auto-recovery-enabled", havingValue = "true", matchIfMissing = true)
@@ -55,36 +61,98 @@ public class IncidentLifecycleMonitor {
     @Scheduled(
             fixedDelayString = "${blast-radius.lifecycle.evaluation-interval:10s}",
             initialDelayString = "${blast-radius.lifecycle.initial-delay:10s}")
-    public void evaluateRecovery() {
-        for (PersistedIncident incident : repository.findActive(applicationId, environment)) {
-            evaluate(incident);
+    public void evaluateLifecycle() {
+        Instant to = Instant.now();
+        Instant from = to.minus(lookback);
+
+        String detectedOrigin = detectAndPersist(from, to);
+
+        List<PersistedIncident> activeIncidents = repository.findActive(applicationId, environment);
+        for (PersistedIncident incident : activeIncidents) {
+            if (incident.originComponent().equals(detectedOrigin)) {
+                healthyWindows.remove(incident.id());
+                continue;
+            }
+            evaluateRecovery(incident, from, to);
         }
     }
 
-    private void evaluate(PersistedIncident incident) {
-        Instant to = Instant.now();
-        Instant from = to.minus(lookback);
+    /**
+     * Proactively analyzes telemetry with no origin hint. This is the detector:
+     * a user/API request is not required to create an incident.
+     */
+    private String detectAndPersist(Instant from, Instant to) {
         try {
-            analysisService.analyze(applicationId, environment, from, to, incident.originComponent(), null);
-            healthyWindows.remove(incident.id());
-            log.debug("Incident {} still has failure evidence for origin {}", incident.id(), incident.originComponent());
+            IncidentAnalysis analysis = analysisService.analyze(
+                    applicationId, environment, from, to, null, null);
+
+            lifecycleService.persistLifecycle(analysis).ifPresent(incident ->
+                    log.info(
+                            "Proactive failure detected: incident={} origin={} confidence={} severity={} score={}",
+                            incident.id(),
+                            incident.originComponent(),
+                            incident.originConfidence(),
+                            incident.severityLevel(),
+                            incident.severityScore()));
+
+            return analysis.origin().component();
         } catch (IllegalStateException e) {
-            if (!isNoFailureEvidence(e)) {
+            if (isNoFailureEvidence(e)) {
+                log.debug("Proactive detector found no failure evidence in current telemetry window");
+                return null;
+            }
+            log.warn("Proactive detection unavailable ({}); no incident state changed",
+                    e.getClass().getSimpleName());
+            return null;
+        } catch (RuntimeException e) {
+            log.warn("Proactive detection failed ({}); no incident state changed",
+                    e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    /**
+     * Recovery is intentionally stricter than detection. Absence of origin
+     * evidence counts as healthy only when all telemetry families are available.
+     */
+    private void evaluateRecovery(PersistedIncident incident, Instant from, Instant to) {
+        try {
+            IncidentAnalysis analysis = analysisService.analyze(
+                    applicationId, environment, from, to, incident.originComponent(), null);
+
+            if (!analysis.coverage().isFullyCovered()) {
                 healthyWindows.remove(incident.id());
-                log.warn("Recovery evaluation unavailable for incident {} ({})", incident.id(), e.getClass().getSimpleName());
+                log.info("Recovery not confirmed for incident {}: telemetry coverage is partial",
+                        incident.id());
                 return;
             }
-            int count = healthyWindows.merge(incident.id(), 1, Integer::sum);
-            log.info("Recovery evidence for incident {}: healthy window {}/{}", incident.id(), count, healthyWindowsRequired);
-            if (count >= healthyWindowsRequired) {
-                lifecycleService.resolve(incident.id(), to);
+
+            boolean originStillFailing = !analysis.origin().evidence().isEmpty();
+            if (originStillFailing) {
                 healthyWindows.remove(incident.id());
-                log.info("Incident {} automatically resolved after {} consecutive healthy windows", incident.id(), count);
+                log.info("Incident {} remains ACTIVE: current failure evidence still exists for origin {}",
+                        incident.id(), incident.originComponent());
+                return;
             }
+
+            confirmHealthyWindow(incident, to);
         } catch (RuntimeException e) {
             healthyWindows.remove(incident.id());
             log.warn("Recovery evaluation failed for incident {} ({}); leaving incident ACTIVE",
                     incident.id(), e.getClass().getSimpleName());
+        }
+    }
+
+    private void confirmHealthyWindow(PersistedIncident incident, Instant evaluatedAt) {
+        int count = healthyWindows.merge(incident.id(), 1, Integer::sum);
+        log.info("Recovery evidence for incident {}: healthy window {}/{}",
+                incident.id(), count, healthyWindowsRequired);
+
+        if (count >= healthyWindowsRequired) {
+            lifecycleService.resolve(incident.id(), evaluatedAt);
+            healthyWindows.remove(incident.id());
+            log.info("Incident {} automatically resolved after {} consecutive healthy windows",
+                    incident.id(), count);
         }
     }
 
