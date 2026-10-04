@@ -10,6 +10,22 @@ const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const statusClass = (value = "") => value.toLowerCase().replaceAll("_", "-");
 
+function chooseSelectedIncidentId(data, selectedId) {
+  if (!data.length) return null;
+  if (selectedId && data.some(i => i.id === selectedId)) return selectedId;
+  return data[0].id;
+}
+
+function getImpactScope(impacts, involved) {
+  if (impacts.length > 0 && involved === impacts.length) return "FULL CHAIN";
+  if (involved > 0) return "PARTIAL";
+  return "NONE";
+}
+
+function evidenceRowKey(e) {
+  return e.evidenceId || `${e.timestamp}-${e.component}-${e.family}-${e.signal}`;
+}
+
 function App() {
   const [status, setStatus] = useState("ACTIVE");
   const [incidents, setIncidents] = useState([]);
@@ -32,19 +48,19 @@ function App() {
       const data = await res.json();
       setIncidents(data);
       setLastUpdated(new Date());
-      if (!data.length) {
+      const nextSelectedId = chooseSelectedIncidentId(data, selected?.id);
+      if (!nextSelectedId) {
         setSelected(null);
         setDiagnosis(null);
         setDiagnosisIncidentId(null);
-      } else if (selected?.id && data.some(i => i.id === selected.id)) {
-        await loadIncident(selected.id);
-      } else {
-        if (diagnosisIncidentId && diagnosisIncidentId !== data[0].id) {
-          setDiagnosis(null);
-          setDiagnosisIncidentId(null);
-        }
-        await loadIncident(data[0].id);
+        return;
       }
+
+      if (diagnosisIncidentId && diagnosisIncidentId !== nextSelectedId) {
+        setDiagnosis(null);
+        setDiagnosisIncidentId(null);
+      }
+      await loadIncident(nextSelectedId);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -96,9 +112,7 @@ function App() {
   const originCount = impacts.filter(i => i.state === "ORIGIN").length;
   const involved = originCount + observed;
   const impactPercent = impacts.length ? Math.round((involved / impacts.length) * 100) : 0;
-  let impactScope = "NONE";
-  if (involved > 0) impactScope = "PARTIAL";
-  if (impacts.length > 0 && involved === impacts.length) impactScope = "FULL CHAIN";
+  const impactScope = getImpactScope(impacts, involved);
   const timeline = analysis.timeline || [];
   const evidenceRows = timeline.filter(e =>
     (!evidenceComponent || e.component === evidenceComponent)
@@ -195,7 +209,7 @@ function App() {
               <div className="evidence-tabs">{["ALL","LOG","METRIC","TRACE","HEALTH"].map(f=><button key={f} className={evidenceFamily===f?"selected":""} onClick={()=>setEvidenceFamily(f)}>{f==="ALL"?"All":f[0]+f.slice(1).toLowerCase()}</button>)}{evidenceComponent && <button onClick={()=>setEvidenceComponent(null)}>All components</button>}</div>
               <div className="evidence-list">
                 {!evidenceRows.length && <div className="empty">No {evidenceFamily==="ALL"?"":evidenceFamily.toLowerCase()+" "}evidence events captured in this incident snapshot.</div>}
-                {evidenceRows.slice(0,100).map(e=><div className="evidence-row" key={e.evidenceId || `${e.timestamp}-${e.component}-${e.family}-${e.signal}`}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><p>{e.signal}</p><code>{e.evidenceId}</code></div>)}
+                {evidenceRows.slice(0,100).map(e=><div className="evidence-row" key={evidenceRowKey(e)}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><p>{e.signal}</p><code>{e.evidenceId}</code></div>)}
               </div>
               {evidenceRows.length>100 && <div className="evidence-more">Showing first 100 of {evidenceRows.length} events.</div>}
             </section>
