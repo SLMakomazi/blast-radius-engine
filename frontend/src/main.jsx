@@ -33,7 +33,12 @@ function App() {
         setSelected(null);
         setDiagnosis(null);
       } else {
-        await loadIncident(data[0].id);
+        if (selected?.id && data.some(i => i.id === selected.id)) {
+          await loadIncident(selected.id);
+        } else {
+          setDiagnosis(null);
+          await loadIncident(data[0].id);
+        }
       }
     } catch (e) {
       setError(e.message);
@@ -44,11 +49,11 @@ function App() {
 
   async function loadIncident(id) {
     setError("");
-    setDiagnosis(null);
     try {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents/${id}`);
       if (!res.ok) throw new Error(`Incident detail returned HTTP ${res.status}`);
-      setSelected(await res.json());
+      const next = await res.json();
+      setSelected(prev => prev?.id === next.id && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
     } catch (e) {
       setError(e.message);
     }
