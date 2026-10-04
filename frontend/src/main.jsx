@@ -15,6 +15,7 @@ function App() {
   const [incidents, setIncidents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
+  const [diagnosisIncidentId, setDiagnosisIncidentId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState("");
@@ -34,11 +35,15 @@ function App() {
       if (!data.length) {
         setSelected(null);
         setDiagnosis(null);
+        setDiagnosisIncidentId(null);
       } else {
         if (selected?.id && data.some(i => i.id === selected.id)) {
           await loadIncident(selected.id);
         } else {
-          setDiagnosis(null);
+          if (diagnosisIncidentId && diagnosisIncidentId !== data[0].id) {
+            setDiagnosis(null);
+            setDiagnosisIncidentId(null);
+          }
           await loadIncident(data[0].id);
         }
       }
@@ -69,6 +74,7 @@ function App() {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents/${selected.id}/diagnosis`, { method: "POST" });
       if (!res.ok) throw new Error(`Diagnosis API returned HTTP ${res.status}`);
       setDiagnosis(await res.json());
+      setDiagnosisIncidentId(selected.id);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -184,7 +190,7 @@ function App() {
               <div className="panel-head"><div><span className="eyebrow">ADVISORY LAYER</span><h2>AI diagnosis</h2><p>AI explains sanitized deterministic evidence. It does not calculate blast radius.</p></div>
                 <button className="primary" onClick={runDiagnosis} disabled={diagnosing}>{diagnosing?"Diagnosing…":diagnosis?"Run again":"Generate diagnosis"} <Bot size={16}/></button>
               </div>
-              {diagnosis ? <Diagnosis data={diagnosis}/> : <div className="ai-placeholder"><Bot size={28}/><span>Generate an evidence-bounded explanation and recommended next steps.</span></div>}
+              {diagnosis && diagnosisIncidentId === selected.id ? <Diagnosis data={diagnosis}/> : <div className="ai-placeholder"><Bot size={28}/><span>Generate an evidence-bounded explanation and recommended next steps.</span></div>}
             </section>
           </>}
         </div>
