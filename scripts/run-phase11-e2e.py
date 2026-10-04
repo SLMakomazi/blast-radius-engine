@@ -71,8 +71,12 @@ def eventually(check, label, timeout=100, interval=2):
 
 
 def wait_api():
+    def api_is_up():
+        status, body = request_json("http://127.0.0.1:8080/actuator/health")
+        return status == 200 and isinstance(body, dict) and body.get("status") == "UP"
+
     return eventually(
-        lambda: request_json("http://127.0.0.1:8080/actuator/health") == (200, {"status": "UP"}),
+        api_is_up,
         "Blast Radius API health",
         timeout=120,
     )
