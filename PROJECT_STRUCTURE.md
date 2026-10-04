@@ -189,7 +189,6 @@ Local platform configuration.
 
 ~~~text
 infrastructure/
-├── database/postgres/
 └── observability/
     ├── logging/loki.yml
     ├── prometheus/prometheus.yml
@@ -217,7 +216,7 @@ These are support/verification utilities, not production Blast Radius runtime co
 
 ## fixtures
 
-Synthetic request/test data used by the local lab and verification scripts.
+Contains the active synthetic payment request used by the traffic/verification tooling. Historical experiment-output fixtures have been removed.
 
 ## docs
 
