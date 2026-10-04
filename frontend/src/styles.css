@@ -125,3 +125,10 @@
   .evidence-row { grid-template-columns:1fr auto; padding:11px 15px; }
   .evidence-row strong,.evidence-row p,.evidence-row code { grid-column:1 / -1; }
 }
+
+.impact-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:0 18px 18px; }
+.impact-summary div { padding:12px; border:1px solid #1b2b40; border-radius:9px; background:#0b1420; }
+.impact-summary b,.impact-summary small { display:block; }
+.impact-summary b { font-size:15px; color:#dce9f7; }
+.impact-summary small { margin-top:4px; color:#73859b; font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+@media (max-width:600px) { .impact-summary { grid-template-columns:1fr 1fr; padding:0 15px 15px; } }
