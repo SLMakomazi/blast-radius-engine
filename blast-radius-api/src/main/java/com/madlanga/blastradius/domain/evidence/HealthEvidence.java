@@ -68,7 +68,7 @@ public final class HealthEvidence {
     public EvidenceProvenance getProvenance() { return provenance; }
 
     public boolean isHealthy() { return HealthState.UP == state; }
-    public boolean isDegraded() { return HealthState.DEGRADED == state || HealthState.DOWN == state; }
+    public boolean isDegraded() { return HealthState.DEGRADED == state || HealthState.DOWN == state || HealthState.UNKNOWN == state; }
 
     public static Builder builder() { return new Builder(); }
 
