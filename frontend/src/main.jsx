@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity, AlertTriangle, Bot, CheckCircle2, ChevronRight, Clock3,
@@ -36,16 +36,14 @@ function App() {
         setSelected(null);
         setDiagnosis(null);
         setDiagnosisIncidentId(null);
+      } else if (selected?.id && data.some(i => i.id === selected.id)) {
+        await loadIncident(selected.id);
       } else {
-        if (selected?.id && data.some(i => i.id === selected.id)) {
-          await loadIncident(selected.id);
-        } else {
-          if (diagnosisIncidentId && diagnosisIncidentId !== data[0].id) {
-            setDiagnosis(null);
-            setDiagnosisIncidentId(null);
-          }
-          await loadIncident(data[0].id);
+        if (diagnosisIncidentId && diagnosisIncidentId !== data[0].id) {
+          setDiagnosis(null);
+          setDiagnosisIncidentId(null);
         }
+        await loadIncident(data[0].id);
       }
     } catch (e) {
       setError(e.message);
@@ -83,8 +81,10 @@ function App() {
   }
 
   useEffect(() => {
-    loadIncidents(status);
-    const timer = window.setInterval(() => loadIncidents(status), 5000);
+    void loadIncidents(status);
+    const timer = window.setInterval(() => {
+      void loadIncidents(status);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [status]);
 
@@ -96,9 +96,14 @@ function App() {
   const originCount = impacts.filter(i => i.state === "ORIGIN").length;
   const involved = originCount + observed;
   const impactPercent = impacts.length ? Math.round((involved / impacts.length) * 100) : 0;
-  const impactScope = impacts.length && involved === impacts.length ? "FULL CHAIN" : involved ? "PARTIAL" : "NONE";
+  let impactScope = "NONE";
+  if (involved > 0) impactScope = "PARTIAL";
+  if (impacts.length > 0 && involved === impacts.length) impactScope = "FULL CHAIN";
   const timeline = analysis.timeline || [];
-  const evidenceRows = timeline.filter(e => (!evidenceComponent || e.component === evidenceComponent) && (evidenceFamily === "ALL" || e.family === evidenceFamily));
+  const evidenceRows = timeline.filter(e =>
+    (!evidenceComponent || e.component === evidenceComponent)
+    && (evidenceFamily === "ALL" || e.family === evidenceFamily)
+  );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
 
   return <div className="app">
@@ -161,7 +166,7 @@ function App() {
                     {impact.component==="postgres"?<Database/>:<Server/>}
                     <strong>{impact.component}</strong>
                     <span>{impact.state}</span>
-                    <small>{impact.distance===0?"Origin":`Distance ${impact.distance}`}</small>
+                    <small>{impact.distance === 0 ? "Origin" : `Distance ${impact.distance}`}</small>
                   </button>
                 </React.Fragment>)}
               </div>
@@ -190,7 +195,7 @@ function App() {
               <div className="evidence-tabs">{["ALL","LOG","METRIC","TRACE","HEALTH"].map(f=><button key={f} className={evidenceFamily===f?"selected":""} onClick={()=>setEvidenceFamily(f)}>{f==="ALL"?"All":f[0]+f.slice(1).toLowerCase()}</button>)}{evidenceComponent && <button onClick={()=>setEvidenceComponent(null)}>All components</button>}</div>
               <div className="evidence-list">
                 {!evidenceRows.length && <div className="empty">No {evidenceFamily==="ALL"?"":evidenceFamily.toLowerCase()+" "}evidence events captured in this incident snapshot.</div>}
-                {evidenceRows.slice(0,100).map((e,i)=><div className="evidence-row" key={e.evidenceId || i}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><p>{e.signal}</p><code>{e.evidenceId}</code></div>)}
+                {evidenceRows.slice(0,100).map(e=><div className="evidence-row" key={e.evidenceId || `${e.timestamp}-${e.component}-${e.family}-${e.signal}`}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><p>{e.signal}</p><code>{e.evidenceId}</code></div>)}
               </div>
               {evidenceRows.length>100 && <div className="evidence-more">Showing first 100 of {evidenceRows.length} events.</div>}
             </section>
@@ -215,8 +220,8 @@ function Diagnosis({data}) {
   return <div className="diagnosis">
     <div className="diagnosis-meta"><span>{data.provider}</span><span>{data.model}</span></div>
     <div className="diagnosis-copy"><h3>Summary</h3><p>{data.summary}</p><h3>Probable cause</h3><p>{data.probableCause}</p></div>
-    <div className="actions">{groups.map(([name,items])=><div key={name}><h3>{name}</h3><ol>{(items||[]).map((x,i)=><li key={i}>{x}</li>)}</ol></div>)}</div>
-    {!!data.limitations?.length && <div className="limitations"><h3>Limitations</h3>{data.limitations.map((x,i)=><p key={i}>• {x}</p>)}</div>}
+    <div className="actions">{groups.map(([name,items])=><div key={name}><h3>{name}</h3><ol>{(items||[]).map(x=><li key={`${name}-${x}`}>{x}</li>)}</ol></div>)}</div>
+    {!!data.limitations?.length && <div className="limitations"><h3>Limitations</h3>{data.limitations.map(x=><p key={`limitation-${x}`}>• {x}</p>)}</div>}
   </div>
 }
 
