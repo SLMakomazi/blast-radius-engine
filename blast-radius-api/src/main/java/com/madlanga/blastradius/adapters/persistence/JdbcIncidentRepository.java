@@ -30,6 +30,15 @@ public class JdbcIncidentRepository implements IncidentRepository {
     }
 
     @Override
+    public List<PersistedIncident> findActive(String applicationId, String environment) {
+        return jdbc.query("""
+                SELECT * FROM incidents
+                WHERE application_id = ? AND environment = ? AND status = 'ACTIVE'
+                ORDER BY started_at DESC
+                """, this::map, applicationId, environment);
+    }
+
+    @Override
     public PersistedIncident save(PersistedIncident incident) {
         int updated = jdbc.update("""
                 INSERT INTO incidents (
