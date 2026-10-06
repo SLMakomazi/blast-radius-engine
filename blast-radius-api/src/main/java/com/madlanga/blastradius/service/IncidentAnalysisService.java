@@ -225,7 +225,7 @@ public class IncidentAnalysisService {
     private void correlateMetricDeltas(List<MetricEvidence> metrics, Map<String,List<EvidenceSignal>> result) {
         Map<String,List<MetricEvidence>> series = new LinkedHashMap<>();
         for (MetricEvidence m : metrics) {
-            String key=m.getService()+"|"+m.getName()+"|"+m.getDimensions();
+            String key=m.getService()+"|"+m.getName()+"|"+metricIdentity(m.getDimensions());
             series.computeIfAbsent(key,k->new ArrayList<>()).add(m);
         }
 
@@ -328,6 +328,19 @@ public class IncidentAnalysisService {
                 }
             }
         }
+    }
+
+    private Map<String,String> metricIdentity(Map<String,String> dimensions) {
+        Map<String,String> identity = new TreeMap<>();
+        dimensions.forEach((key,value) -> {
+            // Micrometer histogram/Prometheus series may include labels that vary
+            // between samples. Keep only dimensions that identify the HTTP route
+            // and outcome so counter deltas can be calculated across scrapes.
+            if (Set.of("method","uri","status","outcome","exception","error").contains(key)) {
+                identity.put(key,value);
+            }
+        });
+        return identity;
     }
 
     private boolean hasIndependentFailureSignal(Map<String,List<EvidenceSignal>> result, String service) {
