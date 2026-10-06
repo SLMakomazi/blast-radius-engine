@@ -96,15 +96,31 @@ def exercise(stop):
             pass
         stop.wait(1)
 
-def find_stage4(baseline, marker):
+def find_stage4(baseline_markers, marker):
+    # The lifecycle repository intentionally keeps one ACTIVE incident per
+    # application/environment/origin. A new Stage 4 stimulus can therefore enrich
+    # an already-active document-service incident instead of creating a new UUID.
+    # Accept that same UUID only when the requested Stage 4 marker is newly present.
     for incident in incidents("ACTIVE"):
-        if str(incident.get("id")) in baseline:
-            continue
+        incident_id = str(incident.get("id"))
         analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
         signals = [str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])]
-        if any(marker in signal for signal in signals):
+        has_marker = any(marker in signal for signal in signals)
+        if not has_marker:
+            continue
+        if incident_id not in baseline_markers or marker not in baseline_markers[incident_id]:
             return incident
     return None
+
+def active_marker_snapshot():
+    snapshot = {}
+    for incident in incidents("ACTIVE"):
+        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+        snapshot[str(incident.get("id"))] = {
+            str(e.get("signal", "")).lower()
+            for e in analysis.get("timeline", [])
+        }
+    return snapshot
 
 def resolved(incident_id):
     return next((i for i in incidents("RESOLVED") if str(i.get("id")) == str(incident_id)), None)
@@ -124,7 +140,7 @@ def details(incident):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(i["id"]) for i in incidents("ACTIVE")}
+    baseline = active_marker_snapshot()
     detected = None
     stop = threading.Event()
     worker = None
