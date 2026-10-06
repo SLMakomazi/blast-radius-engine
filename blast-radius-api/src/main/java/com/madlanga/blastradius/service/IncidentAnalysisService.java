@@ -121,6 +121,10 @@ public class IncidentAnalysisService {
                             logSignal(log), log.getId()));
         }
         for (SpanEvidence span : telemetry.getSpans()) {
+            if (span.getDurationMs() >= 2000) {
+                add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
+                        "slow span: " + span.getOperation() + " duration=" + span.getDurationMs() + "ms", span.getId()));
+            }
             if (span.isError()) {
                 add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
                         "error span: " + span.getOperation(), span.getId()));
