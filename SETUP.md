@@ -23,6 +23,7 @@ PostgreSQL, Prometheus, Loki, Tempo and OpenTelemetry do not need to be installe
 ~~~bash
 git clone https://github.com/SLMakomazi/blast-radius-engine.git
 cd blast-radius-engine
+git checkout main
 cp -n .env.example .env
 ~~~
 
@@ -372,3 +373,9 @@ Do not use -v if you want to retain local state.
 > **Topology calculates potential impact; runtime telemetry proves observed impact; AI explains sanitized evidence.**
 
 The deterministic domain should remain independent of telemetry vendors, the LLM provider and the frontend.
+
+## Complete regression gate
+
+The baseline local validation passed Stage 1: 6 / 6, Stage 2: 4 / 4, Stage 3: 4 / 4 and Stage 4: 4 / 4 (18 / 18). Run the suites again after structural changes; the baseline is not a new test result. Follow [the complete validation order](docs/E2E_VALIDATION.md), including at least 10 seconds between stages, fresh trace-export checks after Stage 1 and final platform checks.
+
+For new code, follow [the developer architecture guide](docs/DEVELOPER_GUIDE.md).

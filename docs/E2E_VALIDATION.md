@@ -1,6 +1,6 @@
-# Phase 11 End-to-End Validation
+# Stage 1–4 Local Validation
 
-Phase 11 is the acceptance layer for the local Blast Radius Engine. It proves that the deterministic engine behaves correctly under different failure shapes before enterprise MadlangaAI integration.
+Stage 1–4 runners are the acceptance layer for the local Blast Radius Engine. It proves that the deterministic engine behaves correctly under different failure shapes before enterprise MadlangaAI integration.
 
 ## Principle
 
@@ -74,3 +74,45 @@ The suite passes only when:
 - recovery resumes after telemetry is restored.
 
 The E2E suite validates deterministic behavior. AI diagnosis remains an optional advisory smoke test and is deliberately excluded from acceptance.
+
+## Full Stage 1–4 regression order
+
+The completed baseline result is Stage 1: 6 / 6, Stage 2: 4 / 4, Stage 3: 4 / 4 and Stage 4: 4 / 4; total 18 / 18. Record new branch results separately.
+
+| Stage | Runner | Scenarios |
+|---|---|---|
+| 1 | `run-phase11-e2e.py` | Six cases above, including healthy baseline |
+| 2 | `run-stage2-e2e.py --scenario all` | HTTP 500, intermittent 500, latency, database connectivity |
+| 3 | `run-stage3-e2e.py --scenario all` | Deployment regression, configuration error, API contract break, feature-flag regression |
+| 4 | `run-stage4-e2e.py --scenario all` | Distributed cascade, compound dependency failure, flapping dependency, partial observability |
+
+Stage 3 uses reversible synthetic change faults and stored change markers. Stage 4 proves upstream observed impact and blocks recovery while traces are missing. These local scenarios do not implement real deployment rollback, general multi-origin analysis or network partition control.
+
+Run each command only after the previous suite passes. Stop and investigate any failure; do not weaken assertions.
+
+```bash
+docker compose config --quiet
+docker compose build
+docker compose up -d
+docker compose ps
+python3 scripts/run-phase11-e2e.py
+sleep 10
+```
+
+Stage 1 deliberately interrupts Tempo. Before Stage 2, confirm Tempo `/ready`, Collector health on port 13133 and fresh traces through Tempo `/api/search`. Check recent Collector logs for new `failed`, `dropping`, `no more retries` or `no such host` errors. If export has not recovered, restart only `tempo` and `otel-collector`, then wait for fresh trace evidence and a quiet Collector log interval. A running container alone does not prove trace export recovered.
+
+```bash
+# Only if trace export needs recovery:
+docker compose restart tempo otel-collector
+# Confirm fresh traces and stable export before continuing.
+python3 scripts/run-stage2-e2e.py --scenario all
+sleep 10
+python3 scripts/run-stage3-e2e.py --scenario all
+sleep 10
+python3 scripts/run-stage4-e2e.py --scenario all
+docker compose ps
+curl -s 'http://localhost:8080/api/v1/blast-radius/incidents?status=ACTIVE'
+docker compose logs --since 1m otel-collector
+```
+
+After recovery, no unexpected incident should remain ACTIVE and expected services should be running/healthy where checks exist. Errors caused by deliberate observability interruption may exist historically; inspect fresh errors after recovery. Gemini is optional and excluded from deterministic acceptance.

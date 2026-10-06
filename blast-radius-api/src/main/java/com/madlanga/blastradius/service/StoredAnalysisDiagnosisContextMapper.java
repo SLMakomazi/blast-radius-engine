@@ -9,9 +9,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Maps the immutable persisted analysis JSON directly to the compact AI diagnosis
- * contract. This deliberately avoids reconstructing core domain objects merely to
- * explain a stored snapshot and provides a second sanitization boundary before AI.
+ * Builds diagnosis context from a stored analysis snapshot.
+ * Redacts free text again before it can reach the AI provider.
  */
 public final class StoredAnalysisDiagnosisContextMapper {
     private final JsonMapper jsonMapper;

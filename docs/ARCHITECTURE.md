@@ -1,143 +1,70 @@
 # Architecture
 
-## Design principle
-**Topology calculates potential impact; full telemetry proves observed impact; AI explains sanitized evidence.**
-
-## Technology-neutral topology
-The Blast Radius graph is a generic component graph, not a microservice-only graph.
-
-At minimum a node can represent:
-`SERVICE`, `API`, `DATABASE`, `MESSAGE_BROKER`, `QUEUE`, `TOPIC`, `SERVERLESS_FUNCTION`, `WORKFLOW`, `FRONTEND`, `EXTERNAL_SYSTEM`, or `UNKNOWN`.
-
-Technology metadata is separate from node type, e.g. `POSTGRESQL`, `MONGODB`, `ORACLE`, `DB2`, `SQL_SERVER`, `IBM_MQ`, `AWS_SQS`, `AWS_SNS`, `ACTIVEMQ`, `AWS_LAMBDA`, `AWS_STEP_FUNCTIONS`, `SPRING_BOOT`, `NODE_JS`, `ANGULAR`.
-
-The model must allow new types/technologies without changing graph traversal.
-
-## Logical architecture
-```text
-Dependency Topology                Telemetry Providers
-(any supported technology)        logs metrics traces health
-          |                                  |
-          |                         Sanitization
-          +---------------+------------------+
-                          |
-                 Incident Correlation
-                          |
-                 Origin Assessment
-                          |
-                 Blast Radius Engine
-                  /              \
-        Theoretical Impact    Observed Impact
-                  \              /
-                    Evidence
-                       |
-             Propagation Timeline
-                       |
-             Severity / Confidence
-                       |
-              Diagnosis Context
-                       |
-              AI Diagnosis (optional)
-                       |
-              REST/UI/MadlangaAI
-```
-
-## Local Docker lab
-The first executable vertical slice intentionally uses:
-`traffic-generator -> payment-service -> customer-service -> document-service -> postgres`.
-
-This validates the engine; it does not define the domain boundary. PostgreSQL can later be replaced/augmented by MongoDB or another supported dependency through topology/telemetry adapters without rewriting core graph logic.
-
-All services emit logs, metrics, OTLP traces and health signals. A failure driver injects controlled failures.
+Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized evidence.
 
 ## Package boundaries
+
 ```text
 com.madlanga.blastradius
-├── config
-│   └── TelemetryAdapterConfig
+├── BlastRadiusApplication
 ├── domain
-│   └── evidence
-│       ├── EvidenceFamily          (enum)
-│       ├── CoverageStatus          (enum)
-│       ├── HealthState             (enum)
-│       ├── SpanStatus              (enum)
-│       ├── EvidenceProvenance
-│       ├── TelemetryQuery
-│       ├── TelemetryCoverage
-│       ├── TelemetryBundle
-│       ├── LogEvidence
-│       ├── MetricEvidence
-│       ├── SpanEvidence
-│       └── HealthEvidence
-├── ports
-│   ├── TelemetryProvider           ← Phase 4 complete
-│   ├── DependencyTopologyProvider  ← Phase 5 complete
-│   ├── FailureExperimentProvider   ← Phase 7+
-│   └── AiDiagnosisProvider         ← Phase 9+
-├── sanitization
-│   ├── RedactionRule               (interface)
-│   ├── RedactionPlaceholders
-│   ├── BuiltInRedactionRules
-│   └── TelemetrySanitizer          (Spring @Component)
-└── adapters
-    ├── telemetry
-    │   ├── LocalTelemetryProvider  (implements TelemetryProvider)
-    │   ├── loki/
-    │   │   ├── LokiProperties
-    │   │   ├── LokiLogAdapter
-    │   │   ├── LokiResponse        (internal DTO)
-    │   │   └── LokiLogLine         (internal DTO)
-    │   ├── prometheus/
-    │   │   ├── PrometheusProperties
-    │   │   ├── PrometheusMetricsAdapter
-    │   │   └── PrometheusResponse  (internal DTO)
-    │   ├── tempo/
-    │   │   ├── TempoProperties
-    │   │   ├── TempoTraceAdapter
-    │   │   ├── TempoResponse       (internal DTO)
-    │   │   └── TempoSearchResponse (internal DTO)
-    │   └── health/
-    │       ├── ActuatorHealthProperties
-    │       ├── ActuatorHealthAdapter
-    │       └── ActuatorHealthResponse (internal DTO)
-    ├── ai/        ← Phase 9+
-    ├── topology/  ← Phase 5+
-    └── persistence/ ← Phase 8+
+│   ├── evidence     normalized telemetry, scope, coverage and provenance
+│   ├── topology     components, dependencies and DeterministicGraphEngine
+│   ├── incident     origin/impact/status and IncidentSeverityCalculator
+│   ├── experiment   expected impact and FailureExperimentAssessmentService
+│   └── diagnosis    provider-neutral diagnosis input/output
+├── service          analysis/lifecycle/diagnosis use cases and context mapping
+├── ports            seven external contracts
+├── adapters
+│   ├── telemetry    composite provider and Loki/Prometheus/Tempo/health adapters
+│   ├── topology     trace discovery and retained runtime knowledge
+│   ├── persistence  JDBC incident history and atomic topology files
+│   ├── ai           Gemini, optional provider wiring and deterministic fallback
+│   ├── experiment   local experiment metadata
+│   └── scheduling   proactive lifecycle entry point
+├── api
+│   └── dto          HTTP request/response records
+├── config           shared HTTP and topology wiring
+└── sanitization     redaction rules and telemetry sanitizer
 ```
 
-## Responsibilities
-- **TelemetryProvider** — normalized full/partial telemetry and coverage metadata.
-- **Sanitization** — redacts before evidence enters persistence/logs/exports/AI.
-- **DependencyTopologyProvider** — technology-neutral directed nodes/edges. For `A -> B`, A depends on B.
-- **IncidentCorrelationService** — correlates logs, metrics, traces and health.
-- **OriginAssessment** — ranks suspected origins from evidence/chronology.
-- **BlastRadiusEngine** — pure graph logic; paths, distance and theoretical impact.
-- **ObservedImpactEvaluator** — runtime-evidence validation; reachability alone is insufficient.
-- **PropagationTimelineService** — evidence-based incident chronology.
-- **SeverityCalculator** — deterministic/configurable; separate from MadlangaAI health score.
-- **FailureExperimentProvider** — optional controlled-failure metadata.
-- **AiDiagnosisProvider** — sanitized structured context only.
+`service` is the application layer. Pure graph, severity and containment rules belong in the domain. A port describes an external need; its adapter supplies a technology-specific implementation. Provider response models and properties stay beside their adapter. See [the class audit](ARCHITECTURAL_AUDIT.md) for the original inventory and [the developer guide](DEVELOPER_GUIDE.md) for placement rules.
 
-## Topology acquisition vs graph calculation
+## Analysis flow
 
-Topology **acquisition** and blast-radius **calculation** are separate responsibilities.
+1. `IncidentAnalysisService` asks `TelemetryProvider` for sanitized, normalized logs, metrics, spans and health.
+2. It asks `DependencyTopologyProvider` for scoped topology. Retained topology preserves observed relationships when raw traces expire.
+3. It restricts evidence to the requested interval, finds the likely origin and correlates observed failures.
+4. `DeterministicGraphEngine` traverses dependencies in reverse to find potential impact, minimum hop distance and stable paths. An edge A → B means A depends on B.
+5. Observed impact requires current evidence. Partial coverage leaves unobserved potential impact UNKNOWN. Severity and optional containment are deterministic domain rules.
+6. `IncidentLifecycleService` creates or updates an ACTIVE incident and stores its analysis snapshot through `IncidentRepository`.
+7. The lifecycle scheduler requires consecutive fully covered healthy windows before resolving the same incident. AI does not participate in this path.
+8. REST and the dashboard display stored results. On-demand diagnosis maps the snapshot, sanitizes free text again and calls `AiDiagnosisPort`. Provider failure returns the deterministic fallback.
 
-The deterministic graph engine never hardcodes the canonical local chain and never requires
-operators to manually redraw every monitored system. It accepts a `DependencyTopology`
-through `DependencyTopologyProvider`. A provider adapter may build that topology from:
+## Technology-neutral domain
 
-- MadlangaAI's existing architecture/dependency analysis and dependency map;
-- distributed-trace/runtime dependency discovery;
-- service catalogs or approved cloud/platform metadata;
-- local fixtures for deterministic tests and synthetic-lab validation.
+Component types include services, APIs, databases, brokers, queues, topics, serverless functions, workflows, frontends and external systems. Technology is metadata, separate from identity and type. New technologies do not require a graph rewrite.
 
-Phase 5 implements the provider contract and pure graph semantics. It intentionally does
-not invent a production discovery adapter before the upstream MadlangaAI topology contract
-is available. Phase 12 supplies the MadlangaAI adapter; additional discovery adapters can
-be added without changing traversal.
+Domain code has no Spring, MVC, JDBC, Gemini, Loki, Tempo or Prometheus imports. Diagnosis contracts may carry provider names as provenance; they do not import provider classes. Retained relationships establish potential dependencies, never current failure evidence.
 
-## MadlangaAI integration
-Reuse MadlangaAI topology, Datadog/MCP and AI capabilities where they satisfy Blast Radius contracts. Add adapters/providers for missing evidence. Never couple the core to one database, language, messaging platform, AWS component or telemetry vendor.
+## Local platform
 
-## Resilience
-Partial telemetry produces warnings rather than fabricated evidence; missing traces/logs do not prevent analysis when other evidence is sufficient; AI failure does not fail core analysis; cycles terminate; unknown components are surfaced; provider timeouts are isolated.
+The synthetic chain is `traffic-generator → payment-service → customer-service → document-service → postgres`. It generates realistic HTTP/JDBC telemetry and bounded controlled failures. The diagnostic `blast-radius-db` is separate so target outages do not prevent incident history writes.
+
+Micrometer metrics are scraped directly. The OpenTelemetry Java agent exports logs/traces asynchronously through the Collector. Collector allowlists and adapter sanitization protect evidence. Business correlation IDs are separate from W3C trace IDs. Observability loss must not prevent business requests or prove recovery.
+
+Four independent Maven projects build with Java 21 / Spring Boot 4.1.1. React/Vite displays deterministic results. Compose runs 12 services; migrations, observability configuration, runners and active fixtures remain runtime/test assets.
+
+## Persistence
+
+`JdbcIncidentRepository` implements `IncidentRepository` using explicit SQL, JSONB snapshots and Flyway migrations. `DocumentRepository` persists one synthetic table in the monitored lab. `FileTopologyStore` writes scoped snapshots atomically and supports one local writer. JDBC is retained; see ADR-029 in [DECISIONS.md](DECISIONS.md).
+
+## Validation and integration
+
+Stages 1–4 are implemented and the completed baseline local suite passed 18 / 18 scenarios. [E2E_VALIDATION.md](E2E_VALIDATION.md) lists the actual scenarios and runner order. Synthetic change markers are not real deployment integration; distributed lab faults do not imply general multi-origin or network-partition analysis.
+
+MadlangaAI topology, Datadog/MCP telemetry, canonical IDs, multi-application scheduling, authentication/RBAC/audit and production retention still need enterprise integration. See [INTEGRATION.md](INTEGRATION.md).
+
+## Remaining debt
+
+Analysis combines orchestration and evidence policy, including lab markers and metric interpretation. Recovery policy still lives in the scheduler. Controllers read query ports directly and expose some domain results as JSON. Generic errors use message prefixes. Trace discovery has a mapper/helper lifecycle that could be clearer. These behavior-sensitive changes remain separate from package cleanup.

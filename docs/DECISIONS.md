@@ -1,5 +1,7 @@
 # Architecture Decision Log
 
+Phase-specific entries below record decisions at that point in development. Their descriptions of deferred features are historical, not current implementation status. See [ARCHITECTURE.md](ARCHITECTURE.md) for current behavior.
+
 ## ADR-001 — Provider-neutral telemetry
 **Status:** Accepted
 Core logic consumes normalized telemetry; vendor schemas stay in adapters.
@@ -247,7 +249,7 @@ Use `DependencyTopologyProvider` for analysis and a replaceable `TopologyStore` 
 
 Filter fetched trace spans and incident evidence to the requested interval. Historical spans cannot inflate origin scores or timelines. Keep span roles so server errors alone cannot trigger peer-less dependency inference, and refuse inference when multiple real dependencies remain possible.
 
-Captured real traces are permitted only as regression/offline acceptance inputs when the original healthy evidence has expired. They are never the normal runtime topology mechanism. See [topology retention](TOPOLOGY_RETENTION.md) for freshness, scope, single-writer and partial-coverage limitations.
+Captured real traces are permitted only as regression/offline acceptance inputs when the original healthy evidence has expired. They are never the normal runtime topology mechanism. See [architecture](ARCHITECTURE.md) for retained topology scope, single-writer storage and coverage limits.
 
 
 ## ADR-025 — Deterministic incident severity is separate from application health scoring
@@ -270,7 +272,7 @@ Blast Radius persists incident lifecycle/history in a diagnostic-plane PostgreSQ
 
 Persist incident metadata and the sanitized deterministic analysis snapshot; telemetry backends remain the systems of record for raw logs, metrics and traces. A partial unique index permits only one ACTIVE incident per application/environment/origin.
 
-Failure evidence creates or updates an ACTIVE incident. Absence of failure evidence never implies recovery. Resolution is an explicit lifecycle transition through the incident API so a historical or evidence-empty analysis window cannot accidentally close a live incident. Resolution preserves the incident UUID, original failure snapshot and peak severity; it records resolvedAt without rewriting a HIGH incident as LOW merely because the system recovered.
+Failure evidence creates or updates an ACTIVE incident. Absence of failure evidence never implies recovery. Resolution is an explicit lifecycle transition through the incident API or the guarded scheduler. The scheduler requires consecutive fully covered healthy windows; an evidence-empty analysis alone does not close a live incident. Resolution preserves the incident UUID, original failure snapshot and peak severity; it records resolvedAt without rewriting a HIGH incident as LOW merely because the system recovered.
 
 
 ## ADR-028 — AI diagnosis is advisory, evidence-bounded and failure-isolated
@@ -285,3 +287,19 @@ Provider failure is isolated by returning a deterministic evidence-based fallbac
 deterministic incident analysis remains available independently of AI availability.
 Credentials are supplied only through environment configuration and are never persisted
 inside incident snapshots or source-controlled configuration.
+
+## ADR-029 — Keep JDBC for the current persistence model
+
+**Status:** Accepted — architecture cleanup
+
+JDBC is used in `adapters.persistence.JdbcIncidentRepository` for incident metadata, filtered history queries and JSONB analysis snapshots in the separate diagnostic PostgreSQL database. The synthetic document service uses `persistence.DocumentRepository` for an insert/read of one table. Both use `JdbcTemplate`; Flyway owns schema changes. Payment and customer have no persistence layer. Topology uses an atomic file store, not JDBC.
+
+Explicit SQL is small, easy to review, and preserves PostgreSQL upsert and uniqueness rules. The model has no entity relationship graph that needs ORM mapping. JPA could reduce routine mapping for a larger relational model and provide entity lifecycle management. Here it would add entities, ORM configuration, persistence-context behavior, JSONB mapping decisions and new transaction/query behavior without solving a demonstrated problem. A migration would also require fresh failure-semantics and telemetry validation. Keep JDBC; a JPA migration is unnecessary for this system today.
+
+## ADR-030 — Align packages by responsibility with small moves
+
+**Status:** Accepted — architecture cleanup
+
+Keep `service` as the application layer and preserve domain, ports, adapters, API, configuration and sanitization boundaries. Move pure graph/severity/containment rules into their existing domain subpackages, the fallback diagnosis port implementation beside AI adapters, the scheduled entry point into `adapters.scheduling`, and HTTP transport records into `api.dto`. Keep provider properties/response models near adapters and exception handlers near their HTTP boundary.
+
+No aggregate/repository framework or extra DDD layer is needed. Mock applications remain independent small lab services. JSON contracts, deterministic rules, migrations and Stage 1–4 assertions stay unchanged. Deferred policy/facade extraction is documented separately so package cleanup does not become a rewrite.

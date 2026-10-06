@@ -19,7 +19,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Phase 10 proactive incident lifecycle monitor.
+ * Scheduled failure detection and guarded recovery checks.
  *
  * Continuously evaluates a recent telemetry window without waiting for a user
  * request. New failure evidence creates or updates an ACTIVE incident. Existing

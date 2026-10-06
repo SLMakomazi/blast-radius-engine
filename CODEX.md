@@ -1,63 +1,39 @@
-# Codex Project Instructions
+# Developer instructions
 
-## Mission
-Build a **full-capability Blast Radius Engine** for MadlangaAI Phase 4, independently runnable in a complete local Docker lab.
+## Purpose
 
-The engine answers what failed, likely origin, theoretical/observed/unexpected impact, propagation, supporting logs/metrics/traces/health evidence, severity/confidence, remediation and optional chaos containment.
+Maintain the deterministic Blast Radius Engine and its complete local lab. Architecture cleanup improves package boundaries without changing working behavior.
 
-## Authoritative documents
-Read in order: `SOURCE_ALIGNMENT.md`, `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `BLAST_RADIUS_SPEC.md`, `TELEMETRY_CONTRACT.md`, `LOCAL_LAB.md`, `INTEGRATION.md`, `IMPLEMENTATION_PLAN.md`, `TEST_STRATEGY.md`, `UI_UX_CONCEPT.md`, `DECISIONS.md`.
+Read [README.md](README.md), [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md), [the architecture](docs/ARCHITECTURE.md), [the developer guide](docs/DEVELOPER_GUIDE.md), [decisions](docs/DECISIONS.md) and [integration](docs/INTEGRATION.md). These are the active documents; old phase documents are available in Git history.
 
-The MadlangaAI BRD is incomplete. Do not silently narrow Blast Radius to current MVP integrations.
+## Core rules
 
-## Supported technology constraint
-The core domain MUST remain technology-neutral. MadlangaAI currently lists Angular/JavaScript/TypeScript/NX/Micro Frontends; Spring Boot/Java/REST and Node.js; PostgreSQL, MongoDB, Oracle, IBM DB2 and SQL Server; IBM MQ, AWS SQS/SNS and ActiveMQ; AWS Step Functions and standalone AWS Lambdas.
-
-PostgreSQL is only the canonical first Docker scenario. **Never encode PostgreSQL, relational DB, HTTP, Spring Boot, or synchronous-service assumptions into the graph engine.**
-
-Use generic component types and technology metadata so additional supported technologies do not require core graph rewrites.
-
-## Non-negotiable engineering constraints
-- Java + Spring Boot for the local Blast Radius service.
-- Everything required to prove Blast Radius runs locally with Docker Compose.
-- Provide mock services, PostgreSQL first, traffic generation and logs/metrics/traces/health observability.
-- Full telemetry contract remains required even if current MadlangaAI exposes a subset.
-- Domain logic stays independent of telemetry vendors, databases, LLM vendors and UI frameworks.
-- External systems enter through adapters/ports.
-- Blast-radius calculation is deterministic graph logic.
-- AI explains/recommends after sanitization; it never invents dependency/impact facts.
-- Separate theoretical, observed and unexpected impact.
-- Preserve evidence/provenance/timestamps.
-- Sanitize PII/secrets/credentials before persistence/logging/export/AI.
+- Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized evidence.
+- Domain rules stay independent of vendors, controllers, JDBC, Docker and the frontend.
+- `service` is the application layer. Use ports for external needs and adapters for implementations.
+- Put new code in the package matching its responsibility, not simply beside its caller.
+- Preserve canonical identities, scope, evidence timestamps and provenance.
+- Missing telemetry is uncertainty, never proof of health or recovery.
+- Keep AI optional and advisory. It does not select origin, impact, propagation, severity or lifecycle transitions.
+- Sanitize telemetry before persistence, display, export, logs or AI. Never log secret values or raw provider payloads.
 - Incident severity is separate from MadlangaAI Overall Health Score.
-- Local failure driver is for validation; production chaos orchestration is separate.
-- No autonomous production fixes.
+- No autonomous production fixes. Local fault controls are synthetic lab support.
+- Keep mock services small and independently buildable. Keep JDBC unless a concrete problem justifies changing it.
 
-## Local proof requirement
-Docker Compose must ultimately provide Blast Radius API, payment/customer/document mock services, PostgreSQL, traffic generator, logs, metrics, distributed tracing, health, failure driver and local telemetry adapters/backends.
+## Runtime conventions
 
-Canonical chain: `payment-service -> customer-service -> document-service -> postgres`.
+Use Java 21 and each module's Maven POM. Keep Docker/Podman Compose portability, bounded JVM/backend resources and asynchronous OpenTelemetry export. Metrics scrape directly with Micrometer; logs/traces use the Collector. Business correlation IDs are separate from W3C trace IDs.
 
-## Definition of done
-A local injected failure creates real synthetic telemetry. The engine correlates it, assesses origin, calculates direct/indirect theoretical impact, identifies observed impact, builds propagation chronology/evidence, calculates deterministic severity, returns a stable API result and produces sanitized AI-ready context.
+Topology enters through `DependencyTopologyProvider`. `TopologyStore` retains observed scoped relationships with timestamps and expiry. Technology-only spans do not invent dependency identity. Read time and peer-less failures do not renew relationships. Historical topology does not become current incident evidence. Captured traces are regression/offline inputs only.
 
-## Working style
-Small branches/commits; tests with behavior changes; interfaces at integration boundaries; synthetic fixtures only; ADRs for significant choices; never invent answers to documented open questions.
+The scheduled lifecycle detector monitors the configured local application/environment. Recovery requires consecutive fully covered healthy windows. Multi-application scheduling and final MadlangaAI/Datadog contracts remain enterprise integration work.
 
-## Implemented local observability conventions (Phase 3)
-- Podman Compose is the primary local runtime; preserve OCI/Compose portability.
-- Java agent instrumentation belongs to mock applications, never the Blast Radius domain.
-- Micrometer metrics scrape directly; logs/traces use asynchronous OTLP through the Collector.
-- Keep business correlation IDs separate from W3C trace IDs; neither is a Loki index label.
-- Preserve safe application log events and Collector attribute allowlists. Do not enable body, authorization/header, SQL parameter, environment-secret or exception-stack export.
-- Observability must not become a business startup dependency. Backend loss means missing evidence, not proof of application health.
-- Run `scripts/verify-observability.sh` for actual healthy/failure/recovery and partial-observability proof; record observed results in `docs/PHASE3_VERIFICATION.md`.
-- Keep backend retention/concurrency/memory bounded for the small ARM64 Podman VM. Never change machine resources automatically.
-- No normalized ingestion, provider adapters, graph calculations or diagnosis are implemented in Phase 3.
+## Validation and Git
 
-## Implemented Phase 6 topology conventions
-- Incident analysis depends on `DependencyTopologyProvider`; graph traversal remains independent of discovery/storage.
-- Concrete component identity and technology metadata are distinct. Technology-only spans never invent dependencies.
-- Runtime knowledge is retained through `TopologyStore`, scoped by application/environment, with observation timestamps/provenance and configurable expiry. Never renew an edge from a peer-less failure or from read time.
-- Current incident evidence is restricted to its requested interval; historical topology cannot change observed impact, scores, timeline or current telemetry coverage.
-- Captured traces are regression/offline-bootstrap inputs only, never normal production topology configuration. See `docs/TOPOLOGY_RETENTION.md` and `docs/PHASE6_VERIFICATION.md`.
+Normal stable branch: `main`. Work on a separate branch, keep commits focused, run `git diff --check` before committing and never weaken tests to pass a refactor.
+
+Compile and run relevant tests after each package change. `mvn clean verify` runs the standard suite; live `*LiveIT` tests require an explicit selection and a healthy lab. Run Compose configuration validation and build the complete stack.
+
+The completed baseline Stage 1–4 suite passed 18 / 18 scenarios: 6 / 6, 4 / 4, 4 / 4, 4 / 4. Every structural cleanup must rerun these suites and distinguish fresh results from baseline results. Follow [E2E_VALIDATION.md](docs/E2E_VALIDATION.md), including stage pauses, trace-export recovery and final ACTIVE-incident/Collector checks.
+
+Do not delete migrations, runtime configuration, active fixtures, runners, test resources or frontend assets. Delete unused placeholders only after checking references. Use clear English; preserve established technical terms and public contracts.

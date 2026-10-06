@@ -31,9 +31,9 @@ This applies specifically to raw logs and distributed traces.
 | Blast Radius port | Local implementation | MadlangaAI/enterprise integration |
 |---|---|---|
 | TelemetryProvider | local logs + metrics + traces + health adapters | Datadog/MCP plus additional approved source(s) for missing telemetry |
-| DependencyTopologyProvider | synthetic topology | MadlangaAI architecture/dependency model |
-| FailureExperimentProvider | local failure/chaos driver | Phase-4 chaos/TsakaniQA integration when defined |
-| AiDiagnosisProvider | deterministic stub/approved local option | MadlangaAI AI Diagnosis Engine |
+| DependencyTopologyProvider | retained runtime topology from normalized spans | MadlangaAI architecture/dependency model |
+| FailureExperimentProvider | local experiment metadata (injection is separate) | Phase-4 chaos/TsakaniQA integration when defined |
+| AiDiagnosisPort | optional Gemini and deterministic fallback | MadlangaAI AI Diagnosis Engine |
 | Result consumer | REST + local UI | MadlangaAI report/dashboard/API |
 
 ## Integration fields
@@ -69,3 +69,7 @@ Blast Radius incident severity must not modify MadlangaAI's weighted Overall Hea
 10. What is the final Chaos Engineering/TsakaniQA contract?
 
 These are integration unknowns, not reasons to narrow the local Blast Radius capability.
+
+## Local proof and enterprise work
+
+The local Stage 1–4 implementation has completed baseline validation: 6 / 6, 4 / 4, 4 / 4 and 4 / 4 (18 / 18). Its synthetic deployment/configuration/contract/feature-flag faults do not supply real deployment-event integration. Its distributed scenarios do not implement general multi-origin analysis. The open contracts above remain enterprise integration work.

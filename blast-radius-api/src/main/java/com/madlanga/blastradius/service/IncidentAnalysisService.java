@@ -12,8 +12,8 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 
 /**
- * Phase 6 deterministic incident intelligence.
- * AI is deliberately absent: evidence determines origin candidates and observed impact.
+ * Gets telemetry and topology, finds the likely origin and builds incident analysis.
+ * Evidence determines observed impact; AI does not make these decisions.
  */
 @Service
 public class IncidentAnalysisService {

@@ -4,8 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
 /**
- * Phase 8 transport contract for incident analysis.
- * Domain analysis remains in IncidentAnalysisService.
+ * HTTP request data for incident analysis.
+ * IncidentAnalysisService performs the analysis.
  */
 @Schema(description = "Request a deterministic blast-radius analysis for an application and time window.")
 public record AnalyzeIncidentRequest(

@@ -4,7 +4,7 @@ import com.madlanga.blastradius.domain.evidence.TelemetryBundle;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
 
 /**
- * Provider-neutral port for retrieving normalized telemetry.
+ * Gets sanitized, normalized telemetry from an external source.
  *
  * <p>The Blast Radius domain consumes this interface exclusively. Implementations
  * live in the {@code adapters} layer and may back onto Loki, Prometheus, Tempo,

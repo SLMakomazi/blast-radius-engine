@@ -228,7 +228,7 @@ Telemetry is sanitized before persistence, display, export or AI use. Enterprise
 
 ## Implemented locally vs integration work
 
-Implemented/proven locally:
+Implemented locally:
 - logs, metrics, traces and health adapters;
 - topology/runtime dependency knowledge;
 - deterministic origin assessment;
@@ -262,3 +262,7 @@ topology + normalized runtime evidence
 ~~~
 
 Environment-specific and vendor-specific systems belong behind adapters. That is how MadlangaAI can add new monitored applications without rewriting the Blast Radius engine.
+
+## Local validation status
+
+Stages 1–4 are implemented. The completed baseline local validation passed Stage 1: 6 / 6, Stage 2: 4 / 4, Stage 3: 4 / 4 and Stage 4: 4 / 4 (18 / 18 total). Change-related and distributed scenarios use synthetic lab faults. Real change-system integration and enterprise onboarding still require the contracts listed above. See [validation](docs/E2E_VALIDATION.md) and [package guidance](docs/DEVELOPER_GUIDE.md).
