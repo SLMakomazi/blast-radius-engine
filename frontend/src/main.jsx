@@ -35,7 +35,7 @@ function incidentScenario(incident) {
   const signals = incidentSignals(incident);
   if (signals.some(s => s.includes("database connectivity"))) return "DB Connectivity";
   if (signals.some(s => s.includes("latency") || s.includes("timeout"))) return "Latency";
-  if (signals.some(s => s.includes("application error http 500"))) return "HTTP 5xx";
+  if (signals.some(s => s.includes("application error http 500") || s.includes("5xx counter"))) return "HTTP 5xx";
   if (signals.some(s => s.includes("process cpu"))) return "CPU Pressure";
   if (signals.some(s => s.includes("connection-pool"))) return "Pool Pressure";
   return null;
@@ -75,17 +75,7 @@ function App() {
       const data = await res.json();
       setIncidents(data);
       setLastUpdated(new Date());
-      const stageData = data.filter(i => {
-        const timeline = i?.analysis?.timeline || i?.analysisSnapshot?.timeline || [];
-        const signals = timeline.map(e => String(e.signal || "").toLowerCase());
-        const isStage2 = signals.some(signal =>
-          signal.includes("stage2")
-          || signal.includes("http mean latency")
-          || signal.includes("sustained process cpu")
-          || signal.includes("connection-pool contention")
-        );
-        return (isStage2 ? "STAGE_2" : "STAGE_1") === stage;
-      });
+      const stageData = data.filter(i => incidentStage(i) === stage);
       const nextSelectedId = chooseSelectedIncidentId(stageData, selected?.id);
       if (!nextSelectedId) {
         setSelected(null);
