@@ -214,10 +214,18 @@ public class IncidentAnalysisService {
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
     private boolean isStage2DegradationLog(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
-        return message.contains("synthetic_latency");
+        return message.contains("synthetic_latency") || message.contains("synthetic_change_failure");
     }
     private String logSignal(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
+        if (message.contains("synthetic_change_failure") && message.contains("deployment_regression"))
+            return "stage3 deployment regression";
+        if (message.contains("synthetic_change_failure") && message.contains("configuration_error"))
+            return "stage3 configuration error";
+        if (message.contains("synthetic_change_failure") && message.contains("contract_break"))
+            return "stage3 API contract break";
+        if (message.contains("synthetic_change_failure") && message.contains("feature_flag_regression"))
+            return "stage3 feature flag regression";
         if (message.contains("synthetic_application_failure") && message.contains("intermittent_500"))
             return "stage2 intermittent HTTP 500";
         if (message.contains("synthetic_application_failure") || message.contains("synthetic local application failure"))

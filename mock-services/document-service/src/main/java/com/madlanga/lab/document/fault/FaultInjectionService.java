@@ -51,11 +51,25 @@ public class FaultInjectionService {
             }
             case LATENCY -> delay(active.latencyMs());
             case DATABASE_FAILURE -> failDatabase();
+            case DEPLOYMENT_REGRESSION -> failChange("DEPLOYMENT_REGRESSION", "release=synthetic-v2");
+            case CONFIGURATION_ERROR -> failChange("CONFIGURATION_ERROR", "config=DOCUMENT_POLICY");
+            case CONTRACT_BREAK -> failChange("CONTRACT_BREAK", "contract=document-api-v2");
+            case FEATURE_FLAG_REGRESSION -> {
+                long request = requestCounter.incrementAndGet();
+                if (request % active.everyNthRequest() == 0) {
+                    failChange("FEATURE_FLAG_REGRESSION", "flag=synthetic-new-document-flow");
+                }
+            }
         }
     }
 
     private void failApplication(FaultMode mode) {
         log.error("event=synthetic_application_failure mode={}", mode);
+        throw new SyntheticFaultException();
+    }
+
+    private void failChange(String changeType, String detail) {
+        log.error("event=synthetic_change_failure stage=STAGE_3 changeType={} {}", changeType, detail);
         throw new SyntheticFaultException();
     }
 
