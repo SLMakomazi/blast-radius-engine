@@ -31,6 +31,7 @@ SCENARIOS = {
 class Stage4Failure(AssertionError):
     pass
 
+
 def request_json(url, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {"Accept": "application/json"}
@@ -38,18 +39,12 @@ def request_json(url, method="GET", payload=None):
         headers["Content-Type"] = "application/json"
     try:
         with urlopen(Request(url, data=data, headers=headers, method=method), timeout=12) as response:
-            raw = response.read()
-            return response.status, json.loads(raw) if raw else {}
+            body = response.read()
+            return response.status, json.loads(body) if body else {}
     except HTTPError as error:
         with error:
-            raw = error.read()
-            return error.code, json.loads(raw) if raw else {}
-
-def compose(*args):
-    result = subprocess.run(["docker", "compose", *args], text=True, capture_output=True)
-    if result.returncode != 0:
-        raise Stage4Failure((result.stderr or result.stdout).strip())
-    return result.stdout.strip()
+            body = error.read()
+            return error.code, json.loads(body) if body else {}
 
 def incidents(status):
     query = urlencode({"applicationId": APP, "environment": ENV, "status": status})
@@ -58,7 +53,7 @@ def incidents(status):
         raise Stage4Failure(f"Incident API returned HTTP {code}: {body}")
     return body
 
-def eventually(check, label, timeout=170, interval=2):
+def eventually(check, label, timeout, interval=2):
     deadline = time.monotonic() + timeout
     last = None
     while time.monotonic() < deadline:
