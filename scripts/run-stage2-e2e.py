@@ -122,11 +122,29 @@ def exercise_full_chain(stop_event):
         stop_event.wait(1)
 
 
-def new_active(baseline_ids, expected_origins):
+def active_after(baseline, expected_origins, scenario_started_at):
+    """Accept a new incident or a baseline ACTIVE incident freshly updated by this scenario.
+
+    The lifecycle service intentionally reuses one ACTIVE UUID per origin. A previous
+    interrupted Stage 2 run can therefore leave an ACTIVE incident that is correctly
+    refreshed by the next scenario. Requiring a brand-new UUID would time out even
+    though proactive detection and persistence are working.
+    """
     for incident in incidents("ACTIVE"):
-        if str(incident.get("id")) in baseline_ids:
+        if incident.get("originComponent") not in expected_origins:
             continue
-        if incident.get("originComponent") in expected_origins:
+
+        incident_id = str(incident.get("id"))
+        if incident_id not in baseline:
+            return incident
+
+        previous_updated_at = baseline.get(incident_id)
+        current_updated_at = incident.get("updatedAt")
+        analysis_to = (incident.get("analysis") or {}).get("to")
+
+        if current_updated_at and current_updated_at != previous_updated_at:
+            return incident
+        if analysis_to and analysis_to >= scenario_started_at:
             return incident
     return None
 
@@ -140,7 +158,8 @@ def resolved(incident_id):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(item["id"]) for item in incidents("ACTIVE")}
+    baseline = {str(item["id"]): item.get("updatedAt") for item in incidents("ACTIVE")}
+    scenario_started_at = None
     detected = None
     stimulus_stop = threading.Event()
     stimulus = None
@@ -148,12 +167,13 @@ def run_scenario(name):
         configured = set_fault(scenario["fault"])
         if configured.get("mode") != scenario["fault"]["mode"]:
             raise Stage2Failure(f"Fault mode was not applied: {configured}")
+        scenario_started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
         stimulus = threading.Thread(target=exercise_full_chain, args=(stimulus_stop,), daemon=True)
         stimulus.start()
 
         detected = eventually(
-            lambda: new_active(baseline, scenario["expected_origins"]),
+            lambda: active_after(baseline, scenario["expected_origins"], scenario_started_at),
             f"{name} degradation incident",
         )
         # Give Prometheus/Tempo another scrape/flush window, then read the latest
