@@ -221,7 +221,7 @@ stopped containers.
 Run the complete degradation suite:
 
 ~~~bash
-python3 scripts/run-stage2-e2e.py
+python3 scripts/run-stage2-e2e.py --scenario all
 ~~~
 
 Or run one scenario:
@@ -263,6 +263,59 @@ The engine also correlates sustained process CPU usage (>= 90%), sustained Hikar
 connection-pool contention, HTTP 5xx counter growth and high mean HTTP latency.
 Memory-used by itself is deliberately not treated as memory pressure because a
 used-byte value without a configured/max limit is insufficient evidence.
+
+### Stage 2 acceptance criteria
+
+A detected incident is not enough to pass a Stage 2 scenario. The runner also checks
+that the expected telemetry families actually contributed correlated evidence.
+
+Expected evidence:
+- **http-500:** LOG + METRIC + TRACE
+- **intermittent:** LOG + METRIC + TRACE
+- **latency:** LOG + METRIC + TRACE
+- **db-connectivity:** LOG + TRACE
+
+HEALTH may legitimately contain zero incident evidence for these scenarios because
+the purpose of Stage 2 is to validate degraded-but-running services. Provider
+availability and incident evidence are separate concepts: `AVAILABLE / 0 evidence`
+means the provider was reachable, not that it proved the incident.
+
+After each scenario the runner removes the synthetic fault and waits for automatic
+recovery. Therefore, after a successful complete run the generated incidents are
+expected under **Stage 2 -> RESOLVED**, not ACTIVE.
+
+### Stage 2 dashboard
+
+The left navigation separates:
+- **Stage 1 / Hard failures** for availability/outage validation;
+- **Stage 2 / Degradation** for degraded-but-running validation.
+
+Use the ACTIVE/RESOLVED toggle inside the selected stage. A completed Stage 2 runner
+normally leaves no Stage 2 incident ACTIVE because recovery is part of the test.
+
+### Rebuild after Stage 2 code changes
+
+From the repository root:
+
+~~~bash
+docker compose up -d --build --force-recreate blast-radius-api document-service frontend
+docker compose ps blast-radius-api document-service frontend
+~~~
+
+Wait until the three services are healthy before running the Stage 2 suite.
+
+If Maven fails during a Docker build with `Premature end of Content-Length delimited
+message body`, that indicates an incomplete dependency download rather than an
+application compilation failure. Retry the API image build:
+
+~~~bash
+docker compose build --no-cache blast-radius-api
+docker compose up -d blast-radius-api frontend
+docker compose ps blast-radius-api frontend
+~~~
+
+Do not modify the application POM merely to work around an interrupted Maven Central
+download.
 
 ## Useful commands
 
