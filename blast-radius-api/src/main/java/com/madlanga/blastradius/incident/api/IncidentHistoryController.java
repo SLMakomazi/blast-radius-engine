@@ -6,7 +6,7 @@ import com.madlanga.blastradius.incident.api.dto.ResolveIncidentRequest;
 import com.madlanga.blastradius.incident.domain.IncidentStatus;
 import com.madlanga.blastradius.incident.domain.PersistedIncident;
 import com.madlanga.blastradius.incident.application.port.IncidentRepository;
-import com.madlanga.blastradius.service.IncidentLifecycleService;
+import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
 import com.madlanga.blastradius.diagnosis.application.AiDiagnosisService;
 import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
 import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;

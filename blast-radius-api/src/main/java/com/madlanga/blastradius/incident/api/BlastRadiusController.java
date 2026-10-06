@@ -2,7 +2,7 @@ package com.madlanga.blastradius.incident.api;
 
 import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
-import com.madlanga.blastradius.service.IncidentLifecycleService;
+import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
 import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
 import com.madlanga.blastradius.topology.domain.DependencyTopology;
 import java.time.Instant;

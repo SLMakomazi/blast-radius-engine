@@ -1,7 +1,7 @@
-package com.madlanga.blastradius.adapters.scheduling;
+package com.madlanga.blastradius.lifecycle.infrastructure;
 
 import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
-import com.madlanga.blastradius.service.IncidentLifecycleService;
+import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
 import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import com.madlanga.blastradius.incident.domain.PersistedIncident;
 import com.madlanga.blastradius.incident.application.port.IncidentRepository;

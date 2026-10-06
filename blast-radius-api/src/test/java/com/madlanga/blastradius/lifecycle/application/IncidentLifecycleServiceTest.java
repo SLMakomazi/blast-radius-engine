@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.lifecycle.application;
 
 import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
 
