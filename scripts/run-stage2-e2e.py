@@ -31,18 +31,22 @@ SCENARIOS = {
     "http-500": {
         "fault": {"mode": "ERROR_500", "latencyMs": 0, "everyNthRequest": 5},
         "expected_origins": {"document-service"},
+        "required_evidence": {"LOG", "METRIC", "TRACE"},
     },
     "intermittent": {
         "fault": {"mode": "INTERMITTENT_500", "latencyMs": 0, "everyNthRequest": 3},
         "expected_origins": {"document-service"},
+        "required_evidence": {"LOG", "METRIC", "TRACE"},
     },
     "latency": {
         "fault": {"mode": "LATENCY", "latencyMs": 9000, "everyNthRequest": 5},
         "expected_origins": {"document-service"},
+        "required_evidence": {"LOG", "METRIC", "TRACE"},
     },
     "db-connectivity": {
         "fault": {"mode": "DATABASE_FAILURE", "latencyMs": 0, "everyNthRequest": 5},
         "expected_origins": {"postgres", "document-service"},
+        "required_evidence": {"LOG", "TRACE"},
     },
 }
 
@@ -163,6 +167,12 @@ def run_scenario(name):
         family_counts = {family: sum(1 for item in timeline if item.get("family") == family)
                          for family in ("LOG", "METRIC", "TRACE", "HEALTH")}
         families = sorted(family for family, count in family_counts.items() if count)
+        missing = sorted(scenario.get("required_evidence", set()) - set(families))
+        if missing:
+            raise Stage2Failure(
+                f"{name} was detected but telemetry enrichment is incomplete; "
+                f"missing evidence families: {', '.join(missing)}; counts={family_counts}"
+            )
         return {
             "id": str(detected["id"]),
             "origin": detected.get("originComponent"),
