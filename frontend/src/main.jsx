@@ -34,8 +34,9 @@ function incidentSignals(incident) {
 function incidentScenario(incident) {
   const signals = incidentSignals(incident);
   if (signals.some(s => s.includes("database connectivity"))) return "DB Connectivity";
-  if (signals.some(s => s.includes("latency") || s.includes("timeout"))) return "Latency";
-  if (signals.some(s => s.includes("application error http 500") || s.includes("5xx counter"))) return "HTTP 5xx";
+  if (signals.some(s => s.includes("latency") || s.includes("slow span") || s.includes("timeout"))) return "Latency";
+  if (signals.some(s => s.includes("intermittent http 500"))) return "Intermittent 500";
+  if (signals.some(s => s.includes("application error http 500") || s.includes("5xx counter"))) return "HTTP 500";
   if (signals.some(s => s.includes("process cpu"))) return "CPU Pressure";
   if (signals.some(s => s.includes("connection-pool"))) return "Pool Pressure";
   return null;
