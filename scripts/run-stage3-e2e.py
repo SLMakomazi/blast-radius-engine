@@ -105,15 +105,24 @@ def exercise(stop_event):
             pass
         stop_event.wait(1)
 
+def active_marker_snapshot():
+    snapshot = {}
+    for incident in incidents("ACTIVE"):
+        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+        snapshot[str(incident.get("id"))] = {
+            str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])
+        }
+    return snapshot
+
 def new_stage3_incident(baseline, marker):
     for incident in incidents("ACTIVE"):
-        if str(incident.get("id")) in baseline:
-            continue
         if incident.get("originComponent") != "document-service":
             continue
+        incident_id = str(incident.get("id"))
         analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
         signals = [str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])]
-        if any(marker in signal for signal in signals):
+        if any(marker in signal for signal in signals) and (
+                incident_id not in baseline or marker not in baseline[incident_id]):
             return incident
     return None
 
@@ -122,7 +131,7 @@ def resolved(incident_id):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(i["id"]) for i in incidents("ACTIVE")}
+    baseline = active_marker_snapshot()
     detected = None
     stop = threading.Event()
     worker = None
