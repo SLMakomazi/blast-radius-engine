@@ -117,7 +117,7 @@ public class PrometheusMetricsAdapter {
                         .queryParam("query", promql)
                         .queryParam("start", query.getFrom().getEpochSecond())
                         .queryParam("end", query.getTo().getEpochSecond())
-                        .queryParam("step", "15s")
+                        .queryParam("step", "5s")
                         .build())
                 .retrieve()
                 .body(PrometheusResponse.class);
