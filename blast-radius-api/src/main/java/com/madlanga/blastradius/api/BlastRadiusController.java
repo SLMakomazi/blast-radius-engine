@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.madlanga.blastradius.api.dto.AnalyzeIncidentRequest;
+import com.madlanga.blastradius.api.dto.ErrorResponse;
 import java.time.temporal.ChronoUnit;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -139,11 +141,6 @@ public class BlastRadiusController {
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
-
-    @Schema(description = "Stable API error contract.")
-    record ErrorResponse(
-            @Schema(description = "Machine-readable error code.", example = "INVALID_REQUEST") String code,
-            @Schema(description = "Human-readable error detail.", example = "applicationId is required") String message) {}
 
     private static final class ApiRequestException extends IllegalArgumentException {
         private final String code;

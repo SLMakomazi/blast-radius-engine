@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.api;
+package com.madlanga.blastradius.api.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;

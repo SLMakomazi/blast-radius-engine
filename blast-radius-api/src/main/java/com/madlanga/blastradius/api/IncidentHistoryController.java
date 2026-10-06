@@ -1,5 +1,8 @@
 package com.madlanga.blastradius.api;
 
+import com.madlanga.blastradius.api.dto.ErrorResponse;
+import com.madlanga.blastradius.api.dto.IncidentResponse;
+import com.madlanga.blastradius.api.dto.ResolveIncidentRequest;
 import com.madlanga.blastradius.domain.incident.IncidentStatus;
 import com.madlanga.blastradius.domain.incident.PersistedIncident;
 import com.madlanga.blastradius.ports.IncidentRepository;
@@ -16,7 +19,6 @@ import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @RestController
@@ -70,7 +72,7 @@ public class IncidentHistoryController {
     public ResponseEntity<?> diagnose(@PathVariable UUID id) {
         var incident = repository.findById(id);
         if (incident.isEmpty()) {
-            return ResponseEntity.status(404).body(new HistoryErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
+            return ResponseEntity.status(404).body(new ErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
         }
         try {
             DiagnosisContext context = diagnosisContextMapper.fromJson(incident.get().analysisSnapshot());
@@ -89,15 +91,15 @@ public class IncidentHistoryController {
             return ResponseEntity.ok(response(lifecycleService.resolve(id, resolvedAt).orElseThrow()));
         } catch (IllegalArgumentException e) {
             if (e.getMessage() != null && e.getMessage().startsWith("incident not found:")) {
-                return ResponseEntity.status(404).body(new HistoryErrorResponse("INCIDENT_NOT_FOUND", e.getMessage()));
+                return ResponseEntity.status(404).body(new ErrorResponse("INCIDENT_NOT_FOUND", e.getMessage()));
             }
             throw e;
         }
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    ResponseEntity<HistoryErrorResponse> invalidRequest(IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(new HistoryErrorResponse("INVALID_REQUEST", e.getMessage()));
+    ResponseEntity<ErrorResponse> invalidRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
     }
 
     private String normalizeStatus(String status) {
@@ -124,27 +126,4 @@ public class IncidentHistoryController {
         }
     }
 
-    public record IncidentResponse(
-            UUID id,
-            String applicationId,
-            String environment,
-            IncidentStatus status,
-            Instant startedAt,
-            Instant resolvedAt,
-            String originComponent,
-            com.madlanga.blastradius.domain.incident.ConfidenceLevel originConfidence,
-            com.madlanga.blastradius.domain.incident.SeverityLevel severityLevel,
-            int severityScore,
-            Instant analysisFrom,
-            Instant analysisTo,
-            JsonNode analysis,
-            Instant createdAt,
-            Instant updatedAt) {
-    }
-
-    public record ResolveIncidentRequest(Instant resolvedAt) {
-    }
-
-    record HistoryErrorResponse(String code, String message) {
-    }
 }
