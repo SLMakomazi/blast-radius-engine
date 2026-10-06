@@ -53,11 +53,10 @@ function App() {
         const timeline = i?.analysis?.timeline || i?.analysisSnapshot?.timeline || [];
         const signals = timeline.map(e => String(e.signal || "").toLowerCase());
         const isStage2 = signals.some(signal =>
-          signal.includes("http mean latency")
+          signal.includes("stage2")
+          || signal.includes("http mean latency")
           || signal.includes("sustained process cpu")
           || signal.includes("connection-pool contention")
-          || signal.includes("synthetic_application_failure")
-          || signal.includes("synthetic local application failure")
         );
         return (isStage2 ? "STAGE_2" : "STAGE_1") === stage;
       });
@@ -141,11 +140,10 @@ function App() {
     const timeline = incident?.analysis?.timeline || incident?.analysisSnapshot?.timeline || [];
     const signals = timeline.map(e => String(e.signal || "").toLowerCase());
     const stage2 = signals.some(signal =>
-      signal.includes("http mean latency")
+      signal.includes("stage2")
+      || signal.includes("http mean latency")
       || signal.includes("sustained process cpu")
       || signal.includes("connection-pool contention")
-      || signal.includes("synthetic_application_failure")
-      || signal.includes("synthetic local application failure")
     );
     return stage2 ? "STAGE_2" : "STAGE_1";
   };
