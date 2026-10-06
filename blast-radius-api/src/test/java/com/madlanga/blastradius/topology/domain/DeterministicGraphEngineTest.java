@@ -1,15 +1,15 @@
-package com.madlanga.blastradius.domain.topology;
+package com.madlanga.blastradius.topology.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.madlanga.blastradius.domain.topology.ComponentNode;
-import com.madlanga.blastradius.domain.topology.ComponentType;
-import com.madlanga.blastradius.domain.topology.DependencyEdge;
-import com.madlanga.blastradius.domain.topology.DependencyTopology;
-import com.madlanga.blastradius.domain.topology.GraphAnalysisResult;
-import com.madlanga.blastradius.domain.topology.ImpactClassification;
-import com.madlanga.blastradius.domain.topology.TheoreticalImpact;
+import com.madlanga.blastradius.topology.domain.ComponentNode;
+import com.madlanga.blastradius.topology.domain.ComponentType;
+import com.madlanga.blastradius.topology.domain.DependencyEdge;
+import com.madlanga.blastradius.topology.domain.DependencyTopology;
+import com.madlanga.blastradius.topology.domain.GraphAnalysisResult;
+import com.madlanga.blastradius.topology.domain.ImpactClassification;
+import com.madlanga.blastradius.topology.domain.TheoreticalImpact;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

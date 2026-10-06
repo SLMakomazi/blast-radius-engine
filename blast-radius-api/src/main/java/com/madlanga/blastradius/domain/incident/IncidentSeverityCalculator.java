@@ -1,8 +1,8 @@
 package com.madlanga.blastradius.domain.incident;
 
 import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.domain.topology.ComponentNode;
-import com.madlanga.blastradius.domain.topology.DependencyTopology;
+import com.madlanga.blastradius.topology.domain.ComponentNode;
+import com.madlanga.blastradius.topology.domain.DependencyTopology;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

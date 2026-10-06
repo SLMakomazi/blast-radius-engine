@@ -1,7 +1,7 @@
-package com.madlanga.blastradius.adapters.persistence;
+package com.madlanga.blastradius.topology.infrastructure.persistence;
 
-import com.madlanga.blastradius.domain.topology.RetainedTopology;
-import com.madlanga.blastradius.ports.TopologyStore;
+import com.madlanga.blastradius.topology.domain.RetainedTopology;
+import com.madlanga.blastradius.topology.application.port.TopologyStore;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.*;

@@ -1,10 +1,10 @@
-package com.madlanga.blastradius.adapters.topology;
+package com.madlanga.blastradius.topology.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.madlanga.blastradius.domain.topology.DependencyTopology;
+import com.madlanga.blastradius.topology.domain.DependencyTopology;
 import com.madlanga.blastradius.telemetry.application.port.TelemetryProvider;
-import com.madlanga.blastradius.domain.topology.DeterministicGraphEngine;
+import com.madlanga.blastradius.topology.domain.DeterministicGraphEngine;
 import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;

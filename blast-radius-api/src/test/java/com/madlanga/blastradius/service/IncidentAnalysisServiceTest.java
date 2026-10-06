@@ -288,7 +288,7 @@ class IncidentAnalysisServiceTest {
                 .health(List.of(health("api",HealthState.DOWN,FROM.minusSeconds(1))))
                 .metrics(List.of(metric("old-1","api",1,FROM.minusSeconds(30)), metric("old-2","api",5,FROM.minusSeconds(1))))
                 .build();
-        var topology = new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+        var topology = new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
                 .discover("test","local",healthy.getSpans());
         var service = new IncidentAnalysisService(q -> supplied, (a,e) -> topology);
         var result = service.analyze("test","local",FROM,TO,"database");
@@ -300,7 +300,7 @@ class IncidentAnalysisServiceTest {
 
     @Test
     void serverFailureAloneDoesNotAccuseRetainedDependency() {
-        var topology = new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+        var topology = new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
                 .discover("test","local",List.of(span("old","api","database",SpanStatus.OK,FROM.minusSeconds(5),Map.of())));
         var serverError = SpanEvidence.builder().id("server").traceId("trace").spanId("server").service("api")
                 .environment("local").startTime(FROM.plusSeconds(1)).kind(SpanKind.SERVER).status(SpanStatus.ERROR)
@@ -317,8 +317,8 @@ class IncidentAnalysisServiceTest {
                 java.util.Set.of("document-service", "customer-service", "payment-service"),
                 java.util.Set.of("postgres", "document-service", "customer-service", "payment-service"));
         TelemetryProvider provider = q -> bundle(TelemetryCoverage.allAvailable());
-        var topologyProvider = (com.madlanga.blastradius.ports.DependencyTopologyProvider) (app, env) ->
-                new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+        var topologyProvider = (com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider) (app, env) ->
+                new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
                         .discover(app, env, bundle(TelemetryCoverage.allAvailable()).getSpans());
         var service = new IncidentAnalysisService(provider, topologyProvider,
                 id -> "postgres-outage-local".equals(id) ? java.util.Optional.of(experiment) : java.util.Optional.empty());
@@ -343,8 +343,8 @@ class IncidentAnalysisServiceTest {
                 .metrics(CoverageStatus.AVAILABLE).traces(CoverageStatus.AVAILABLE)
                 .health(CoverageStatus.PARTIAL).build();
         TelemetryProvider provider = q -> bundle(partial);
-        var topologyProvider = (com.madlanga.blastradius.ports.DependencyTopologyProvider) (app, env) ->
-                new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+        var topologyProvider = (com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider) (app, env) ->
+                new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
                         .discover(app, env, bundle(partial).getSpans());
         var service = new IncidentAnalysisService(provider, topologyProvider, id -> java.util.Optional.of(experiment));
 
@@ -357,7 +357,7 @@ class IncidentAnalysisServiceTest {
     @Test
     void rejectsUnknownControlledExperiment() {
         var service = new IncidentAnalysisService(q -> bundle(TelemetryCoverage.allAvailable()),
-                (app, env) -> new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+                (app, env) -> new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
                         .discover(app, env, bundle(TelemetryCoverage.allAvailable()).getSpans()),
                 id -> java.util.Optional.empty());
 
@@ -373,7 +373,7 @@ class IncidentAnalysisServiceTest {
                     .applicationId(app).environment(env).from(FROM.minusSeconds(3600)).to(FROM).build()).getSpans());
             spans.addAll(provider.getTelemetry(TelemetryQuery.builder()
                     .applicationId(app).environment(env).from(FROM).to(TO).build()).getSpans());
-            return new com.madlanga.blastradius.adapters.topology.TraceDiscoveredTopologyProvider(null)
+            return new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
                     .discover(app, env, spans);
         });
     }

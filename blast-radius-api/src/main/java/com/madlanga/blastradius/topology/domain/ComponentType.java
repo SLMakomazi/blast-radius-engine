@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.domain.topology;
+package com.madlanga.blastradius.topology.domain;
 
 public enum ComponentType {
     SERVICE,

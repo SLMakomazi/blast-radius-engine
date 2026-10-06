@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.domain.topology;
+package com.madlanga.blastradius.topology.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

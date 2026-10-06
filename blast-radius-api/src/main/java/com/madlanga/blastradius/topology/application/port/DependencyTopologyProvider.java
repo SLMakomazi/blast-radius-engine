@@ -1,6 +1,6 @@
-package com.madlanga.blastradius.ports;
+package com.madlanga.blastradius.topology.application.port;
 
-import com.madlanga.blastradius.domain.topology.DependencyTopology;
+import com.madlanga.blastradius.topology.domain.DependencyTopology;
 
 /**
  * Gets dependency topology from an external source.

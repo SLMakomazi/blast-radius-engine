@@ -1,11 +1,11 @@
-package com.madlanga.blastradius.adapters.topology;
+package com.madlanga.blastradius.topology.infrastructure;
 
 import com.madlanga.blastradius.telemetry.domain.*;
-import com.madlanga.blastradius.domain.topology.*;
-import com.madlanga.blastradius.domain.topology.RetainedTopology.*;
-import com.madlanga.blastradius.ports.DependencyTopologyProvider;
-import com.madlanga.blastradius.ports.RuntimeSpanSource;
-import com.madlanga.blastradius.ports.TopologyStore;
+import com.madlanga.blastradius.topology.domain.*;
+import com.madlanga.blastradius.topology.domain.RetainedTopology.*;
+import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.application.port.RuntimeSpanSource;
+import com.madlanga.blastradius.topology.application.port.TopologyStore;
 import java.time.*;
 import java.util.*;
 

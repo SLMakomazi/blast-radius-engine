@@ -1,10 +1,10 @@
-package com.madlanga.blastradius.domain.topology;
+package com.madlanga.blastradius.topology.domain;
 
-import com.madlanga.blastradius.domain.topology.ComponentNode;
-import com.madlanga.blastradius.domain.topology.DependencyEdge;
-import com.madlanga.blastradius.domain.topology.DependencyTopology;
-import com.madlanga.blastradius.domain.topology.GraphAnalysisResult;
-import com.madlanga.blastradius.domain.topology.TheoreticalImpact;
+import com.madlanga.blastradius.topology.domain.ComponentNode;
+import com.madlanga.blastradius.topology.domain.DependencyEdge;
+import com.madlanga.blastradius.topology.domain.DependencyTopology;
+import com.madlanga.blastradius.topology.domain.GraphAnalysisResult;
+import com.madlanga.blastradius.topology.domain.TheoreticalImpact;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;

@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.ports;
+package com.madlanga.blastradius.topology.application.port;
 
 import com.madlanga.blastradius.telemetry.domain.SpanEvidence;
 import com.madlanga.blastradius.telemetry.domain.TelemetryQuery;

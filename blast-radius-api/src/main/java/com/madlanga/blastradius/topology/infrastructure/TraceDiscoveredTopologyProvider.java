@@ -1,13 +1,13 @@
-package com.madlanga.blastradius.adapters.topology;
+package com.madlanga.blastradius.topology.infrastructure;
 
 import com.madlanga.blastradius.telemetry.domain.SpanEvidence;
 import com.madlanga.blastradius.telemetry.domain.TelemetryBundle;
 import com.madlanga.blastradius.telemetry.domain.TelemetryQuery;
-import com.madlanga.blastradius.domain.topology.ComponentNode;
-import com.madlanga.blastradius.domain.topology.ComponentType;
-import com.madlanga.blastradius.domain.topology.DependencyEdge;
-import com.madlanga.blastradius.domain.topology.DependencyTopology;
-import com.madlanga.blastradius.ports.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.domain.ComponentNode;
+import com.madlanga.blastradius.topology.domain.ComponentType;
+import com.madlanga.blastradius.topology.domain.DependencyEdge;
+import com.madlanga.blastradius.topology.domain.DependencyTopology;
+import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
 import com.madlanga.blastradius.telemetry.application.port.TelemetryProvider;
 import java.time.Clock;
 import java.time.Duration;

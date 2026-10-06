@@ -1,10 +1,10 @@
 package com.madlanga.blastradius.telemetry.infrastructure.tempo;
 
-import com.madlanga.blastradius.adapters.persistence.FileTopologyStore;
-import com.madlanga.blastradius.adapters.topology.RetainedTopologyProvider;
+import com.madlanga.blastradius.topology.infrastructure.persistence.FileTopologyStore;
+import com.madlanga.blastradius.topology.infrastructure.RetainedTopologyProvider;
 import com.madlanga.blastradius.telemetry.domain.*;
 import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.domain.topology.*;
+import com.madlanga.blastradius.topology.domain.*;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import com.madlanga.blastradius.service.IncidentAnalysisService;
 import org.junit.jupiter.api.Test;

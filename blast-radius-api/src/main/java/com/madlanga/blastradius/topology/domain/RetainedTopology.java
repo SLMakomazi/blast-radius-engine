@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.domain.topology;
+package com.madlanga.blastradius.topology.domain;
 
 import java.time.Instant;
 import java.util.List;

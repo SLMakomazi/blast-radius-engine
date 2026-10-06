@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.domain.topology;
+package com.madlanga.blastradius.topology.domain;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

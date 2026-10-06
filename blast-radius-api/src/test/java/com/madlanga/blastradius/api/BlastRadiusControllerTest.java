@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
-import com.madlanga.blastradius.ports.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
 import com.madlanga.blastradius.service.IncidentAnalysisService;
 import java.time.Instant;
 import java.util.List;

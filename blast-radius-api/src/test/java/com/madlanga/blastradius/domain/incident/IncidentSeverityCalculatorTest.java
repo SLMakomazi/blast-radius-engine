@@ -2,7 +2,7 @@ package com.madlanga.blastradius.domain.incident;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.domain.topology.*;
+import com.madlanga.blastradius.topology.domain.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;

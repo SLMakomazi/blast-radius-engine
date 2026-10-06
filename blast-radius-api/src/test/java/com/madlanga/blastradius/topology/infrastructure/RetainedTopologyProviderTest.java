@@ -1,8 +1,8 @@
-package com.madlanga.blastradius.adapters.topology;
+package com.madlanga.blastradius.topology.infrastructure;
 
-import com.madlanga.blastradius.adapters.persistence.FileTopologyStore;
+import com.madlanga.blastradius.topology.infrastructure.persistence.FileTopologyStore;
 import com.madlanga.blastradius.telemetry.domain.*;
-import com.madlanga.blastradius.domain.topology.*;
+import com.madlanga.blastradius.topology.domain.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
@@ -47,7 +47,7 @@ class RetainedTopologyProviderTest {
         assertThat(topology.getEdges()).hasSize(3).doesNotHaveDuplicates();
         assertThat(topology.getNodes()).hasSize(3);
         assertThat(topology.getNode("catalog-db").getTechnology()).isEqualTo("MONGODB");
-        assertThat(new com.madlanga.blastradius.domain.topology.DeterministicGraphEngine().calculate(topology,"catalog-db").getImpacts())
+        assertThat(new com.madlanga.blastradius.topology.domain.DeterministicGraphEngine().calculate(topology,"catalog-db").getImpacts())
                 .hasSize(2);
     }
     @Test void expiresEdgesEvenWhenOwnerIsAliveAndRereadingOldSpansDoesNotRenewThem() {

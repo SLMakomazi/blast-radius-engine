@@ -1,11 +1,11 @@
 package com.madlanga.blastradius.service;
 
-import com.madlanga.blastradius.ports.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
 import com.madlanga.blastradius.telemetry.domain.*;
 import com.madlanga.blastradius.domain.incident.*;
 import com.madlanga.blastradius.domain.experiment.*;
 import com.madlanga.blastradius.ports.FailureExperimentProvider;
-import com.madlanga.blastradius.domain.topology.*;
+import com.madlanga.blastradius.topology.domain.*;
 import com.madlanga.blastradius.telemetry.application.port.TelemetryProvider;
 import java.time.Instant;
 import java.util.*;
