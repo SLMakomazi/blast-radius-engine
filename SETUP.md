@@ -300,6 +300,45 @@ These are production-relevant synthetic change events. In an enterprise integrat
 the same normalized change evidence would come from approved CI/CD, GitOps, deployment,
 configuration or feature-management sources rather than the local fault endpoint.
 
+
+## Stage 4 complex distributed failure validation
+
+Stage 4 moves beyond a single isolated failure type and validates behavior when failure
+signals propagate across service boundaries, overlap with dependency failure, flap over
+time, or occur while observability is incomplete.
+
+Run the full suite with the Compose stack already running:
+
+~~~bash
+python3 scripts/run-stage4-e2e.py --scenario all
+~~~
+
+Individual scenarios:
+
+~~~bash
+python3 scripts/run-stage4-e2e.py --scenario distributed-cascade
+python3 scripts/run-stage4-e2e.py --scenario compound-dependency
+python3 scripts/run-stage4-e2e.py --scenario flapping-dependency
+python3 scripts/run-stage4-e2e.py --scenario partial-observability
+~~~
+
+Acceptance criteria:
+- **Distributed cascade:** document-service remains running, deterministic Stage 4
+  evidence identifies the originating failure, and runtime telemetry proves impact in
+  at least one upstream dependent.
+- **Compound dependency failure:** a document-to-PostgreSQL connectivity failure is
+  combined with upstream propagation and retained as one evidence-bounded incident.
+- **Flapping dependency:** intermittent failures are detected without requiring the
+  process to stop; recovery is only accepted after stable healthy windows.
+- **Partial observability:** Tempo is temporarily stopped while the failure is active.
+  The incident must still be detected from remaining evidence, telemetry coverage must
+  report the missing trace source, and automatic recovery must remain blocked until
+  observability is restored.
+
+The partial-observability scenario intentionally runs `docker compose stop tempo` and
+restores it in a `finally` block. It does not stop an application service. All fault
+modes are local synthetic controls and are not production features.
+
 ## Useful commands
 
 ~~~bash
