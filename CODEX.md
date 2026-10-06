@@ -36,7 +36,7 @@ Normal stable branch: `main`. Work on a separate branch, keep commits focused, r
 
 Compile and run relevant tests after each package change. `mvn clean verify` runs the standard suite; live `*LiveIT` tests require an explicit selection and a healthy lab. Run Compose configuration validation and build the complete stack.
 
-The completed baseline Stage 1–4 suite passed 18 / 18 scenarios: 6 / 6, 4 / 4, 4 / 4, 4 / 4. Runtime validation of a structural cleanup requires these suites. If the user reserves their execution, document them as pending and distinguish fresh Maven results from the historical 18 / 18 baseline. Follow [E2E_VALIDATION.md](docs/E2E_VALIDATION.md), including stage pauses, trace-export recovery and final ACTIVE-incident/Collector checks.
+The required validation model has only two stages: Stage 1 — Hard Failure / Blast Radius Detection (6/6) and Stage 2 — Degraded-But-Running Detection (4/4), TOTAL: 10/10 PASS. Runtime validation of a structural cleanup requires these suites. If the user reserves their execution, document them as pending and distinguish fresh Maven results from the historical 10 / 10 baseline. Follow [E2E_VALIDATION.md](docs/E2E_VALIDATION.md), including stage pauses, trace-export recovery and final ACTIVE-incident/Collector checks.
 
 Do not delete migrations, runtime configuration, active fixtures, runners, test resources or frontend assets. Delete unused placeholders only after checking references. Use clear English; preserve established technical terms and public contracts.
 

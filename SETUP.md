@@ -265,81 +265,6 @@ connection-pool contention, HTTP 5xx counter growth and high mean HTTP latency.
 Memory-used by itself is deliberately not treated as memory pressure because a
 used-byte value without a configured/max limit is insufficient evidence.
 
-## Stage 3 change-related validation
-
-Stage 3 validates failures introduced by a software or configuration change while the
-service process remains running. The synthetic change marker is captured as deterministic
-evidence; AI is not used to decide that a change caused the incident.
-
-Run all Stage 3 scenarios:
-
-~~~bash
-python3 scripts/run-stage3-e2e.py --scenario all
-~~~
-
-Individual scenarios:
-
-~~~bash
-python3 scripts/run-stage3-e2e.py --scenario deployment-regression
-python3 scripts/run-stage3-e2e.py --scenario configuration-error
-python3 scripts/run-stage3-e2e.py --scenario contract-break
-python3 scripts/run-stage3-e2e.py --scenario feature-flag-regression
-~~~
-
-The four validation cases represent:
-- a release regression after deployment;
-- an invalid runtime/application configuration;
-- an incompatible API contract change;
-- a feature-flag rollout that fails intermittently.
-
-For each scenario the runner verifies automatic detection, document-service as the
-evidence-supported origin, a Stage 3 change marker in the persisted incident snapshot,
-continued process availability, rollback/reset, and automatic resolution of the same
-incident UUID.
-
-These are production-relevant synthetic change events. In an enterprise integration,
-the same normalized change evidence would come from approved CI/CD, GitOps, deployment,
-configuration or feature-management sources rather than the local fault endpoint.
-
-
-## Stage 4 complex distributed failure validation
-
-Stage 4 moves beyond a single isolated failure type and validates behavior when failure
-signals propagate across service boundaries, overlap with dependency failure, flap over
-time, or occur while observability is incomplete.
-
-Run the full suite with the Compose stack already running:
-
-~~~bash
-python3 scripts/run-stage4-e2e.py --scenario all
-~~~
-
-Individual scenarios:
-
-~~~bash
-python3 scripts/run-stage4-e2e.py --scenario distributed-cascade
-python3 scripts/run-stage4-e2e.py --scenario compound-dependency
-python3 scripts/run-stage4-e2e.py --scenario flapping-dependency
-python3 scripts/run-stage4-e2e.py --scenario partial-observability
-~~~
-
-Acceptance criteria:
-- **Distributed cascade:** document-service remains running, deterministic Stage 4
-  evidence identifies the originating failure, and runtime telemetry proves impact in
-  at least one upstream dependent.
-- **Compound dependency failure:** a document-to-PostgreSQL connectivity failure is
-  combined with upstream propagation and retained as one evidence-bounded incident.
-- **Flapping dependency:** intermittent failures are detected without requiring the
-  process to stop; recovery is only accepted after stable healthy windows.
-- **Partial observability:** Tempo is temporarily stopped while the failure is active.
-  The incident must still be detected from remaining evidence, telemetry coverage must
-  report the missing trace source, and automatic recovery must remain blocked until
-  observability is restored.
-
-The partial-observability scenario intentionally runs `docker compose stop tempo` and
-restores it in a `finally` block. It does not stop an application service. All fault
-modes are local synthetic controls and are not production features.
-
 ## Useful commands
 
 ~~~bash
@@ -376,6 +301,6 @@ The deterministic domain should remain independent of telemetry vendors, the LLM
 
 ## Complete regression gate
 
-The baseline local validation passed Stage 1: 6 / 6, Stage 2: 4 / 4, Stage 3: 4 / 4 and Stage 4: 4 / 4 (18 / 18). Run the suites again after structural changes; the baseline is not a new test result. Follow [the complete validation order](docs/E2E_VALIDATION.md), including at least 10 seconds between stages, fresh trace-export checks after Stage 1 and final platform checks.
+The validation gate is Stage 1: 6/6 and Stage 2: 4/4 (TOTAL: 10/10 PASS). Run both suites after structural changes; record fresh results separately from historical baselines. Follow [the complete validation order](docs/E2E_VALIDATION.md), including at least 10 seconds between stages, fresh trace-export checks after Stage 1 and final platform checks.
 
 For new code, follow [the developer architecture guide](docs/DEVELOPER_GUIDE.md).

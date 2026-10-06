@@ -1,6 +1,6 @@
-# Stage 1–4 Local Validation
+# Stage 1–2 Local Validation
 
-Stage 1–4 runners are the acceptance layer for the local Blast Radius Engine. It proves that the deterministic engine behaves correctly under different failure shapes before enterprise MadlangaAI integration.
+Stage 1–2 runners are the acceptance layer for the local Blast Radius Engine. They prove that the deterministic engine behaves correctly under different failure shapes before enterprise MadlangaAI integration.
 
 ## Principle
 
@@ -75,18 +75,16 @@ The suite passes only when:
 
 The E2E suite validates deterministic behavior. AI diagnosis remains an optional advisory smoke test and is deliberately excluded from acceptance.
 
-## Full Stage 1–4 regression order
+## Full Stage 1–2 regression order
 
-The completed baseline result is Stage 1: 6 / 6, Stage 2: 4 / 4, Stage 3: 4 / 4 and Stage 4: 4 / 4; total 18 / 18. Record new branch results separately.
+Required result: Stage 1: 6/6; Stage 2: 4/4; TOTAL: 10/10 PASS. Record actual branch results separately; a historical pass does not validate new changes.
 
 | Stage | Runner | Scenarios |
 |---|---|---|
 | 1 | `run-phase11-e2e.py` | Six cases above, including healthy baseline |
 | 2 | `run-stage2-e2e.py --scenario all` | HTTP 500, intermittent 500, latency, database connectivity |
-| 3 | `run-stage3-e2e.py --scenario all` | Deployment regression, configuration error, API contract break, feature-flag regression |
-| 4 | `run-stage4-e2e.py --scenario all` | Distributed cascade, compound dependency failure, flapping dependency, partial observability |
 
-Stage 3 uses reversible synthetic change faults and stored change markers. Stage 4 proves upstream observed impact and blocks recovery while traces are missing. These local scenarios do not implement real deployment rollback, general multi-origin analysis or network partition control.
+Stage 1 validates Hard Failure / Blast Radius Detection, including guarded recovery with partial observability. Stage 2 validates Degraded-But-Running Detection. Both require real telemetry; keep their assertions and evidence requirements unchanged.
 
 Run each command only after the previous suite passes. Stop and investigate any failure; do not weaken assertions.
 
@@ -106,13 +104,48 @@ Stage 1 deliberately interrupts Tempo. Before Stage 2, confirm Tempo `/ready`, C
 docker compose restart tempo otel-collector
 # Confirm fresh traces and stable export before continuing.
 python3 scripts/run-stage2-e2e.py --scenario all
-sleep 10
-python3 scripts/run-stage3-e2e.py --scenario all
-sleep 10
-python3 scripts/run-stage4-e2e.py --scenario all
 docker compose ps
 curl -s 'http://localhost:8080/api/v1/blast-radius/incidents?status=ACTIVE'
 docker compose logs --since 1m otel-collector
 ```
 
 After recovery, no unexpected incident should remain ACTIVE and expected services should be running/healthy where checks exist. Errors caused by deliberate observability interruption may exist historically; inspect fresh errors after recovery. Gemini is optional and excluded from deterministic acceptance.
+
+## Two-stage cleanup verification
+
+The cleanup keeps the two runners above byte-for-byte unchanged. Only the retired
+runners, their seven exclusive synthetic change/distributed fault modes and unit
+tests, their lab-specific signal mappings, and obsolete dashboard stage entries
+were removed. Repository usage searches found those modes only in the removed
+runners, the mock fault implementation/tests and the dedicated signal mappings.
+Generic error-log processing remains in place.
+
+IncidentLifecycleService, IncidentLifecycleMonitor, incident history, recovery,
+partial-observability handling, telemetry coverage, confidence and optional
+containment assessment remain intact. No package was moved or deleted; the
+capability-first tree remains in [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md).
+No runtime directory or configuration was removed, and no empty directory or
+obsolete placeholder resulted from the deletions.
+
+The rebuilt API passed 195 tests and document-service passed 12 tests through
+Maven `clean verify`. The frontend build and Compose configuration check passed.
+Stage 1 passed 6/6 on the rebuilt stack. The first complete Stage 2 run passed
+3/4: database connectivity was detected, but its snapshot had no trace signals
+at the assertion time. Its later persisted snapshot contained 28 trace signals
+and full telemetry coverage; Collector logs showed no export failures. This is
+evidence of an intermittent enrichment-timing issue, not a relaxed pass. The complete
+unchanged Stage 2 rerun passed 4/4, including 42 trace signals in the database
+connectivity case. Both suites retain all assertions. No code, runtime settings,
+thresholds or runner timings were changed between attempts.
+
+Final result on 6 October 2026: **Stage 1: 6/6; Stage 2: 4/4; TOTAL: 10/10 PASS**.
+All 12 Compose services are running and all configured health checks are healthy.
+Tempo and Collector readiness return HTTP 200, fresh traces are available, fault
+mode is NONE and no ACTIVE incidents remain. The final minute of Collector logs
+contains no export errors. `git diff --check` passed, and the repository-wide
+reference search found no retired-stage references or obsolete total.
+
+Local execution logs: `/tmp/blast-two-stage-build.log`,
+`/tmp/blast-two-stage-stage1.log`, `/tmp/blast-two-stage-stage2.log` (first attempt),
+and `/tmp/blast-two-stage-stage2-retry.log` (complete passing rerun). These are
+local session artifacts, not runtime inputs.

@@ -302,7 +302,7 @@ Explicit SQL is small, easy to review, and preserves PostgreSQL upsert and uniqu
 
 Keep `service` as the application layer and preserve domain, ports, adapters, API, configuration and sanitization boundaries. Move pure graph/severity/containment rules into their existing domain subpackages, the fallback diagnosis port implementation beside AI adapters, the scheduled entry point into `adapters.scheduling`, and HTTP transport records into `api.dto`. Keep provider properties/response models near adapters and exception handlers near their HTTP boundary.
 
-No aggregate/repository framework or extra DDD layer is needed. Mock applications remain independent small lab services. JSON contracts, deterministic rules, migrations and Stage 1–4 assertions stay unchanged. Deferred policy/facade extraction is documented separately so package cleanup does not become a rewrite.
+No aggregate/repository framework or extra DDD layer is needed. Mock applications remain independent small lab services. JSON contracts, deterministic rules, migrations and Stage 1–2 assertions stay unchanged. Deferred policy/facade extraction is documented separately so package cleanup does not become a rewrite.
 
 ## ADR-031 — Capability first, layer second
 
@@ -312,4 +312,4 @@ No aggregate/repository framework or extra DDD layer is needed. Mock application
 
 **Containment:** Preserve the optional failure-experiment API, models, provider and assessments under incident containment. It is used by manual analysis, stored results and diagnosis context, even though current Stage runners/frontend do not select an experiment. It describes controlled failures and does not inject them.
 
-**Compatibility:** Package/import changes only. Preserve JSON fields, endpoint paths, JDBC queries, Flyway migrations, settings, deterministic rules and all existing test assertions. Root Spring scanning still covers all destinations. Architecture tests guard import direction. Mock services remain simple lab applications. Maven validation is fresh; Stage 1–4 will be run by the user and are not claimed as freshly passed here.
+**Compatibility:** Package/import changes only. Preserve JSON fields, endpoint paths, JDBC queries, Flyway migrations, settings, deterministic rules and all existing test assertions. Root Spring scanning still covers all destinations. Architecture tests guard import direction. Mock services remain simple lab applications. Maven validation is fresh; Stage 1–2 will be run by the user and are not claimed as freshly passed here.

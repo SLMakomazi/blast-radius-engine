@@ -56,7 +56,7 @@ Topology calculates potential impact. Runtime telemetry proves observed impact. 
 
 ## Documentation and simple English
 
-Updated README, ABOUT, SETUP, PROJECT_STRUCTURE, CODEX, ARCHITECTURE, INTEGRATION, DECISIONS, E2E_VALIDATION and frontend README. Added this report, the audit and DEVELOPER_GUIDE. Normal stable branch is main. Baseline Stage 1–4 status is 18 / 18 validated locally; synthetic capabilities and enterprise integration requirements are distinguished.
+Updated README, ABOUT, SETUP, PROJECT_STRUCTURE, CODEX, ARCHITECTURE, INTEGRATION, DECISIONS, E2E_VALIDATION and frontend README. Added this report, the audit and DEVELOPER_GUIDE. Normal stable branch is main. Baseline Stage 1–2 status is 10 / 10 validated locally; synthetic capabilities and enterprise integration requirements are distinguished.
 
 Replaced stale class names, deleted document references and planned adapter descriptions with actual implementation. Simplified descriptive Java comments for analysis, stored diagnosis mapping, lifecycle monitoring, telemetry/topology ports, API requests and lab fault controls. Runtime error text is preserved because some handlers use prefixes.
 
@@ -75,15 +75,13 @@ Replaced stale class names, deleted document references and planned adapter desc
 
 The managed environment required temporary proxy/CA build settings outside Git and a writable buildx state directory. Repository Dockerfiles and Compose configuration are unchanged. A temporary runtime override excludes local Compose names from the inherited external proxy and keeps loopback readiness checks local. Frontend/traffic images were rebuilt after correcting this checkout’s restrictive file permissions. Its VFS storage filled the root filesystem during startup; clearing disposable build cache recovered space without deleting application images or lab volumes.
 
-Fresh regression on this branch, 6 October 2026:
+Historical regression on this branch, 6 October 2026 (only the retained validation stages are listed; these are not fresh cleanup results):
 
 | Stage | Passed | Scenarios |
 |---|---|---|
 | 1 | 6 / 6 | Healthy baseline, PostgreSQL, document, customer, payment outages, partial observability |
 | 2 | 4 / 4 | HTTP 500, intermittent failures, latency, database connectivity |
-| 3 | 4 / 4 | Deployment regression, configuration error, contract break, feature flag regression |
-| 4 | 4 / 4 | Distributed cascade, compound dependency, flapping dependency, partial observability |
-| Total | **18 / 18** | Existing assertions and runners unchanged |
+| Total | **10 / 10** | Existing assertions and runners unchanged |
 
 The first Stage 1 attempt passed baseline/PostgreSQL but failed document detection because the expected incident already existed from startup. The gate was stopped and services restored. The API also stopped scheduler progress while consuming nearly two CPU cores under its 96 MB heap. Restarting with a temporary 256 MB heap and 512 MB container limit restored progress; all leftover incidents resolved automatically after three healthy windows. Stage 1 was rerun from the beginning with no ACTIVE incidents and passed all six unchanged scenarios. This environment-specific resource override is outside Git; no lifecycle, classification or test timing was changed.
 
@@ -91,7 +89,7 @@ After Stage 1, Tempo readiness returned 503 following the deliberate tracing out
 
 Final platform checks: all 12 Compose services are running; all eight configured health checks are healthy. Loki, Tempo and Collector readiness endpoints return HTTP 200 and Tempo contains fresh traces. `GET /api/v1/blast-radius/incidents?status=ACTIVE` returns an empty list. Collector logs from the final 20-second window contain zero matches for the specified error terms. The final partial-observability scenario required the same Tempo/Collector restart to restore readiness. `docker compose config --quiet` passed again.
 
-Session evidence is in `/tmp/blast-stack-build.log`, `/tmp/blast-permission-rebuild.log`, `/tmp/blast-final-api-live-retry.log`, `/tmp/blast-stage1-retry.log`, `/tmp/blast-stage2.log`, `/tmp/blast-stage3.log`, `/tmp/blast-stage4.log`, `/tmp/blast-final-platform.txt` and `/tmp/blast-final-collector.log`. These are local session artifacts, not runtime inputs.
+Session evidence is in `/tmp/blast-stack-build.log`, `/tmp/blast-permission-rebuild.log`, `/tmp/blast-final-api-live-retry.log`, `/tmp/blast-stage1-retry.log`, `/tmp/blast-stage2.log`, `/tmp/blast-final-platform.txt` and `/tmp/blast-final-collector.log`. These are local session artifacts, not runtime inputs.
 
 ## Remaining architectural debt
 

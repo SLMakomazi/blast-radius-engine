@@ -20,7 +20,7 @@ Open the Vite URL printed in the terminal. The default API base URL is `http://l
 - origin, severity, observed impact and propagation depth KPIs;
 - deterministic impact path;
 - telemetry coverage;
-- separate Stage 1–4 views for hard failures, degradation, change-related and distributed incidents;
+- separate Stage 1–2 views for hard failures and degraded-but-running incidents;
 - on-demand advisory AI diagnosis through the Phase 9 endpoint.
 
 The frontend consumes sanitized persisted analysis only. It does not calculate blast radius, invent evidence, or mutate production infrastructure.

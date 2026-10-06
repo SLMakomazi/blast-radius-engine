@@ -25,7 +25,7 @@ Do not rename established classes. Keep adapter-specific configuration beside it
 - API request and nested response records lack one explicit DTO convention. Proposed convention: `api.dto`; nested response extraction can be a separate small step after the first moves pass.
 - Controllers read repository/topology ports directly; an application query facade would improve consistency but is a separate behavior-sensitive change.
 - Lifecycle policy remains inside the scheduler. Moving it without splitting behavior is safer here; extracting policy needs dedicated lifecycle coverage.
-- Analysis contains lab marker and metric-name interpretation. Keep those semantics because Stages 1–4 depend on them; future policy extraction needs its own design and regression suite.
+- Analysis contains lab marker and metric-name interpretation. Keep the semantics used by Stages 1–2; future policy extraction needs its own design and regression suite.
 - Generic exceptions are classified by message prefixes. Preserve text because monitor/controller behavior depends on it; typed errors are future debt.
 - Some timeout properties are not applied independently; shared HTTP timeouts are wired in TelemetryAdapterConfig. No timeout changes in this cleanup.
 - `RetainedTopologyProvider` uses a discovery helper constructed with a null telemetry provider; separating the pure mapper is future debt.
@@ -450,8 +450,6 @@ mock-services/payment-service/src/test/resources/mockito-extensions/org.mockito.
 scripts/BootstrapCapturedTopology.java
 scripts/run-phase11-e2e.py
 scripts/run-stage2-e2e.py
-scripts/run-stage3-e2e.py
-scripts/run-stage4-e2e.py
 scripts/verify-observability.py
 scripts/verify-observability.sh
 scripts/verify-phase2.py

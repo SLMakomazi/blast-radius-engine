@@ -1,5 +1,7 @@
 # Capability-first package audit and plan
 
+> Record of the package refactor. Validation statements below describe that earlier work; the current two-stage gate and latest cleanup results are in [E2E_VALIDATION.md](E2E_VALIDATION.md).
+
 Baseline: `cdc48d8` plus verified placeholder cleanup. The previous uncommitted experiment removal was restored before this structural refactor. All original seven commits remain intact.
 
 ## Decisions
@@ -111,7 +113,7 @@ Tests move beside the capability/layer they verify. `scripts/BootstrapCapturedTo
 
 ## Validation policy
 
-The user will run Stage 1–4 locally; this turn uses Maven validation only. The historical completed suite was 18 / 18. Fresh Stage results must not be claimed for this capability refactor.
+The user will run Stage 1–2 locally; this turn uses Maven validation only. The retained stages of the historical completed suite passed 10/10. Fresh Stage results must not be claimed for this capability refactor.
 
 ## Final result
 
@@ -150,9 +152,9 @@ All 90 original production files, 30 original test files and the offline helper 
 
 Frontend, mock services, Stage runners, Docker configuration, resource settings, thresholds, JSON fields, endpoint paths, JDBC queries and Flyway migrations have no diff from the seven-commit baseline. No JPA introduced. The actual module Maven POM was used with Java 21; temporary proxy/CA/Maven cache settings remain outside Git.
 
-## Stage 1–4 handoff
+## Stage 1–2 handoff
 
-Per the user's instruction to use Maven only, the Stage runners and Docker rebuild were not run for this capability refactor. The historical completed baseline is Stage 1 6 / 6, Stage 2 4 / 4, Stage 3 4 / 4, Stage 4 4 / 4: **18 / 18**. Fresh capability-refactor Stage results are **pending the user's local validation**, not claimed as passed. The earlier interrupted experiment-removal runs do not validate this final capability-preserving code.
+Per the user's instruction to use Maven only, the Stage runners and Docker rebuild were not run for this capability refactor. The retained stages of the historical completed baseline are Stage 1 6/6 and Stage 2 4/4: **10 / 10**. Fresh capability-refactor Stage results are **pending the user's local validation**, not claimed as passed. The earlier interrupted experiment-removal runs do not validate this final capability-preserving code.
 
 Rebuild the API/stack locally and follow [E2E_VALIDATION.md](E2E_VALIDATION.md), including the stage pauses, tracing recovery and final health/ACTIVE-incident checks. No assertions or runners were weakened.
 

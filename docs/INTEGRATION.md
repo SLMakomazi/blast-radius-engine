@@ -72,6 +72,6 @@ These are integration unknowns, not reasons to narrow the local Blast Radius cap
 
 ## Local proof and enterprise work
 
-The local Stage 1–4 implementation has completed baseline validation: 6 / 6, 4 / 4, 4 / 4 and 4 / 4 (18 / 18). Its synthetic deployment/configuration/contract/feature-flag faults do not supply real deployment-event integration. Its distributed scenarios do not implement general multi-origin analysis. The open contracts above remain enterprise integration work.
+The local validation gate is Stage 1: 6/6 and Stage 2: 4/4 (TOTAL: 10/10 PASS). It does not supply real deployment-event integration or general multi-origin analysis. The open contracts above remain enterprise integration work.
 
 Capability packaging changes Java ownership only; integration fields, JSON contracts, endpoints and provider settings remain unchanged. Containment metadata stays part of incident analysis, while fault injection stays in the mock lab.

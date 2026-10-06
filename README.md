@@ -228,7 +228,7 @@ docs/                Durable architecture/integration/decision documentation
 
 The Java engine uses capability-first packages: `incident`, `topology`, `telemetry`, `diagnosis`, `lifecycle` and `shared`. Each owns its domain/application/port/infrastructure/API code where needed. JDBC is retained. Optional controlled-failure assessment lives under incident containment; its API behavior is preserved.
 
-See **PROJECT_STRUCTURE.md** for the complete tree, [the developer guide](docs/DEVELOPER_GUIDE.md) for placement rules and [the capability refactor report](docs/CAPABILITY_REFACTOR.md) for moves and validation. The earlier 18 / 18 is a completed baseline result; the user will run Stage 1–4 after this package refactor.
+See **PROJECT_STRUCTURE.md** for the complete tree, [the developer guide](docs/DEVELOPER_GUIDE.md) for placement rules and [the capability refactor report](docs/CAPABILITY_REFACTOR.md) for moves and validation. The validation gate is Stage 1: 6/6 and Stage 2: 4/4, for TOTAL: 10/10 PASS. Run both suites after structural changes.
 
 ## Security principles
 
@@ -240,27 +240,25 @@ See **PROJECT_STRUCTURE.md** for the complete tree, [the developer guide](docs/D
 - do not autonomously modify production infrastructure;
 - keep Blast Radius incident severity separate from the MadlangaAI Overall Health Score.
 
-## Stage 1–4 validation
+## Stage 1–2 validation
 
-The local implementation includes all four stages. The completed baseline validation reported 18 / 18 scenarios passed:
+The project has two validation stages. Required passing results are:
 
-| Stage | Implemented scenarios | Validated locally |
+| Stage | Implemented scenarios | Required result |
 |---|---|---|
-| Stage 1 — Hard failures | Healthy baseline, PostgreSQL outage, document/customer/payment service outages, partial observability | 6 / 6 |
-| Stage 2 — Degradation | HTTP 500, intermittent 500, latency/timeouts, database connectivity | 4 / 4 |
-| Stage 3 — Change-related failures | Synthetic deployment regression, configuration error, API contract break, feature-flag regression | 4 / 4 |
-| Stage 4 — Distributed failures | Distributed cascade, compound dependency failure, flapping dependency, partial observability | 4 / 4 |
-| Total | Local acceptance scenarios | 18 / 18 |
+| Stage 1 — Hard Failure / Blast Radius Detection | Healthy baseline, PostgreSQL outage, document/customer/payment service outages, partial observability | 6 / 6 |
+| Stage 2 — Degraded-But-Running Detection | HTTP 500, intermittent 500, latency/timeouts, database connectivity | 4 / 4 |
+| Total | Local acceptance scenarios | 10 / 10 |
 
-These are synthetic local tests. Stage 3 uses reversible fault modes and change markers; it does not connect to a real deployment system. Stage 4 proves upstream impact and safe recovery with missing telemetry; it does not implement general multi-origin analysis or network-partition diagnosis.
+These local tests require real runtime telemetry. Incident lifecycle, guarded recovery, partial-observability handling, telemetry coverage and confidence remain production capabilities. Real deployment integration, general multi-origin analysis and network-partition diagnosis remain outside this validation gate.
 
-Run the existing suites as described in [the validation guide](docs/E2E_VALIDATION.md). The cleanup branch's actual regression results are recorded separately in [the cleanup report](docs/REFACTOR_REPORT.md).
+Run the existing suites as described in [the validation guide](docs/E2E_VALIDATION.md). The latest cleanup results, including the first attempt and complete rerun, are recorded in [two-stage cleanup verification](docs/E2E_VALIDATION.md#two-stage-cleanup-verification).
 
 ## Current status
 
-**Implemented:** telemetry adapters, retained runtime topology, deterministic origin/impact/propagation/severity, incident history, proactive detection, guarded recovery, four dashboard stage views, bounded lab fault modes, Stage 1–4 runners, and optional Gemini diagnosis with deterministic fallback.
+**Implemented:** telemetry adapters, retained runtime topology, deterministic origin/impact/propagation/severity, incident history, proactive detection, guarded recovery, two dashboard stage views, bounded lab fault modes, Stage 1–2 runners, and optional Gemini diagnosis with deterministic fallback.
 
-**Validated locally:** the baseline Stage 1–4 acceptance suite, 18 / 18 scenarios.
+**Validation target:** Stage 1: 6/6; Stage 2: 4/4; TOTAL: 10/10 PASS.
 
 **Planned / enterprise integration still required:** final MadlangaAI topology and Datadog/MCP contracts, canonical identity mapping, real application registration, multi-application scheduling, authentication/RBAC/audit, production retention/deployment choices, and enterprise severity policy. These are integration work, not current local features.
 

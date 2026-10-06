@@ -87,7 +87,7 @@ Four independent Maven projects build with Java 21 / Spring Boot 4.1.1. React/Vi
 
 ## Validation and integration
 
-Stages 1–4 are implemented and the completed baseline local suite passed 18 / 18 scenarios. The capability refactor has Maven validation; the user will rerun the Stage suites locally before it is considered runtime-validated. [E2E_VALIDATION.md](E2E_VALIDATION.md) lists the actual scenarios and runner order. Synthetic change markers are not real deployment integration; distributed lab faults do not imply general multi-origin or network-partition analysis.
+Stages 1–2 are the complete validation model: Stage 1: 6/6 and Stage 2: 4/4 (TOTAL: 10/10 PASS). Run both suites after structural changes. [E2E_VALIDATION.md](E2E_VALIDATION.md) lists the actual scenarios and runner order. Lifecycle, recovery, partial observability, telemetry coverage and confidence remain production capabilities. Real deployment integration, general multi-origin and network-partition analysis are outside the validation gate.
 
 MadlangaAI topology, Datadog/MCP telemetry, canonical IDs, multi-application scheduling, authentication/RBAC/audit and production retention still need enterprise integration. See [INTEGRATION.md](INTEGRATION.md).
 

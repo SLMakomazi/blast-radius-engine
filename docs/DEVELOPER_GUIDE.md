@@ -41,4 +41,4 @@ Do not create empty layers or placeholder packages. Maven `target` directories a
 
 ## Verification
 
-After each major capability move, run the API's actual Maven `clean verify`. Never weaken assertions or change thresholds to accommodate imports. The standard suite includes source architecture checks; opt-in live tests need a healthy lab. Stage 1–4 runtime validation remains the regression gate. If the user runs it separately, report that it is pending rather than reusing the historical 18 / 18 result.
+After each major capability move, run the API's actual Maven `clean verify`. Never weaken assertions or change thresholds to accommodate imports. The standard suite includes source architecture checks; opt-in live tests need a healthy lab. Stage 1–2 runtime validation remains the regression gate. If the user runs it separately, report that it is pending rather than reusing the historical 10 / 10 result.

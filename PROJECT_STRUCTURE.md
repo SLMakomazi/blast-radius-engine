@@ -463,8 +463,6 @@ Maven `target`, frontend build output and Python bytecode are generated files. N
 │   ├── BootstrapCapturedTopology.java
 │   ├── run-phase11-e2e.py
 │   ├── run-stage2-e2e.py
-│   ├── run-stage3-e2e.py
-│   ├── run-stage4-e2e.py
 │   ├── verify-observability.py
 │   ├── verify-observability.sh
 │   └── verify-phase2.py
