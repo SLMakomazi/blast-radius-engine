@@ -3,7 +3,7 @@ package com.madlanga.blastradius.adapters.topology;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.madlanga.blastradius.domain.topology.DependencyTopology;
-import com.madlanga.blastradius.ports.TelemetryProvider;
+import com.madlanga.blastradius.telemetry.application.port.TelemetryProvider;
 import com.madlanga.blastradius.domain.topology.DeterministicGraphEngine;
 import java.time.Clock;
 import java.time.Duration;

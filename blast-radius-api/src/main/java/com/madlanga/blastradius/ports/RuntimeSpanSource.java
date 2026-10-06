@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.ports;
 
-import com.madlanga.blastradius.domain.evidence.SpanEvidence;
-import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
+import com.madlanga.blastradius.telemetry.domain.SpanEvidence;
+import com.madlanga.blastradius.telemetry.domain.TelemetryQuery;
 import java.util.List;
 
 /** Discovery input independent of the incident's four-family telemetry coverage. */

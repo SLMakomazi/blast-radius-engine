@@ -1,9 +1,11 @@
 package com.madlanga.blastradius.adapters.topology;
 
-import com.madlanga.blastradius.domain.evidence.*;
+import com.madlanga.blastradius.telemetry.domain.*;
 import com.madlanga.blastradius.domain.topology.*;
 import com.madlanga.blastradius.domain.topology.RetainedTopology.*;
-import com.madlanga.blastradius.ports.*;
+import com.madlanga.blastradius.ports.DependencyTopologyProvider;
+import com.madlanga.blastradius.ports.RuntimeSpanSource;
+import com.madlanga.blastradius.ports.TopologyStore;
 import java.time.*;
 import java.util.*;
 

@@ -1,9 +1,9 @@
 package com.madlanga.blastradius.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import com.madlanga.blastradius.domain.evidence.*;
+import com.madlanga.blastradius.telemetry.domain.*;
 import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.ports.TelemetryProvider;
+import com.madlanga.blastradius.telemetry.application.port.TelemetryProvider;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;

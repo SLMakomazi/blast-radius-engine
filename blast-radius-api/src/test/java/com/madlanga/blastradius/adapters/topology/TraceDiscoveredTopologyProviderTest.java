@@ -2,10 +2,10 @@ package com.madlanga.blastradius.adapters.topology;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.madlanga.blastradius.domain.evidence.EvidenceFamily;
-import com.madlanga.blastradius.domain.evidence.EvidenceProvenance;
-import com.madlanga.blastradius.domain.evidence.SpanEvidence;
-import com.madlanga.blastradius.domain.evidence.SpanStatus;
+import com.madlanga.blastradius.telemetry.domain.EvidenceFamily;
+import com.madlanga.blastradius.telemetry.domain.EvidenceProvenance;
+import com.madlanga.blastradius.telemetry.domain.SpanEvidence;
+import com.madlanga.blastradius.telemetry.domain.SpanStatus;
 import com.madlanga.blastradius.domain.topology.ComponentType;
 import com.madlanga.blastradius.domain.topology.DependencyTopology;
 import com.madlanga.blastradius.domain.topology.DeterministicGraphEngine;

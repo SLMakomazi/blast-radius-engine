@@ -1,7 +1,7 @@
 import com.madlanga.blastradius.adapters.persistence.FileTopologyStore;
-import com.madlanga.blastradius.adapters.telemetry.tempo.*;
+import com.madlanga.blastradius.telemetry.infrastructure.tempo.*;
 import com.madlanga.blastradius.adapters.topology.RetainedTopologyProvider;
-import com.madlanga.blastradius.domain.evidence.*;
+import com.madlanga.blastradius.telemetry.domain.*;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import com.sun.net.httpserver.HttpServer;
 import org.springframework.web.client.RestClient;

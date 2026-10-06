@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.config;
 
 import com.madlanga.blastradius.adapters.persistence.FileTopologyStore;
-import com.madlanga.blastradius.adapters.telemetry.tempo.TempoTraceAdapter;
+import com.madlanga.blastradius.telemetry.infrastructure.tempo.TempoTraceAdapter;
 import com.madlanga.blastradius.adapters.topology.RetainedTopologyProvider;
 import com.madlanga.blastradius.ports.TopologyStore;
 import java.nio.file.Path;

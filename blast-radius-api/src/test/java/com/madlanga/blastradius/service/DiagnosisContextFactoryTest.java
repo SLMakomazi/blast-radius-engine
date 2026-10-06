@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import com.madlanga.blastradius.domain.evidence.TelemetryCoverage;
+import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
 import com.madlanga.blastradius.domain.incident.*;
 import java.time.Instant;
 import java.util.List;
