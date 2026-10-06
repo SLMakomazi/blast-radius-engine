@@ -43,9 +43,23 @@ function incidentScenario(incident) {
 }
 
 function incidentStage(incident) {
-  return incidentSignals(incident).some(signal =>
-    signal.includes("stage2")
-    || signal.includes("http mean latency")
+  const signals = incidentSignals(incident);
+
+  // Explicit Stage 2 fault evidence wins for degraded-but-running scenarios,
+  // including synthetic DB connectivity failures that can also produce error spans.
+  if (signals.some(signal => signal.includes("stage2"))) return "STAGE_2";
+
+  // Hard outages can produce secondary timeout/5xx metrics. Those symptoms must
+  // not reclassify an availability failure as degradation.
+  const hardFailure = signals.some(signal =>
+    signal.includes("health down")
+    || signal.includes("health out_of_service")
+    || signal.includes("dependency error observed by")
+  );
+  if (hardFailure) return "STAGE_1";
+
+  return signals.some(signal =>
+    signal.includes("http mean latency")
     || signal.includes("5xx counter")
     || signal.includes("timeout counter")
     || signal.includes("process cpu")
