@@ -51,44 +51,12 @@ public class FaultInjectionService {
             }
             case LATENCY -> delay(active.latencyMs());
             case DATABASE_FAILURE -> failDatabase();
-            case DEPLOYMENT_REGRESSION -> failChange("DEPLOYMENT_REGRESSION", "release=synthetic-v2");
-            case CONFIGURATION_ERROR -> failChange("CONFIGURATION_ERROR", "config=DOCUMENT_POLICY");
-            case CONTRACT_BREAK -> failChange("CONTRACT_BREAK", "contract=document-api-v2");
-            case FEATURE_FLAG_REGRESSION -> {
-                long request = requestCounter.incrementAndGet();
-                if (request % active.everyNthRequest() == 0) {
-                    failChange("FEATURE_FLAG_REGRESSION", "flag=synthetic-new-document-flow");
-                }
-            }
-            case DISTRIBUTED_CASCADE -> failDistributed("DISTRIBUTED_CASCADE", "failure=application upstreamPropagation=expected");
-            case COMPOUND_DEPENDENCY_FAILURE -> failDistributedDatabase();
-            case FLAPPING_DEPENDENCY -> {
-                long request = requestCounter.incrementAndGet();
-                if (request % active.everyNthRequest() == 0) {
-                    failDistributed("FLAPPING_DEPENDENCY", "failure=intermittent upstreamPropagation=expected");
-                }
-            }
         }
     }
 
     private void failApplication(FaultMode mode) {
         log.error("event=synthetic_application_failure mode={}", mode);
         throw new SyntheticFaultException();
-    }
-
-    private void failChange(String changeType, String detail) {
-        log.error("event=synthetic_change_failure stage=STAGE_3 changeType={} {}", changeType, detail);
-        throw new SyntheticFaultException();
-    }
-
-    private void failDistributed(String scenario, String detail) {
-        log.error("event=synthetic_distributed_failure stage=STAGE_4 scenario={} {}", scenario, detail);
-        throw new SyntheticFaultException();
-    }
-
-    private void failDistributedDatabase() {
-        log.error("event=synthetic_distributed_failure stage=STAGE_4 scenario=COMPOUND_DEPENDENCY_FAILURE dependency=postgres failure=database_connectivity upstreamPropagation=expected");
-        throw new CannotGetJdbcConnectionException("Synthetic Stage 4 compound database connectivity failure");
     }
 
     private void failDatabase() {
