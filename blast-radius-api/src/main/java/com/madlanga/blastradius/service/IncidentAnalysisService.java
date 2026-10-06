@@ -218,6 +218,8 @@ public class IncidentAnalysisService {
     }
     private String logSignal(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
+        if (message.contains("synthetic_application_failure") && message.contains("intermittent_500"))
+            return "stage2 intermittent HTTP 500";
         if (message.contains("synthetic_application_failure") || message.contains("synthetic local application failure"))
             return "stage2 application error HTTP 500";
         if (message.contains("synthetic_dependency_failure"))
