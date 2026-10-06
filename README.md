@@ -109,7 +109,7 @@ Prerequisites for the easiest path:
 ~~~bash
 git clone https://github.com/SLMakomazi/blast-radius-engine.git
 cd blast-radius-engine
-git checkout feat/phase10-local-ui
+git checkout feat/stage2-degradation-testing
 cp -n .env.example .env
 
 docker compose config --quiet
@@ -249,7 +249,15 @@ Implemented locally:
 - incident persistence/history;
 - proactive scheduled detection;
 - guarded automatic recovery;
-- responsive dashboard with live incident polling;
+- responsive dashboard with separate Stage 1 hard-failure and Stage 2 degradation views, live incident polling and ACTIVE/RESOLVED history;
+- Stage 2 bounded degradation injection for HTTP 500, intermittent 500, latency and database-connectivity failures while the service remains running;
+- Stage 2 acceptance runner with evidence-family assertions;
 - optional Gemini diagnosis with deterministic fallback.
 
-The next major boundary is enterprise/MadlangaAI integration: application registration, canonical identity mapping, MadlangaAI topology adapter, approved telemetry adapters, RBAC/audit and production deployment/retention decisions.
+Current Stage 2 validation status:
+- degradation auto-detection and recovery have been demonstrated for HTTP 500, intermittent 500, latency and database-connectivity scenarios;
+- log and trace enrichment have been demonstrated for several degradation scenarios;
+- metric enrichment is still under validation. A provider being AVAILABLE with zero correlated evidence does not count as proof that metrics contributed to the incident;
+- do not treat Stage 2 as fully accepted until the current Stage 2 acceptance runner passes its required evidence-family assertions.
+
+The next major boundary after Stage 2 acceptance is Stage 3/change-related validation, followed by enterprise/MadlangaAI integration: application registration, canonical identity mapping, MadlangaAI topology adapter, approved telemetry adapters, RBAC/audit and production deployment/retention decisions.
