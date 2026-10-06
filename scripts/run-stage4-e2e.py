@@ -103,24 +103,25 @@ def find_stage4(baseline_markers, marker):
     # Accept that same UUID only when the requested Stage 4 marker is newly present.
     for incident in incidents("ACTIVE"):
         incident_id = str(incident.get("id"))
-        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
-        signals = [str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])]
-        has_marker = any(marker in signal for signal in signals)
-        if not has_marker:
+        signals = signal_set(incident)
+        if not any(marker in signal for signal in signals):
             continue
         if incident_id not in baseline_markers or marker not in baseline_markers[incident_id]:
             return incident
     return None
 
+def signal_set(incident):
+    analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+    return {
+        str(e.get("signal", "")).lower()
+        for e in analysis.get("timeline", [])
+    }
+
 def active_marker_snapshot():
-    snapshot = {}
-    for incident in incidents("ACTIVE"):
-        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
-        snapshot[str(incident.get("id"))] = {
-            str(e.get("signal", "")).lower()
-            for e in analysis.get("timeline", [])
-        }
-    return snapshot
+    return {
+        str(incident.get("id")): signal_set(incident)
+        for incident in incidents("ACTIVE")
+    }
 
 def resolved(incident_id):
     return next((i for i in incidents("RESOLVED") if str(i.get("id")) == str(incident_id)), None)
@@ -217,22 +218,37 @@ def run_scenario(name):
             "recoveryProtectedDuringPartialTelemetry": bool(scenario.get("partial")),
         }
     finally:
-        stop.set()
-        if worker is not None:
-            worker.join(timeout=2)
-        if not fault_reset:
-            try:
-                reset_fault()
-            except Exception:
-                pass
-        if tempo_stopped:
-            try:
-                compose("start", "tempo")
-            except Exception:
-                pass
-        if detected is not None and not scenario.get("partial"):
-            eventually(lambda: resolved(detected["id"]),
-                       f"automatic recovery after {name}", timeout=200)
+        stop_worker(stop, worker)
+        restore_fault(fault_reset)
+        restore_tempo(tempo_stopped)
+        wait_for_standard_recovery(name, scenario, detected)
+
+def stop_worker(stop, worker):
+    stop.set()
+    if worker is not None:
+        worker.join(timeout=2)
+
+def restore_fault(fault_reset):
+    if fault_reset:
+        return
+    try:
+        reset_fault()
+    except Exception:
+        pass
+
+def restore_tempo(tempo_stopped):
+    if not tempo_stopped:
+        return
+    try:
+        compose("start", "tempo")
+    except Exception:
+        pass
+
+def wait_for_standard_recovery(name, scenario, detected):
+    if detected is None or scenario.get("partial"):
+        return
+    eventually(lambda: resolved(detected["id"]),
+               f"automatic recovery after {name}", timeout=200)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
