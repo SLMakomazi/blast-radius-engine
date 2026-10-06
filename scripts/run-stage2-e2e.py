@@ -22,7 +22,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
 FAULTS = "http://127.0.0.1:8083/lab/faults"
-DOCUMENTS = "http://127.0.0.1:8083/api/documents"
+PAYMENTS = "http://127.0.0.1:8081/api/payments"
 API = "http://127.0.0.1:8080/api/v1/blast-radius"
 APP = "document-platform"
 ENV = "local"
@@ -102,15 +102,17 @@ def reset_fault():
     return body
 
 
-def exercise_document_service(stop_event):
-    """Generate deterministic local requests so a scenario never depends on ambient traffic."""
+def exercise_full_chain(stop_event):
+    """Drive payment -> customer -> document -> postgres for real propagation evidence."""
     while not stop_event.is_set():
         payload = {
             "customerId": "SYNTH-CUST-STAGE2",
+            "amount": 125.50,
+            "currency": "ZAR",
             "documentReference": "SYNTH-DOC-" + uuid.uuid4().hex[:16].upper(),
         }
         try:
-            request_json(DOCUMENTS, "POST", payload)
+            request_json(PAYMENTS, "POST", payload)
         except (OSError, TimeoutError, ValueError):
             pass
         stop_event.wait(1)
@@ -143,7 +145,7 @@ def run_scenario(name):
         if configured.get("mode") != scenario["fault"]["mode"]:
             raise Stage2Failure(f"Fault mode was not applied: {configured}")
 
-        stimulus = threading.Thread(target=exercise_document_service, args=(stimulus_stop,), daemon=True)
+        stimulus = threading.Thread(target=exercise_full_chain, args=(stimulus_stop,), daemon=True)
         stimulus.start()
 
         detected = eventually(
@@ -153,7 +155,7 @@ def run_scenario(name):
         # Give Prometheus/Tempo another scrape/flush window, then read the latest
         # persisted snapshot for the same active incident. Detection may happen first
         # from logs; the lifecycle monitor enriches that incident as other signals arrive.
-        time.sleep(18)
+        time.sleep(35)
         latest = next((item for item in incidents("ACTIVE")
                        if str(item.get("id")) == str(detected.get("id"))), detected)
         analysis = latest.get("analysis") or {}
