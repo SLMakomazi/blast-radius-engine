@@ -28,6 +28,7 @@ function evidenceRowKey(e) {
 
 function App() {
   const [status, setStatus] = useState("ACTIVE");
+  const [stage, setStage] = useState("STAGE_1");
   const [incidents, setIncidents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
@@ -119,12 +120,17 @@ function App() {
     && (evidenceFamily === "ALL" || e.family === evidenceFamily)
   );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
+  const stageMeta = stage === "STAGE_1"
+    ? { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." }
+    : { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." };
 
   return <div className="app">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>MadlangaAI</strong><span>Blast Radius</span></div></div>
       <nav>
-        <button className="nav-active"><Activity size={18}/> Incident analysis</button>
+        <div className="nav-label nav-label-first">FAILURE STAGES</div>
+        <button className={stage==="STAGE_1"?"nav-active":""} onClick={()=>setStage("STAGE_1")}><AlertTriangle size={18}/><span><strong>Stage 1</strong><small>Hard failures</small></span></button>
+        <button className={stage==="STAGE_2"?"nav-active":""} onClick={()=>setStage("STAGE_2")}><Activity size={18}/><span><strong>Stage 2</strong><small>Degradation</small></span></button>
         <div className="nav-label">ENGINE</div>
         <button><GitBranch size={18}/> Topology</button>
         <button><Bot size={18}/> AI diagnosis</button>
@@ -134,11 +140,17 @@ function App() {
 
     <main>
       <header>
-        <div><span className="eyebrow">MADLANGAAI / PHASE 10</span><h1>Blast Radius Command Center</h1><p>Evidence-backed incident impact, propagation and diagnosis.</p></div>
+        <div><span className="eyebrow">MADLANGAAI / {stageMeta.label.toUpperCase()}</span><h1>{stageMeta.title}</h1><p>{stageMeta.description}</p></div>
         <div className="live-status"><span className="live-dot"></span><span>Live · auto-updates every 5s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
       </header>
 
       {error && <div className="error"><AlertTriangle size={18}/>{error}</div>}
+
+      <section className="stage-banner panel">
+        <div><span className="stage-number">{stageMeta.label}</span><strong>{stageMeta.title}</strong><p>{stageMeta.description}</p></div>
+        {stage === "STAGE_2" && <div className="scenario-chips"><span>HTTP 500</span><span>Intermittent 500</span><span>Latency</span><span>DB connectivity</span><span>CPU / pool pressure</span></div>}
+        {stage === "STAGE_1" && <div className="scenario-chips"><span>PostgreSQL outage</span><span>Document outage</span><span>Customer outage</span><span>Payment outage</span></div>}
+      </section>
 
       <section className="workspace">
         <div className="incident-column panel">
