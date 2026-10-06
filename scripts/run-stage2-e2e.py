@@ -150,15 +150,24 @@ def run_scenario(name):
             lambda: new_active(baseline, scenario["expected_origins"]),
             f"{name} degradation incident",
         )
-        analysis = detected.get("analysis") or {}
+        # Give Prometheus/Tempo another scrape/flush window, then read the latest
+        # persisted snapshot for the same active incident. Detection may happen first
+        # from logs; the lifecycle monitor enriches that incident as other signals arrive.
+        time.sleep(18)
+        latest = next((item for item in incidents("ACTIVE")
+                       if str(item.get("id")) == str(detected.get("id"))), detected)
+        analysis = latest.get("analysis") or {}
         timeline = analysis.get("timeline") or []
-        families = sorted({item.get("family") for item in timeline if item.get("family")})
+        family_counts = {family: sum(1 for item in timeline if item.get("family") == family)
+                         for family in ("LOG", "METRIC", "TRACE", "HEALTH")}
+        families = sorted(family for family, count in family_counts.items() if count)
         return {
             "id": str(detected["id"]),
             "origin": detected.get("originComponent"),
             "confidence": detected.get("originConfidence"),
             "severity": f"{detected.get('severityLevel')}/{detected.get('severityScore')}",
             "evidenceFamilies": families,
+            "evidenceCounts": family_counts,
             "serviceStayedRunning": True,
         }
     finally:
