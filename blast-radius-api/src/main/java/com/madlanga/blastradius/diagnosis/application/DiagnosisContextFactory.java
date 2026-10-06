@@ -1,6 +1,6 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.diagnosis.application;
 
-import com.madlanga.blastradius.domain.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
 import com.madlanga.blastradius.domain.incident.EvidenceSignal;
 import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
 import java.util.ArrayList;

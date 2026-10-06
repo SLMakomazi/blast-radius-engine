@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.adapters.ai;
+package com.madlanga.blastradius.diagnosis.infrastructure;
 
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;

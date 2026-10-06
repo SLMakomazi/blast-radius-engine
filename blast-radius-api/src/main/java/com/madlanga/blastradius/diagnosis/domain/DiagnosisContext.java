@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.domain.diagnosis;
+package com.madlanga.blastradius.diagnosis.domain;
 
 import java.time.Instant;
 import java.util.List;

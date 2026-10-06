@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.diagnosis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

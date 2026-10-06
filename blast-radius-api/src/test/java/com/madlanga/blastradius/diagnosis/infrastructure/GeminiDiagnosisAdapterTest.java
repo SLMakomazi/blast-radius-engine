@@ -1,10 +1,10 @@
-package com.madlanga.blastradius.adapters.ai;
+package com.madlanga.blastradius.diagnosis.infrastructure;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.domain.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
+import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;

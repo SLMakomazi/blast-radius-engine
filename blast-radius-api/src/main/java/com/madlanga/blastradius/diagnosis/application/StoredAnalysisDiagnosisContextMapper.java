@@ -1,6 +1,6 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.diagnosis.application;
 
-import com.madlanga.blastradius.domain.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import java.time.Instant;
 import java.util.ArrayList;

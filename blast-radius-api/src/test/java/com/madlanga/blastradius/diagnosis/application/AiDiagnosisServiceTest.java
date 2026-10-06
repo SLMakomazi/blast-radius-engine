@@ -1,12 +1,12 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.diagnosis.application;
 
-import com.madlanga.blastradius.adapters.ai.DeterministicDiagnosisAdapter;
+import com.madlanga.blastradius.diagnosis.infrastructure.DeterministicDiagnosisAdapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
+import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
 import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.ports.AiDiagnosisPort;
+import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;

@@ -1,8 +1,8 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.diagnosis.application;
 
-import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
+import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
 import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
-import com.madlanga.blastradius.ports.AiDiagnosisPort;
+import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
 
 public final class AiDiagnosisService {
     private final AiDiagnosisPort primary;
@@ -19,7 +19,7 @@ public final class AiDiagnosisService {
         return diagnose(contextFactory.from(analysis));
     }
 
-    public AiDiagnosis diagnose(com.madlanga.blastradius.domain.diagnosis.DiagnosisContext context) {
+    public AiDiagnosis diagnose(com.madlanga.blastradius.diagnosis.domain.DiagnosisContext context) {
         try {
             return primary.diagnose(context);
         } catch (RuntimeException e) {

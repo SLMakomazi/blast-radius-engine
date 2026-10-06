@@ -1,10 +1,10 @@
-package com.madlanga.blastradius.adapters.ai;
+package com.madlanga.blastradius.diagnosis.infrastructure;
 
-import com.madlanga.blastradius.ports.AiDiagnosisPort;
-import com.madlanga.blastradius.service.AiDiagnosisService;
-import com.madlanga.blastradius.adapters.ai.DeterministicDiagnosisAdapter;
-import com.madlanga.blastradius.service.DiagnosisContextFactory;
-import com.madlanga.blastradius.service.StoredAnalysisDiagnosisContextMapper;
+import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
+import com.madlanga.blastradius.diagnosis.application.AiDiagnosisService;
+import com.madlanga.blastradius.diagnosis.infrastructure.DeterministicDiagnosisAdapter;
+import com.madlanga.blastradius.diagnosis.application.DiagnosisContextFactory;
+import com.madlanga.blastradius.diagnosis.application.StoredAnalysisDiagnosisContextMapper;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;

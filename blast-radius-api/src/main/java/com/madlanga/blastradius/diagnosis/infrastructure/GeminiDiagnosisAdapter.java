@@ -1,8 +1,8 @@
-package com.madlanga.blastradius.adapters.ai;
+package com.madlanga.blastradius.diagnosis.infrastructure;
 
-import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.domain.diagnosis.DiagnosisContext;
-import com.madlanga.blastradius.ports.AiDiagnosisPort;
+import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
+import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
