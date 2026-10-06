@@ -49,7 +49,19 @@ function App() {
       const data = await res.json();
       setIncidents(data);
       setLastUpdated(new Date());
-      const nextSelectedId = chooseSelectedIncidentId(data, selected?.id);
+      const stageData = data.filter(i => {
+        const timeline = i?.analysis?.timeline || i?.analysisSnapshot?.timeline || [];
+        const signals = timeline.map(e => String(e.signal || "").toLowerCase());
+        const isStage2 = signals.some(signal =>
+          signal.includes("http mean latency")
+          || signal.includes("sustained process cpu")
+          || signal.includes("connection-pool contention")
+          || signal.includes("synthetic_application_failure")
+          || signal.includes("synthetic local application failure")
+        );
+        return (isStage2 ? "STAGE_2" : "STAGE_1") === stage;
+      });
+      const nextSelectedId = chooseSelectedIncidentId(stageData, selected?.id);
       if (!nextSelectedId) {
         setSelected(null);
         setDiagnosis(null);
@@ -103,7 +115,7 @@ function App() {
       void loadIncidents(status);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [status]);
+  }, [status, stage]);
 
   const analysis = selected?.analysis || selected?.analysisSnapshot || {};
   const impacts = analysis.impacts || [];
@@ -123,6 +135,21 @@ function App() {
   const stageMeta = stage === "STAGE_1"
     ? { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." }
     : { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." };
+  // Stage classification is derived from deterministic evidence already persisted in
+  // the incident snapshot. No schema migration or AI classification is required.
+  const incidentStage = incident => {
+    const timeline = incident?.analysis?.timeline || incident?.analysisSnapshot?.timeline || [];
+    const signals = timeline.map(e => String(e.signal || "").toLowerCase());
+    const stage2 = signals.some(signal =>
+      signal.includes("http mean latency")
+      || signal.includes("sustained process cpu")
+      || signal.includes("connection-pool contention")
+      || signal.includes("synthetic_application_failure")
+      || signal.includes("synthetic local application failure")
+    );
+    return stage2 ? "STAGE_2" : "STAGE_1";
+  };
+  const visibleIncidents = incidents.filter(i => incidentStage(i) === stage);
 
   return <div className="app">
     <aside className="sidebar">
@@ -159,8 +186,8 @@ function App() {
           </div></div>
           <div className="incident-list">
             {loading && <div className="empty">Loading incidents…</div>}
-            {!loading && !incidents.length && <div className="empty">No {status.toLowerCase()} incidents.</div>}
-            {incidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>loadIncident(i.id)}>
+            {!loading && !visibleIncidents.length && <div className="empty">No {status.toLowerCase()} {stageMeta.label.toLowerCase()} incidents.</div>}
+            {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>loadIncident(i.id)}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
               <span>{i.applicationId} · {i.environment}</span>
