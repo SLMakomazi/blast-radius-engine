@@ -57,7 +57,7 @@ Updated README, ABOUT, SETUP, PROJECT_STRUCTURE, CODEX, ARCHITECTURE, INTEGRATIO
 
 Replaced stale class names, deleted document references and planned adapter descriptions with actual implementation. Simplified descriptive Java comments for analysis, stored diagnosis mapping, lifecycle monitoring, telemetry/topology ports, API requests and lab fault controls. Runtime error text is preserved because some handlers use prefixes.
 
-## Verification so far
+## Verification
 
 - API baseline: 192 tests passed.
 - After domain moves: 192 passed; `clean verify` succeeded.
@@ -68,10 +68,27 @@ Replaced stale class names, deleted document references and planned adapter desc
 - Traffic tests: 4 passed. Frontend Vite build passed.
 - `docker compose config --quiet` passed.
 - Package paths and domain import boundaries checked.
+- Final API `clean verify` including the two opt-in live integration tests: 194 passed. The first live topology attempt saw incomplete startup traces; after fresh traces contained all three dependency edges, the unchanged tests passed.
 
-The managed environment required temporary proxy/CA build settings outside Git and a writable buildx state directory. Repository Dockerfiles and Compose configuration are unchanged. Its VFS storage filled the root filesystem during startup; clearing disposable build cache recovered space without deleting application images or lab volumes.
+The managed environment required temporary proxy/CA build settings outside Git and a writable buildx state directory. Repository Dockerfiles and Compose configuration are unchanged. A temporary runtime override excludes local Compose names from the inherited external proxy and keeps loopback readiness checks local. Frontend/traffic images were rebuilt after correcting this checkout’s restrictive file permissions. Its VFS storage filled the root filesystem during startup; clearing disposable build cache recovered space without deleting application images or lab volumes.
 
-Fresh Stage 1–4 regression and final platform checks are pending. The supplied baseline 18 / 18 is not a new branch test result.
+Fresh regression on this branch, 6 October 2026:
+
+| Stage | Passed | Scenarios |
+|---|---|---|
+| 1 | 6 / 6 | Healthy baseline, PostgreSQL, document, customer, payment outages, partial observability |
+| 2 | 4 / 4 | HTTP 500, intermittent failures, latency, database connectivity |
+| 3 | 4 / 4 | Deployment regression, configuration error, contract break, feature flag regression |
+| 4 | 4 / 4 | Distributed cascade, compound dependency, flapping dependency, partial observability |
+| Total | **18 / 18** | Existing assertions and runners unchanged |
+
+The first Stage 1 attempt passed baseline/PostgreSQL but failed document detection because the expected incident already existed from startup. The gate was stopped and services restored. The API also stopped scheduler progress while consuming nearly two CPU cores under its 96 MB heap. Restarting with a temporary 256 MB heap and 512 MB container limit restored progress; all leftover incidents resolved automatically after three healthy windows. Stage 1 was rerun from the beginning with no ACTIVE incidents and passed all six unchanged scenarios. This environment-specific resource override is outside Git; no lifecycle, classification or test timing was changed.
+
+After Stage 1, Tempo readiness returned 503 following the deliberate tracing outage. Only Tempo and the Collector were restarted. Both readiness checks then passed, fresh traces appeared, and recent Collector logs contained zero failed/dropping/no-more-retries/no-such-host errors before Stage 2. Required pauses between stages were observed.
+
+Final platform checks: all 12 Compose services are running; all eight configured health checks are healthy. Loki, Tempo and Collector readiness endpoints return HTTP 200 and Tempo contains fresh traces. `GET /api/v1/blast-radius/incidents?status=ACTIVE` returns an empty list. Collector logs from the final 20-second window contain zero matches for the specified error terms. The final partial-observability scenario required the same Tempo/Collector restart to restore readiness. `docker compose config --quiet` passed again.
+
+Session evidence is in `/tmp/blast-stack-build.log`, `/tmp/blast-permission-rebuild.log`, `/tmp/blast-final-api-live-retry.log`, `/tmp/blast-stage1-retry.log`, `/tmp/blast-stage2.log`, `/tmp/blast-stage3.log`, `/tmp/blast-stage4.log`, `/tmp/blast-final-platform.txt` and `/tmp/blast-final-collector.log`. These are local session artifacts, not runtime inputs.
 
 ## Remaining architectural debt
 
@@ -80,9 +97,12 @@ Fresh Stage 1–4 regression and final platform checks are pending. The supplied
 - Controllers directly query ports and expose some domain results as JSON.
 - Generic errors use message prefixes; typed errors would need compatibility work.
 - Per-provider timeout properties are not all independently applied.
+- The 96 MB API heap and tracing readiness after deliberate outages deserve a separate operational investigation; this cleanup preserved repository resource settings.
 - Retained topology uses a discovery helper constructed without its telemetry provider; a separate pure mapper would be clearer.
 - Enterprise schemas, identity mapping, multi-application scheduling, RBAC/audit, retention and deployment remain integration work.
 
 ## Final tree and Git summary
 
-[PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md) contains the complete source tree and package guide. Final validation results and Git summary will be added after the regression gate.
+[PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md) contains the complete source tree and package guide. The change is split into seven commits: pre-change audit, domain rules, adapter placement, API contracts, unused placeholders, architecture documentation, and regression evidence. Run `git diff main...HEAD --stat` and `git log --oneline main..HEAD` for the exact review summary. No branch was merged or pushed.
+
+Final diff against main: 47 files changed, 1,327 insertions and 553 deletions, including moves detected by Git and the full audit/source-tree documentation.

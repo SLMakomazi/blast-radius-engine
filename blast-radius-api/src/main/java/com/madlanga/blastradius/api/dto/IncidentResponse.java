@@ -22,4 +22,3 @@ public record IncidentResponse(
         Instant createdAt,
         Instant updatedAt) {
 }
-

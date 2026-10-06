@@ -6,4 +6,3 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record ErrorResponse(
         @Schema(description = "Machine-readable error code.", example = "INVALID_REQUEST") String code,
         @Schema(description = "Human-readable error detail.", example = "applicationId is required") String message) {}
-

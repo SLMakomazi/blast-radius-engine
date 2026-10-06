@@ -278,7 +278,8 @@ For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the o
 │   ├── DECISIONS.md
 │   ├── DEVELOPER_GUIDE.md
 │   ├── E2E_VALIDATION.md
-│   └── INTEGRATION.md
+│   ├── INTEGRATION.md
+│   └── REFACTOR_REPORT.md
 ├── fixtures/
 │   └── payment-request.json
 ├── frontend/
