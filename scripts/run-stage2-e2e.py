@@ -122,11 +122,17 @@ def exercise_full_chain(stop_event):
         stop_event.wait(1)
 
 
-def new_active(baseline_ids, expected_origins):
+def incident_signals(incident):
+    analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+    return {str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])}
+
+def new_active(baseline, expected_origins):
     for incident in incidents("ACTIVE"):
-        if str(incident.get("id")) in baseline_ids:
+        if incident.get("originComponent") not in expected_origins:
             continue
-        if incident.get("originComponent") in expected_origins:
+        incident_id = str(incident.get("id"))
+        current = incident_signals(incident)
+        if incident_id not in baseline or current - baseline[incident_id]:
             return incident
     return None
 
@@ -140,7 +146,7 @@ def resolved(incident_id):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(item["id"]) for item in incidents("ACTIVE")}
+    baseline = {str(item["id"]): incident_signals(item) for item in incidents("ACTIVE")}
     detected = None
     stimulus_stop = threading.Event()
     stimulus = None
