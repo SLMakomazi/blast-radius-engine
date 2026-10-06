@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.domain.experiment;
 
 import com.madlanga.blastradius.domain.experiment.*;
 import com.madlanga.blastradius.domain.incident.*;

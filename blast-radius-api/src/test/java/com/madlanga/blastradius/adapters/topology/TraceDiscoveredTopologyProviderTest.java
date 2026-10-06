@@ -8,7 +8,7 @@ import com.madlanga.blastradius.domain.evidence.SpanEvidence;
 import com.madlanga.blastradius.domain.evidence.SpanStatus;
 import com.madlanga.blastradius.domain.topology.ComponentType;
 import com.madlanga.blastradius.domain.topology.DependencyTopology;
-import com.madlanga.blastradius.service.DeterministicGraphEngine;
+import com.madlanga.blastradius.domain.topology.DeterministicGraphEngine;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.madlanga.blastradius.domain.topology.DependencyTopology;
 import com.madlanga.blastradius.ports.TelemetryProvider;
-import com.madlanga.blastradius.service.DeterministicGraphEngine;
+import com.madlanga.blastradius.domain.topology.DeterministicGraphEngine;
 import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;

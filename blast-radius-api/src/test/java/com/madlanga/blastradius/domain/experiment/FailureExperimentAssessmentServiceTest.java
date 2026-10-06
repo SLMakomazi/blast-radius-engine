@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.domain.experiment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.madlanga.blastradius.domain.experiment.*;

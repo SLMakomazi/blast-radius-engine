@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.domain.topology;
 
 import com.madlanga.blastradius.domain.topology.ComponentNode;
 import com.madlanga.blastradius.domain.topology.DependencyEdge;

@@ -47,7 +47,7 @@ class RetainedTopologyProviderTest {
         assertThat(topology.getEdges()).hasSize(3).doesNotHaveDuplicates();
         assertThat(topology.getNodes()).hasSize(3);
         assertThat(topology.getNode("catalog-db").getTechnology()).isEqualTo("MONGODB");
-        assertThat(new com.madlanga.blastradius.service.DeterministicGraphEngine().calculate(topology,"catalog-db").getImpacts())
+        assertThat(new com.madlanga.blastradius.domain.topology.DeterministicGraphEngine().calculate(topology,"catalog-db").getImpacts())
                 .hasSize(2);
     }
     @Test void expiresEdgesEvenWhenOwnerIsAliveAndRereadingOldSpansDoesNotRenewThem() {

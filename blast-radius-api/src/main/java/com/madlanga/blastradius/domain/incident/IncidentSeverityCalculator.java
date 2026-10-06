@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.domain.incident;
 
 import com.madlanga.blastradius.domain.incident.*;
 import com.madlanga.blastradius.domain.topology.ComponentNode;
