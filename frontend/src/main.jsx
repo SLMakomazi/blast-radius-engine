@@ -26,6 +26,32 @@ function evidenceRowKey(e) {
   return e.evidenceId || `${e.timestamp}-${e.component}-${e.family}-${e.signal}`;
 }
 
+function incidentSignals(incident) {
+  const analysis = incident?.analysis || incident?.analysisSnapshot || {};
+  return (analysis.timeline || []).map(e => String(e.signal || "").toLowerCase());
+}
+
+function incidentScenario(incident) {
+  const signals = incidentSignals(incident);
+  if (signals.some(s => s.includes("database connectivity"))) return "DB Connectivity";
+  if (signals.some(s => s.includes("latency") || s.includes("timeout"))) return "Latency";
+  if (signals.some(s => s.includes("application error http 500"))) return "HTTP 5xx";
+  if (signals.some(s => s.includes("process cpu"))) return "CPU Pressure";
+  if (signals.some(s => s.includes("connection-pool"))) return "Pool Pressure";
+  return null;
+}
+
+function incidentStage(incident) {
+  return incidentSignals(incident).some(signal =>
+    signal.includes("stage2")
+    || signal.includes("http mean latency")
+    || signal.includes("5xx counter")
+    || signal.includes("timeout counter")
+    || signal.includes("process cpu")
+    || signal.includes("connection-pool contention")
+  ) ? "STAGE_2" : "STAGE_1";
+}
+
 function App() {
   const [status, setStatus] = useState("ACTIVE");
   const [stage, setStage] = useState("STAGE_1");
@@ -134,19 +160,6 @@ function App() {
   const stageMeta = stage === "STAGE_1"
     ? { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." }
     : { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." };
-  // Stage classification is derived from deterministic evidence already persisted in
-  // the incident snapshot. No schema migration or AI classification is required.
-  const incidentStage = incident => {
-    const timeline = incident?.analysis?.timeline || incident?.analysisSnapshot?.timeline || [];
-    const signals = timeline.map(e => String(e.signal || "").toLowerCase());
-    const stage2 = signals.some(signal =>
-      signal.includes("stage2")
-      || signal.includes("http mean latency")
-      || signal.includes("sustained process cpu")
-      || signal.includes("connection-pool contention")
-    );
-    return stage2 ? "STAGE_2" : "STAGE_1";
-  };
   const visibleIncidents = incidents.filter(i => incidentStage(i) === stage);
 
   return <div className="app">
@@ -188,6 +201,7 @@ function App() {
             {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>loadIncident(i.id)}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
+              {incidentScenario(i) && <span className="scenario-label">{incidentScenario(i)}</span>}
               <span>{i.applicationId} · {i.environment}</span>
               <small><Clock3 size={12}/>{new Date(i.startedAt).toLocaleString()}</small>
             </button>)}
@@ -197,7 +211,7 @@ function App() {
         <div className="detail-column">
           {!selected ? <div className="panel empty large">Select an incident to inspect its deterministic evidence.</div> : <>
             <section className="incident-title panel">
-              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{selected.applicationId} / {selected.environment}</p></div>
+              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)} · {incidentStage(selected).replace("_"," ")}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{incidentScenario(selected) || "Availability failure"} · {selected.applicationId} / {selected.environment}</p></div>
               <div className="incident-badges"><span className={"severity "+statusClass(selected.severityLevel)}>{selected.severityLevel} · {selected.severityScore}</span><span className={"state "+statusClass(selected.status)}>{selected.status}</span></div>
             </section>
 
