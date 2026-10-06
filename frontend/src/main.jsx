@@ -51,11 +51,28 @@ function incidentScenario(incident) {
 
 function incidentStage(incident) {
   const signals = incidentSignals(incident);
+
+  // Explicit higher-stage evidence always wins.
   if (signals.some(signal => signal.includes("stage4"))) return "STAGE_4";
   if (signals.some(signal => signal.includes("stage3"))) return "STAGE_3";
+
+  // Explicit Stage 2 evidence identifies degraded-but-running scenarios,
+  // including synthetic DB connectivity failures.
+  if (signals.some(signal => signal.includes("stage2"))) return "STAGE_2";
+
+  // Hard outages can also produce secondary timeout/5xx symptoms.
+  // Those downstream symptoms must not reclassify an availability failure.
+  const hardFailure = signals.some(signal =>
+    signal.includes("health down")
+    || signal.includes("health out_of_service")
+    || signal.includes("dependency error observed by")
+  );
+
+  if (hardFailure) return "STAGE_1";
+
+  // Remaining degradation evidence belongs to Stage 2.
   return signals.some(signal =>
-    signal.includes("stage2")
-    || signal.includes("http mean latency")
+    signal.includes("http mean latency")
     || signal.includes("5xx counter")
     || signal.includes("timeout counter")
     || signal.includes("process cpu")
