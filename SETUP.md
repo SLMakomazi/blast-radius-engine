@@ -87,6 +87,75 @@ Expected ACTIVE result is an empty array. Normal synthetic traffic should show H
 docker compose logs --tail=20 traffic-generator
 ~~~
 
+## Stage 1–4 validation map
+
+Use the stages as progressive validation boundaries. Do not skip a stage or mark a
+planned scenario as implemented before its acceptance suite passes.
+
+| Stage | Validation target | Local entry point | Status |
+|---|---|---|---|
+| **Stage 1 — Hard failures** | outages, propagation, recovery, partial observability | `scripts/run-phase11-e2e.py` | Validated locally |
+| **Stage 2 — Degradation** | HTTP errors, intermittent errors, latency, DB connectivity while services stay running | `scripts/run-stage2-e2e.py` | In validation |
+| **Stage 3 — Change-related** | deployments/config/migrations and rollback correlation | To be implemented | Planned |
+| **Stage 4 — Complex distributed** | concurrent/cascading/partition/partial failures | To be implemented | Planned |
+
+### Stage 1 acceptance
+
+With the full stack healthy:
+
+~~~bash
+python3 scripts/run-phase11-e2e.py
+~~~
+
+Stage 1 covers the healthy baseline, PostgreSQL/service outages, dependency direction,
+stable incident identity, automatic recovery and partial-observability protection.
+The existing manual outage sections below can be used to inspect individual scenarios.
+
+### Stage 2 acceptance
+
+With the full stack healthy:
+
+~~~bash
+python3 scripts/run-stage2-e2e.py --scenario all
+~~~
+
+Stage 2 is stricter than "incident detected." The runner validates required correlated
+evidence families. Expected evidence is LOG + METRIC + TRACE for HTTP 500,
+intermittent 500 and latency; DB connectivity requires LOG + TRACE. HEALTH can
+legitimately have zero incident evidence while the service remains UP.
+
+A completed scenario resets its fault and waits for automatic recovery, so successful
+test incidents should normally be found under **Stage 2 -> RESOLVED**.
+
+At the current validation point, LOG/TRACE enrichment and recovery have been observed,
+but required METRIC enrichment is not yet fully passing. Do not mark Stage 2 complete
+until the complete runner passes all scenario assertions.
+
+### Stage 3 plan — change-related failures
+
+Stage 3 is **not implemented yet**. Its implementation should define deterministic
+change evidence before adding test scenarios. Planned validation targets are:
+
+- bad deployment correlated with the beginning of an incident;
+- incompatible configuration/change regression;
+- migration-related failure;
+- rollback correlated with recovery.
+
+The acceptance runner, fault injectors, persisted change metadata and thresholds must
+be defined when Stage 3 is implemented. Do not use synthetic Stage 2 evidence as a
+substitute for real change context.
+
+### Stage 4 plan — complex distributed failures
+
+Stage 4 is **not implemented yet**. Planned validation targets are concurrent failures,
+cascading degradation, network/dependency partitions and asymmetric/partial failures.
+
+Stage 4 should explicitly test ambiguous or multiple origins, conflicting evidence,
+topology boundaries and partial telemetry. Exact pass/fail rules must be defined
+before implementation so that the runner tests deterministic behavior rather than
+merely checking that an incident exists.
+
+
 ## Test proactive detection
 
 Do not call the analyze endpoint. This test proves that monitoring detects an outage before a user reports it.
