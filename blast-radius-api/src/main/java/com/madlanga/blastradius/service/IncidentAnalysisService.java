@@ -274,7 +274,7 @@ public class IncidentAnalysisService {
             if (!name.startsWith("http.") || (!name.endsWith(".count") && !name.endsWith(".sum"))) continue;
 
             String baseName = name.substring(0, name.lastIndexOf('.'));
-            String key = sample.getService()+"|"+baseName+"|"+sample.getDimensions();
+            String key = sample.getService()+"|"+baseName+"|"+metricIdentity(sample.getDimensions());
             (name.endsWith(".count") ? counts : sums).put(key, points);
         }
 
