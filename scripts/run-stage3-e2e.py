@@ -43,6 +43,7 @@ SCENARIOS = {
 class Stage3Failure(AssertionError):
     pass
 
+
 def request_json(url, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {"Accept": "application/json"}
@@ -50,12 +51,12 @@ def request_json(url, method="GET", payload=None):
         headers["Content-Type"] = "application/json"
     try:
         with urlopen(Request(url, data=data, headers=headers, method=method), timeout=12) as response:
-            raw = response.read()
-            return response.status, json.loads(raw) if raw else {}
+            body = response.read()
+            return response.status, json.loads(body) if body else {}
     except HTTPError as error:
         with error:
-            raw = error.read()
-            return error.code, json.loads(raw) if raw else {}
+            body = error.read()
+            return error.code, json.loads(body) if body else {}
 
 def incidents(status):
     query = urlencode({"applicationId": APP, "environment": ENV, "status": status})
@@ -64,7 +65,7 @@ def incidents(status):
         raise Stage3Failure(f"Incident API returned HTTP {code}: {body}")
     return body
 
-def eventually(check, label, timeout=150, interval=2):
+def eventually(check, label, timeout, interval=2):
     deadline = time.monotonic() + timeout
     last = None
     while time.monotonic() < deadline:
@@ -105,15 +106,24 @@ def exercise(stop_event):
             pass
         stop_event.wait(1)
 
+def active_marker_snapshot():
+    snapshot = {}
+    for incident in incidents("ACTIVE"):
+        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+        snapshot[str(incident.get("id"))] = {
+            str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])
+        }
+    return snapshot
+
 def new_stage3_incident(baseline, marker):
     for incident in incidents("ACTIVE"):
-        if str(incident.get("id")) in baseline:
-            continue
         if incident.get("originComponent") != "document-service":
             continue
+        incident_id = str(incident.get("id"))
         analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
         signals = [str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])]
-        if any(marker in signal for signal in signals):
+        if any(marker in signal for signal in signals) and (
+                incident_id not in baseline or marker not in baseline[incident_id]):
             return incident
     return None
 
@@ -122,7 +132,7 @@ def resolved(incident_id):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(i["id"]) for i in incidents("ACTIVE")}
+    baseline = active_marker_snapshot()
     detected = None
     stop = threading.Event()
     worker = None

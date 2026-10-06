@@ -214,10 +214,18 @@ public class IncidentAnalysisService {
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
     private boolean isStage2DegradationLog(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
-        return message.contains("synthetic_latency") || message.contains("synthetic_change_failure");
+        return message.contains("synthetic_latency")
+                || message.contains("synthetic_change_failure")
+                || message.contains("synthetic_distributed_failure");
     }
     private String logSignal(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
+        if (message.contains("synthetic_distributed_failure") && message.contains("distributed_cascade"))
+            return "stage4 distributed cascade";
+        if (message.contains("synthetic_distributed_failure") && message.contains("compound_dependency_failure"))
+            return "stage4 compound dependency failure";
+        if (message.contains("synthetic_distributed_failure") && message.contains("flapping_dependency"))
+            return "stage4 flapping dependency";
         if (message.contains("synthetic_change_failure") && message.contains("deployment_regression"))
             return "stage3 deployment regression";
         if (message.contains("synthetic_change_failure") && message.contains("configuration_error"))

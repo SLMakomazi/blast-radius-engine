@@ -33,6 +33,9 @@ function incidentSignals(incident) {
 
 function incidentScenario(incident) {
   const signals = incidentSignals(incident);
+  if (signals.some(s => s.includes("distributed cascade"))) return "Distributed Cascade";
+  if (signals.some(s => s.includes("compound dependency failure"))) return "Compound Dependency Failure";
+  if (signals.some(s => s.includes("flapping dependency"))) return "Flapping Dependency";
   if (signals.some(s => s.includes("deployment regression"))) return "Deployment Regression";
   if (signals.some(s => s.includes("configuration error"))) return "Configuration Error";
   if (signals.some(s => s.includes("api contract break"))) return "API Contract Break";
@@ -48,6 +51,7 @@ function incidentScenario(incident) {
 
 function incidentStage(incident) {
   const signals = incidentSignals(incident);
+  if (signals.some(signal => signal.includes("stage4"))) return "STAGE_4";
   if (signals.some(signal => signal.includes("stage3"))) return "STAGE_3";
   return signals.some(signal =>
     signal.includes("stage2")
@@ -154,11 +158,13 @@ function App() {
     && (evidenceFamily === "ALL" || e.family === evidenceFamily)
   );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
-  const stageMeta = stage === "STAGE_1"
-    ? { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." }
-    : stage === "STAGE_2"
-      ? { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." }
-      : { label: "Stage 3", title: "Change Impact Analysis", description: "Change-related failures: deployment regressions, configuration errors, API contract breaks and feature-flag regressions." };
+  const stageMetaById = {
+    STAGE_1: { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." },
+    STAGE_2: { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." },
+    STAGE_3: { label: "Stage 3", title: "Change Impact Analysis", description: "Change-related failures: deployment regressions, configuration errors, API contract breaks and feature-flag regressions." },
+    STAGE_4: { label: "Stage 4", title: "Distributed Failure Analysis", description: "Complex failures: cascading impact, compound dependency failures, flapping dependencies and partial observability." },
+  };
+  const stageMeta = stageMetaById[stage] || stageMetaById.STAGE_1;
   const visibleIncidents = incidents.filter(i => incidentStage(i) === stage);
 
   return <div className="app">
@@ -169,6 +175,7 @@ function App() {
         <button className={stage==="STAGE_1"?"nav-active":""} onClick={()=>setStage("STAGE_1")}><AlertTriangle size={18}/><span><strong>Stage 1</strong><small>Hard failures</small></span></button>
         <button className={stage==="STAGE_2"?"nav-active":""} onClick={()=>setStage("STAGE_2")}><Activity size={18}/><span><strong>Stage 2</strong><small>Degradation</small></span></button>
         <button className={stage==="STAGE_3"?"nav-active":""} onClick={()=>setStage("STAGE_3")}><GitBranch size={18}/><span><strong>Stage 3</strong><small>Change-related</small></span></button>
+        <button className={stage==="STAGE_4"?"nav-active":""} onClick={()=>setStage("STAGE_4")}><Waves size={18}/><span><strong>Stage 4</strong><small>Distributed failures</small></span></button>
         <div className="nav-label">ENGINE</div>
         <button><GitBranch size={18}/> Topology</button>
         <button><Bot size={18}/> AI diagnosis</button>
@@ -188,6 +195,7 @@ function App() {
         <div><span className="stage-number">{stageMeta.label}</span><strong>{stageMeta.title}</strong><p>{stageMeta.description}</p></div>
         {stage === "STAGE_2" && <div className="scenario-chips"><span>HTTP 500</span><span>Intermittent 500</span><span>Latency</span><span>DB connectivity</span><span>CPU / pool pressure</span></div>}
         {stage === "STAGE_3" && <div className="scenario-chips"><span>Deployment regression</span><span>Configuration error</span><span>API contract break</span><span>Feature flag regression</span></div>}
+        {stage === "STAGE_4" && <div className="scenario-chips"><span>Distributed cascade</span><span>Compound dependency</span><span>Flapping dependency</span><span>Partial observability</span></div>}
         {stage === "STAGE_1" && <div className="scenario-chips"><span>PostgreSQL outage</span><span>Document outage</span><span>Customer outage</span><span>Payment outage</span></div>}
       </section>
 
