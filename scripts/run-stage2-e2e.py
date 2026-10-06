@@ -195,6 +195,7 @@ def run_scenario(name):
                 scenario_started_at,
             ),
             f"{name} degradation incident",
+            timeout=120,
         )
         # Give Prometheus/Tempo another scrape/flush window, then read the latest
         # persisted snapshot for the same active incident. Detection may happen first

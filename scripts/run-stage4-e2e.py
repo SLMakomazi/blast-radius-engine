@@ -8,6 +8,7 @@ temporarily stopped observability service in finally blocks.
 import argparse
 import json
 import subprocess
+from pathlib import Path
 import threading
 import time
 import uuid
@@ -20,6 +21,8 @@ PAYMENTS = "http://127.0.0.1:8081/api/payments"
 API = "http://127.0.0.1:8080/api/v1/blast-radius"
 APP = "document-platform"
 ENV = "local"
+
+ROOT = Path(__file__).resolve().parent.parent
 
 SCENARIOS = {
     "distributed-cascade": {"mode": "DISTRIBUTED_CASCADE", "marker": "stage4 distributed cascade"},
@@ -52,6 +55,22 @@ def incidents(status):
     if code != 200 or not isinstance(body, list):
         raise Stage4Failure(f"Incident API returned HTTP {code}: {body}")
     return body
+
+def compose(*args):
+    command = ["docker", "compose", *args]
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise Stage4Failure(
+            f"docker compose {' '.join(args)} failed: "
+            f"{result.stderr.strip() or result.stdout.strip()}"
+        )
+    return result.stdout.strip()
+
 
 def eventually(check, label, timeout, interval=2):
     deadline = time.monotonic() + timeout
@@ -180,8 +199,11 @@ def run_scenario(name):
 
         worker = threading.Thread(target=exercise, args=(stop,), daemon=True)
         worker.start()
-        detected = eventually(lambda: find_stage4(baseline, scenario["marker"]),
-                              f"{name} Stage 4 incident")
+        detected = eventually(
+            lambda: find_stage4(baseline, scenario["marker"]),
+            f"{name} Stage 4 incident",
+            timeout=120,
+        )
 
         counts, observed, coverage = validate_stage4_evidence(name, scenario, detected)
 

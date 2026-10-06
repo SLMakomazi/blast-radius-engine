@@ -145,6 +145,7 @@ def run_scenario(name):
         detected = eventually(
             lambda: new_stage3_incident(baseline, scenario["marker"]),
             f"{name} incident with change evidence",
+            timeout=120,
         )
         analysis = detected.get("analysis") or detected.get("analysisSnapshot") or {}
         timeline = analysis.get("timeline") or []
