@@ -2,7 +2,7 @@ package com.madlanga.blastradius.adapters.ai;
 
 import com.madlanga.blastradius.ports.AiDiagnosisPort;
 import com.madlanga.blastradius.service.AiDiagnosisService;
-import com.madlanga.blastradius.service.DeterministicDiagnosisAdapter;
+import com.madlanga.blastradius.adapters.ai.DeterministicDiagnosisAdapter;
 import com.madlanga.blastradius.service.DiagnosisContextFactory;
 import com.madlanga.blastradius.service.StoredAnalysisDiagnosisContextMapper;
 import com.madlanga.blastradius.sanitization.TelemetrySanitizer;

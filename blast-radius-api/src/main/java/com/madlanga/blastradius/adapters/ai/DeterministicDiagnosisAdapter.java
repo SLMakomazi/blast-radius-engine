@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.service;
+package com.madlanga.blastradius.adapters.ai;
 
 import com.madlanga.blastradius.domain.diagnosis.AiDiagnosis;
 import com.madlanga.blastradius.domain.diagnosis.DiagnosisContext;
