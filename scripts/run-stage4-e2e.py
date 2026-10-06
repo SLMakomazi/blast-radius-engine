@@ -92,7 +92,7 @@ def exercise(stop):
         }
         try:
             request_json(PAYMENTS, "POST", payload)
-        except (OSError, TimeoutError, ValueError):
+        except (OSError, ValueError):
             pass
         stop.wait(1)
 
@@ -136,7 +136,34 @@ def details(incident):
     observed = sorted(i.get("component") for i in analysis.get("impacts", [])
                       if i.get("state") == "OBSERVED" and i.get("component"))
     coverage = analysis.get("coverage") or {}
-    return analysis, counts, observed, coverage
+    return counts, observed, coverage
+
+def validate_stage4_evidence(name, scenario, detected):
+    counts, observed, coverage = details(detected)
+    if counts["LOG"] == 0:
+        raise Stage4Failure(f"{name} has no deterministic Stage 4 log evidence: {counts}")
+
+    if scenario.get("partial"):
+        validate_partial_observability(coverage)
+    else:
+        validate_distributed_impact(name, observed)
+
+    return counts, observed, coverage
+
+def validate_distributed_impact(name, observed):
+    upstream = {"customer-service", "payment-service"}.intersection(observed)
+    if not upstream:
+        raise Stage4Failure(f"{name} did not prove upstream distributed impact; observed={observed}")
+
+def validate_partial_observability(coverage):
+    traces = str(coverage.get("traces", "")).upper()
+    if traces == "AVAILABLE" or coverage.get("fullyCovered") is True:
+        raise Stage4Failure(f"partial-observability did not report reduced trace coverage: {coverage}")
+
+def assert_recovery_blocked(detected):
+    time.sleep(45)
+    if active(detected["id"]) is None:
+        raise Stage4Failure("incident resolved while observability was incomplete")
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
@@ -160,19 +187,9 @@ def run_scenario(name):
         detected = eventually(lambda: find_stage4(baseline, scenario["marker"]),
                               f"{name} Stage 4 incident")
 
-        analysis, counts, observed, coverage = details(detected)
-        if counts["LOG"] == 0:
-            raise Stage4Failure(f"{name} has no deterministic Stage 4 log evidence: {counts}")
+        counts, observed, coverage = validate_stage4_evidence(name, scenario, detected)
 
-        if not scenario.get("partial"):
-            upstream = {"customer-service", "payment-service"}.intersection(observed)
-            if not upstream:
-                raise Stage4Failure(f"{name} did not prove upstream distributed impact; observed={observed}")
-        else:
-            traces = str(coverage.get("traces", "")).upper()
-            if traces == "AVAILABLE" or coverage.get("fullyCovered") is True:
-                raise Stage4Failure(f"partial-observability did not report reduced trace coverage: {coverage}")
-
+        if scenario.get("partial"):
             reset_fault()
             fault_reset = True
             stop.set()
@@ -181,9 +198,7 @@ def run_scenario(name):
                 worker = None
 
             # Recovery must remain blocked while trace coverage is incomplete.
-            time.sleep(45)
-            if active(detected["id"]) is None:
-                raise Stage4Failure("incident resolved while observability was incomplete")
+            assert_recovery_blocked(detected)
 
             compose("start", "tempo")
             tempo_stopped = False
