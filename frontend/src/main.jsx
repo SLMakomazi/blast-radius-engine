@@ -158,13 +158,13 @@ function App() {
     && (evidenceFamily === "ALL" || e.family === evidenceFamily)
   );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
-  const stageMeta = stage === "STAGE_1"
-    ? { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." }
-    : stage === "STAGE_2"
-      ? { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." }
-      : stage === "STAGE_3"
-        ? { label: "Stage 3", title: "Change Impact Analysis", description: "Change-related failures: deployment regressions, configuration errors, API contract breaks and feature-flag regressions." }
-        : { label: "Stage 4", title: "Distributed Failure Analysis", description: "Complex failures: cascading impact, compound dependency failures, flapping dependencies and partial observability." };
+  const stageMetaById = {
+    STAGE_1: { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." },
+    STAGE_2: { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." },
+    STAGE_3: { label: "Stage 3", title: "Change Impact Analysis", description: "Change-related failures: deployment regressions, configuration errors, API contract breaks and feature-flag regressions." },
+    STAGE_4: { label: "Stage 4", title: "Distributed Failure Analysis", description: "Complex failures: cascading impact, compound dependency failures, flapping dependencies and partial observability." },
+  };
+  const stageMeta = stageMetaById[stage] || stageMetaById.STAGE_1;
   const visibleIncidents = incidents.filter(i => incidentStage(i) === stage);
 
   return <div className="app">
