@@ -5,7 +5,7 @@ import com.madlanga.blastradius.diagnosis.infrastructure.DeterministicDiagnosisA
 import static org.assertj.core.api.Assertions.assertThat;
 import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
-import com.madlanga.blastradius.domain.incident.*;
+import com.madlanga.blastradius.incident.domain.*;
 import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
 import java.time.Instant;
 import java.util.List;

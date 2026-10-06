@@ -1,11 +1,13 @@
 package com.madlanga.blastradius.service;
 
+import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.ports.IncidentRepository;
+import com.madlanga.blastradius.incident.domain.*;
+import com.madlanga.blastradius.incident.application.port.IncidentRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

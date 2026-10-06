@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.diagnosis.application;
 
 import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
-import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
+import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
 
 public final class AiDiagnosisService {

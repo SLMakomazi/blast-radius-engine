@@ -1,7 +1,9 @@
 package com.madlanga.blastradius.service;
 
-import com.madlanga.blastradius.domain.incident.*;
-import com.madlanga.blastradius.ports.IncidentRepository;
+import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+
+import com.madlanga.blastradius.incident.domain.*;
+import com.madlanga.blastradius.incident.application.port.IncidentRepository;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.Optional;

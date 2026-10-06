@@ -1,8 +1,8 @@
 package com.madlanga.blastradius.diagnosis.application;
 
 import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
-import com.madlanga.blastradius.domain.incident.EvidenceSignal;
-import com.madlanga.blastradius.domain.incident.IncidentAnalysis;
+import com.madlanga.blastradius.incident.domain.EvidenceSignal;
+import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import java.util.ArrayList;
 
 public final class DiagnosisContextFactory {

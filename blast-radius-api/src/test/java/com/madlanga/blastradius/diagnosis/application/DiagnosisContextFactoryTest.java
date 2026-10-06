@@ -2,7 +2,7 @@ package com.madlanga.blastradius.diagnosis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
-import com.madlanga.blastradius.domain.incident.*;
+import com.madlanga.blastradius.incident.domain.*;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
