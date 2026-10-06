@@ -124,14 +124,37 @@ def incident_signals(incident):
     analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
     return {str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])}
 
-def new_active(baseline, expected_origins):
+def active_after(baseline, expected_origins, scenario_started_at):
+    """Accept a new incident or an existing ACTIVE incident refreshed by this scenario."""
     for incident in incidents("ACTIVE"):
         if incident.get("originComponent") not in expected_origins:
             continue
+
         incident_id = str(incident.get("id"))
-        current = incident_signals(incident)
-        if incident_id not in baseline or current - baseline[incident_id]:
+        current_signals = incident_signals(incident)
+
+        if incident_id not in baseline:
             return incident
+
+        previous = baseline[incident_id]
+        previous_signals = previous.get("signals", set())
+        previous_updated_at = previous.get("updatedAt")
+        current_updated_at = incident.get("updatedAt")
+        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+        analysis_to = analysis.get("to")
+
+        # Preserve main's signal-delta protection.
+        if current_signals - previous_signals:
+            return incident
+
+        # The lifecycle service deliberately reuses an ACTIVE UUID. Accept the
+        # incident when this scenario has caused that existing record to refresh.
+        if current_updated_at and current_updated_at != previous_updated_at:
+            return incident
+
+        if analysis_to and analysis_to >= scenario_started_at:
+            return incident
+
     return None
 
 
@@ -144,7 +167,14 @@ def resolved(incident_id):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(item["id"]): incident_signals(item) for item in incidents("ACTIVE")}
+    baseline = {
+        str(item["id"]): {
+            "signals": incident_signals(item),
+            "updatedAt": item.get("updatedAt"),
+        }
+        for item in incidents("ACTIVE")
+    }
+    scenario_started_at = None
     detected = None
     stimulus_stop = threading.Event()
     stimulus = None
@@ -153,11 +183,17 @@ def run_scenario(name):
         if configured.get("mode") != scenario["fault"]["mode"]:
             raise Stage2Failure(f"Fault mode was not applied: {configured}")
 
+        scenario_started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
         stimulus = threading.Thread(target=exercise_full_chain, args=(stimulus_stop,), daemon=True)
         stimulus.start()
 
         detected = eventually(
-            lambda: new_active(baseline, scenario["expected_origins"]),
+            lambda: active_after(
+                baseline,
+                scenario["expected_origins"],
+                scenario_started_at,
+            ),
             f"{name} degradation incident",
         )
         # Give Prometheus/Tempo another scrape/flush window, then read the latest
