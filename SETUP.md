@@ -87,75 +87,6 @@ Expected ACTIVE result is an empty array. Normal synthetic traffic should show H
 docker compose logs --tail=20 traffic-generator
 ~~~
 
-## Stage 1–4 validation map
-
-Use the stages as progressive validation boundaries. Do not skip a stage or mark a
-planned scenario as implemented before its acceptance suite passes.
-
-| Stage | Validation target | Local entry point | Status |
-|---|---|---|---|
-| **Stage 1 — Hard failures** | outages, propagation, recovery, partial observability | `scripts/run-phase11-e2e.py` | Validated locally |
-| **Stage 2 — Degradation** | HTTP errors, intermittent errors, latency, DB connectivity while services stay running | `scripts/run-stage2-e2e.py` | In validation |
-| **Stage 3 — Change-related** | deployments/config/migrations and rollback correlation | To be implemented | Planned |
-| **Stage 4 — Complex distributed** | concurrent/cascading/partition/partial failures | To be implemented | Planned |
-
-### Stage 1 acceptance
-
-With the full stack healthy:
-
-~~~bash
-python3 scripts/run-phase11-e2e.py
-~~~
-
-Stage 1 covers the healthy baseline, PostgreSQL/service outages, dependency direction,
-stable incident identity, automatic recovery and partial-observability protection.
-The existing manual outage sections below can be used to inspect individual scenarios.
-
-### Stage 2 acceptance
-
-With the full stack healthy:
-
-~~~bash
-python3 scripts/run-stage2-e2e.py --scenario all
-~~~
-
-Stage 2 is stricter than "incident detected." The runner validates required correlated
-evidence families. Expected evidence is LOG + METRIC + TRACE for HTTP 500,
-intermittent 500 and latency; DB connectivity requires LOG + TRACE. HEALTH can
-legitimately have zero incident evidence while the service remains UP.
-
-A completed scenario resets its fault and waits for automatic recovery, so successful
-test incidents should normally be found under **Stage 2 -> RESOLVED**.
-
-At the current validation point, LOG/TRACE enrichment and recovery have been observed,
-but required METRIC enrichment is not yet fully passing. Do not mark Stage 2 complete
-until the complete runner passes all scenario assertions.
-
-### Stage 3 plan — change-related failures
-
-Stage 3 is **not implemented yet**. Its implementation should define deterministic
-change evidence before adding test scenarios. Planned validation targets are:
-
-- bad deployment correlated with the beginning of an incident;
-- incompatible configuration/change regression;
-- migration-related failure;
-- rollback correlated with recovery.
-
-The acceptance runner, fault injectors, persisted change metadata and thresholds must
-be defined when Stage 3 is implemented. Do not use synthetic Stage 2 evidence as a
-substitute for real change context.
-
-### Stage 4 plan — complex distributed failures
-
-Stage 4 is **not implemented yet**. Planned validation targets are concurrent failures,
-cascading degradation, network/dependency partitions and asymmetric/partial failures.
-
-Stage 4 should explicitly test ambiguous or multiple origins, conflicting evidence,
-topology boundaries and partial telemetry. Exact pass/fail rules must be defined
-before implementation so that the runner tests deterministic behavior rather than
-merely checking that an incident exists.
-
-
 ## Test proactive detection
 
 Do not call the analyze endpoint. This test proves that monitoring detects an outage before a user reports it.
@@ -290,7 +221,7 @@ stopped containers.
 Run the complete degradation suite:
 
 ~~~bash
-python3 scripts/run-stage2-e2e.py --scenario all
+python3 scripts/run-stage2-e2e.py
 ~~~
 
 Or run one scenario:
@@ -333,58 +264,80 @@ connection-pool contention, HTTP 5xx counter growth and high mean HTTP latency.
 Memory-used by itself is deliberately not treated as memory pressure because a
 used-byte value without a configured/max limit is insufficient evidence.
 
-### Stage 2 acceptance criteria
+## Stage 3 change-related validation
 
-A detected incident is not enough to pass a Stage 2 scenario. The runner also checks
-that the expected telemetry families actually contributed correlated evidence.
+Stage 3 validates failures introduced by a software or configuration change while the
+service process remains running. The synthetic change marker is captured as deterministic
+evidence; AI is not used to decide that a change caused the incident.
 
-Expected evidence:
-- **http-500:** LOG + METRIC + TRACE
-- **intermittent:** LOG + METRIC + TRACE
-- **latency:** LOG + METRIC + TRACE
-- **db-connectivity:** LOG + TRACE
-
-HEALTH may legitimately contain zero incident evidence for these scenarios because
-the purpose of Stage 2 is to validate degraded-but-running services. Provider
-availability and incident evidence are separate concepts: `AVAILABLE / 0 evidence`
-means the provider was reachable, not that it proved the incident.
-
-After each scenario the runner removes the synthetic fault and waits for automatic
-recovery. Therefore, after a successful complete run the generated incidents are
-expected under **Stage 2 -> RESOLVED**, not ACTIVE.
-
-### Stage 2 dashboard
-
-The left navigation separates:
-- **Stage 1 / Hard failures** for availability/outage validation;
-- **Stage 2 / Degradation** for degraded-but-running validation.
-
-Use the ACTIVE/RESOLVED toggle inside the selected stage. A completed Stage 2 runner
-normally leaves no Stage 2 incident ACTIVE because recovery is part of the test.
-
-### Rebuild after Stage 2 code changes
-
-From the repository root:
+Run all Stage 3 scenarios:
 
 ~~~bash
-docker compose up -d --build --force-recreate blast-radius-api document-service frontend
-docker compose ps blast-radius-api document-service frontend
+python3 scripts/run-stage3-e2e.py --scenario all
 ~~~
 
-Wait until the three services are healthy before running the Stage 2 suite.
-
-If Maven fails during a Docker build with `Premature end of Content-Length delimited
-message body`, that indicates an incomplete dependency download rather than an
-application compilation failure. Retry the API image build:
+Individual scenarios:
 
 ~~~bash
-docker compose build --no-cache blast-radius-api
-docker compose up -d blast-radius-api frontend
-docker compose ps blast-radius-api frontend
+python3 scripts/run-stage3-e2e.py --scenario deployment-regression
+python3 scripts/run-stage3-e2e.py --scenario configuration-error
+python3 scripts/run-stage3-e2e.py --scenario contract-break
+python3 scripts/run-stage3-e2e.py --scenario feature-flag-regression
 ~~~
 
-Do not modify the application POM merely to work around an interrupted Maven Central
-download.
+The four validation cases represent:
+- a release regression after deployment;
+- an invalid runtime/application configuration;
+- an incompatible API contract change;
+- a feature-flag rollout that fails intermittently.
+
+For each scenario the runner verifies automatic detection, document-service as the
+evidence-supported origin, a Stage 3 change marker in the persisted incident snapshot,
+continued process availability, rollback/reset, and automatic resolution of the same
+incident UUID.
+
+These are production-relevant synthetic change events. In an enterprise integration,
+the same normalized change evidence would come from approved CI/CD, GitOps, deployment,
+configuration or feature-management sources rather than the local fault endpoint.
+
+
+## Stage 4 complex distributed failure validation
+
+Stage 4 moves beyond a single isolated failure type and validates behavior when failure
+signals propagate across service boundaries, overlap with dependency failure, flap over
+time, or occur while observability is incomplete.
+
+Run the full suite with the Compose stack already running:
+
+~~~bash
+python3 scripts/run-stage4-e2e.py --scenario all
+~~~
+
+Individual scenarios:
+
+~~~bash
+python3 scripts/run-stage4-e2e.py --scenario distributed-cascade
+python3 scripts/run-stage4-e2e.py --scenario compound-dependency
+python3 scripts/run-stage4-e2e.py --scenario flapping-dependency
+python3 scripts/run-stage4-e2e.py --scenario partial-observability
+~~~
+
+Acceptance criteria:
+- **Distributed cascade:** document-service remains running, deterministic Stage 4
+  evidence identifies the originating failure, and runtime telemetry proves impact in
+  at least one upstream dependent.
+- **Compound dependency failure:** a document-to-PostgreSQL connectivity failure is
+  combined with upstream propagation and retained as one evidence-bounded incident.
+- **Flapping dependency:** intermittent failures are detected without requiring the
+  process to stop; recovery is only accepted after stable healthy windows.
+- **Partial observability:** Tempo is temporarily stopped while the failure is active.
+  The incident must still be detected from remaining evidence, telemetry coverage must
+  report the missing trace source, and automatic recovery must remain blocked until
+  observability is restored.
+
+The partial-observability scenario intentionally runs `docker compose stop tempo` and
+restores it in a `finally` block. It does not stop an application service. All fault
+modes are local synthetic controls and are not production features.
 
 ## Useful commands
 

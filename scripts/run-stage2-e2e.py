@@ -55,6 +55,7 @@ class Stage2Failure(AssertionError):
     pass
 
 
+
 def request_json(url, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {"Accept": "application/json"}
@@ -69,7 +70,6 @@ def request_json(url, method="GET", payload=None):
             body = error.read()
             return error.code, json.loads(body) if body else {}
 
-
 def incidents(status):
     query = urlencode({"applicationId": APP, "environment": ENV, "status": status})
     code, body = request_json(f"{API}/incidents?{query}")
@@ -77,20 +77,18 @@ def incidents(status):
         raise Stage2Failure(f"Incident API returned HTTP {code}: {body}")
     return body
 
-
-def eventually(check, label, timeout=140, interval=2):
+def eventually(check, label, timeout, interval=2):
     deadline = time.monotonic() + timeout
     last = None
     while time.monotonic() < deadline:
         try:
-            result = check()
-            if result:
-                return result
+            value = check()
+            if value:
+                return value
         except (OSError, Stage2Failure, KeyError, TypeError, ValueError) as error:
             last = str(error)
         time.sleep(interval)
     raise Stage2Failure(f"Timed out waiting for {label}. Last observation: {last}")
-
 
 def set_fault(config):
     code, body = request_json(FAULTS, "PUT", config)
@@ -122,29 +120,17 @@ def exercise_full_chain(stop_event):
         stop_event.wait(1)
 
 
-def active_after(baseline, expected_origins, scenario_started_at):
-    """Accept a new incident or a baseline ACTIVE incident freshly updated by this scenario.
+def incident_signals(incident):
+    analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
+    return {str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])}
 
-    The lifecycle service intentionally reuses one ACTIVE UUID per origin. A previous
-    interrupted Stage 2 run can therefore leave an ACTIVE incident that is correctly
-    refreshed by the next scenario. Requiring a brand-new UUID would time out even
-    though proactive detection and persistence are working.
-    """
+def new_active(baseline, expected_origins):
     for incident in incidents("ACTIVE"):
         if incident.get("originComponent") not in expected_origins:
             continue
-
         incident_id = str(incident.get("id"))
-        if incident_id not in baseline:
-            return incident
-
-        previous_updated_at = baseline.get(incident_id)
-        current_updated_at = incident.get("updatedAt")
-        analysis_to = (incident.get("analysis") or {}).get("to")
-
-        if current_updated_at and current_updated_at != previous_updated_at:
-            return incident
-        if analysis_to and analysis_to >= scenario_started_at:
+        current = incident_signals(incident)
+        if incident_id not in baseline or current - baseline[incident_id]:
             return incident
     return None
 
@@ -158,8 +144,7 @@ def resolved(incident_id):
 
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {str(item["id"]): item.get("updatedAt") for item in incidents("ACTIVE")}
-    scenario_started_at = None
+    baseline = {str(item["id"]): incident_signals(item) for item in incidents("ACTIVE")}
     detected = None
     stimulus_stop = threading.Event()
     stimulus = None
@@ -167,13 +152,12 @@ def run_scenario(name):
         configured = set_fault(scenario["fault"])
         if configured.get("mode") != scenario["fault"]["mode"]:
             raise Stage2Failure(f"Fault mode was not applied: {configured}")
-        scenario_started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
         stimulus = threading.Thread(target=exercise_full_chain, args=(stimulus_stop,), daemon=True)
         stimulus.start()
 
         detected = eventually(
-            lambda: active_after(baseline, scenario["expected_origins"], scenario_started_at),
+            lambda: new_active(baseline, scenario["expected_origins"]),
             f"{name} degradation incident",
         )
         # Give Prometheus/Tempo another scrape/flush window, then read the latest
