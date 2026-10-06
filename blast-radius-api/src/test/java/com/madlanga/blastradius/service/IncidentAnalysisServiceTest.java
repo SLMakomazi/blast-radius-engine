@@ -203,6 +203,23 @@ class IncidentAnalysisServiceTest {
     }
 
     @Test
+    void acceptsSlowSpanAsTraceLatencyEvidence() {
+        SpanEvidence slow = SpanEvidence.builder().id("slow-doc").traceId("0123456789abcdef0123456789abcdef")
+                .spanId("slow-doc").service("document-service").environment("local")
+                .operation("POST /api/documents").startTime(FROM.plusSeconds(2)).durationMs(9000)
+                .status(SpanStatus.OK).kind(SpanKind.SERVER)
+                .provenance(provenance(EvidenceFamily.TRACES)).build();
+        TelemetryBundle tracesOnly = TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(slow)).build();
+
+        IncidentAnalysis result = service(q -> tracesOnly)
+                .analyze("document-platform", "local", FROM, TO, "document-service");
+
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("TRACE") && signal.signal().contains("slow span"));
+    }
+
+    @Test
     void acceptsHighMeanHttpLatencyAsDegradationEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
