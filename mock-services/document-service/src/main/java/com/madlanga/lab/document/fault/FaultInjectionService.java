@@ -42,11 +42,11 @@ public class FaultInjectionService {
         FaultConfig active = config.get();
         switch (active.mode()) {
             case NONE -> { }
-            case ERROR_500 -> failApplication();
+            case ERROR_500 -> failApplication(FaultMode.ERROR_500);
             case INTERMITTENT_500 -> {
                 long request = requestCounter.incrementAndGet();
                 if (request % active.everyNthRequest() == 0) {
-                    failApplication();
+                    failApplication(FaultMode.INTERMITTENT_500);
                 }
             }
             case LATENCY -> delay(active.latencyMs());
@@ -54,8 +54,8 @@ public class FaultInjectionService {
         }
     }
 
-    private void failApplication() {
-        log.error("event=synthetic_application_failure mode=ERROR_500");
+    private void failApplication(FaultMode mode) {
+        log.error("event=synthetic_application_failure mode={}", mode);
         throw new SyntheticFaultException();
     }
 
