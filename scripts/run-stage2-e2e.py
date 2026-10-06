@@ -55,6 +55,7 @@ class Stage2Failure(AssertionError):
     pass
 
 
+
 def request_json(url, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {"Accept": "application/json"}
@@ -69,7 +70,6 @@ def request_json(url, method="GET", payload=None):
             body = error.read()
             return error.code, json.loads(body) if body else {}
 
-
 def incidents(status):
     query = urlencode({"applicationId": APP, "environment": ENV, "status": status})
     code, body = request_json(f"{API}/incidents?{query}")
@@ -77,20 +77,18 @@ def incidents(status):
         raise Stage2Failure(f"Incident API returned HTTP {code}: {body}")
     return body
 
-
-def eventually(check, label, timeout=140, interval=2):
+def eventually(check, label, timeout, interval=2):
     deadline = time.monotonic() + timeout
     last = None
     while time.monotonic() < deadline:
         try:
-            result = check()
-            if result:
-                return result
+            value = check()
+            if value:
+                return value
         except (OSError, Stage2Failure, KeyError, TypeError, ValueError) as error:
             last = str(error)
         time.sleep(interval)
     raise Stage2Failure(f"Timed out waiting for {label}. Last observation: {last}")
-
 
 def set_fault(config):
     code, body = request_json(FAULTS, "PUT", config)
