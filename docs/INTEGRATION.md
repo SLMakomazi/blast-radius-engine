@@ -30,10 +30,10 @@ This applies specifically to raw logs and distributed traces.
 ## Adapter mapping
 | Blast Radius port | Local implementation | MadlangaAI/enterprise integration |
 |---|---|---|
-| TelemetryProvider | local logs + metrics + traces + health adapters | Datadog/MCP plus additional approved source(s) for missing telemetry |
-| DependencyTopologyProvider | retained runtime topology from normalized spans | MadlangaAI architecture/dependency model |
-| FailureExperimentProvider | local experiment metadata (injection is separate) | Phase-4 chaos/TsakaniQA integration when defined |
-| AiDiagnosisPort | optional Gemini and deterministic fallback | MadlangaAI AI Diagnosis Engine |
+| `telemetry.application.port.TelemetryProvider` | local logs + metrics + traces + health adapters | Datadog/MCP plus additional approved source(s) for missing telemetry |
+| `topology.application.port.DependencyTopologyProvider` | retained runtime topology from normalized spans | MadlangaAI architecture/dependency model |
+| `incident.application.port.FailureExperimentProvider` | local experiment metadata (injection is separate) | Phase-4 chaos/TsakaniQA integration when defined |
+| `diagnosis.application.port.AiDiagnosisPort` | optional Gemini and deterministic fallback | MadlangaAI AI Diagnosis Engine |
 | Result consumer | REST + local UI | MadlangaAI report/dashboard/API |
 
 ## Integration fields
@@ -73,3 +73,5 @@ These are integration unknowns, not reasons to narrow the local Blast Radius cap
 ## Local proof and enterprise work
 
 The local Stage 1–4 implementation has completed baseline validation: 6 / 6, 4 / 4, 4 / 4 and 4 / 4 (18 / 18). Its synthetic deployment/configuration/contract/feature-flag faults do not supply real deployment-event integration. Its distributed scenarios do not implement general multi-origin analysis. The open contracts above remain enterprise integration work.
+
+Capability packaging changes Java ownership only; integration fields, JSON contracts, endpoints and provider settings remain unchanged. Containment metadata stays part of incident analysis, while fault injection stays in the mock lab.

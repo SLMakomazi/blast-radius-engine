@@ -1,5 +1,8 @@
 # Repository cleanup report
 
+> Historical record of the original seven-commit cleanup. Current capability-first ownership and results are in [CAPABILITY_REFACTOR.md](CAPABILITY_REFACTOR.md); current tree is in [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md).
+
+
 Branch: `refactor/ddd-repository-cleanup`. Baseline: main at `2360328`. No merge or push to main.
 
 ## Before and problems found

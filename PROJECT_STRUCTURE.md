@@ -1,62 +1,75 @@
 # Project structure
 
-Four Java projects build independently: the Blast Radius API and the three synthetic monitored services. Each has its own Maven POM, Dockerfile, resources and tests. The frontend uses React/Vite; traffic and acceptance runners use Python.
-
-## Repository areas
-
-| Area | Responsibility |
-|---|---|
-| `blast-radius-api` | Deterministic incident analysis, lifecycle, REST and optional advisory diagnosis |
-| `mock-services` | Small payment/customer/document monitored applications and local faults |
-| `frontend` | Incident history/details, Stage 1–4 views, polling and on-demand diagnosis |
-| `traffic-generator` | Continuous synthetic traffic and its tests |
-| `infrastructure/observability` | Collector, Java agent, Loki, Prometheus and Tempo settings |
-| `scripts` | Stage 1–4 acceptance, observability/business probes and offline captured-topology helper |
-| `fixtures/payment-request.json` | Active synthetic request data |
-| `docs` | Architecture, integration, decisions, developer guidance, audit and validation results |
+The engine is organized by capability first and layer second. The four Java modules build independently: Blast Radius API and payment/customer/document lab services. React/Vite provides the incident dashboard; Python supplies synthetic traffic and acceptance runners.
 
 ## Main Java packages
 
-| Package | Responsibility |
+```text
+com.madlanga.blastradius/
+├── diagnosis/
+│   ├── application/
+│   │   └── port
+│   ├── domain
+│   └── infrastructure
+├── incident/
+│   ├── api/
+│   │   └── dto
+│   ├── application/
+│   │   └── port
+│   ├── domain/
+│   │   └── containment
+│   └── infrastructure/
+│       ├── containment
+│       └── persistence
+├── lifecycle/
+│   ├── application
+│   └── infrastructure
+├── shared/
+│   ├── config
+│   └── sanitization
+├── telemetry/
+│   ├── application/
+│   │   └── port
+│   ├── domain
+│   └── infrastructure/
+│       ├── config
+│       ├── health
+│       ├── loki
+│       ├── prometheus
+│       └── tempo
+└── topology/
+    ├── application/
+    │   └── port
+    ├── domain
+    └── infrastructure/
+        ├── config
+        └── persistence
+```
+
+Only packages containing actual code are listed. `telemetry.application` currently contains its acquisition port; it does not need an empty orchestration layer. Lifecycle has application/scheduling code and does not duplicate incident domain concepts. Shared contains sanitization and OpenAPI configuration only.
+
+## Important class ownership
+
+| Class | Package |
 |---|---|
-| `domain.evidence` | Normalized telemetry, coverage, scope and provenance |
-| `domain.topology` | Components, edges, retained knowledge and pure graph traversal |
-| `domain.incident` | Origin, impact, status and pure severity rules |
-| `domain.experiment` | Expected impact and pure containment assessment |
-| `domain.diagnosis` | Provider-neutral advisory diagnosis contracts |
-| `service` | Application use cases: analysis, lifecycle, diagnosis and context mapping |
-| `ports` | Seven external contracts |
-| `adapters.telemetry` | Four local provider adapters and the composite telemetry provider |
-| `adapters.topology` | Runtime discovery and retained topology acquisition |
-| `adapters.persistence` | JDBC incident history and file topology storage |
-| `adapters.ai` | Gemini, deterministic fallback and provider wiring |
-| `adapters.experiment` | Local experiment metadata (not fault injection) |
-| `adapters.scheduling` | Proactive lifecycle entry point and guarded recovery |
-| `api` / `api.dto` | HTTP controllers, handlers, OpenAPI metadata and transport records |
-| `config` | Shared HTTP and topology wiring |
-| `sanitization` | Redaction policies and telemetry sanitizer |
+| `IncidentAnalysisService` | `incident.application` |
+| `IncidentSeverityCalculator` | `incident.domain` |
+| `FailureExperimentAssessmentService` | `incident.domain.containment` |
+| `JdbcIncidentRepository` | `incident.infrastructure.persistence` |
+| `DeterministicGraphEngine` | `topology.domain` |
+| `FileTopologyStore` | `topology.infrastructure.persistence` |
+| `AiDiagnosisService`, `DiagnosisContextFactory`, `StoredAnalysisDiagnosisContextMapper` | `diagnosis.application` |
+| `DeterministicDiagnosisAdapter`, `GeminiDiagnosisAdapter` | `diagnosis.infrastructure` |
+| `IncidentLifecycleService` | `lifecycle.application` |
+| `IncidentLifecycleMonitor` | `lifecycle.infrastructure` |
 
-Tests follow their responsibility or class under test. Provider response models remain internal to their adapter. Mock services keep their existing simple controller/service/dto/exception/client/config/persistence/fault structure; they do not share the Blast Radius domain.
+Ports live in their owning capability's `application.port`. Controllers/HTTP DTOs live in `incident.api`/`incident.api.dto`. Provider models remain in vendor infrastructure packages. JDBC/Flyway, Docker, observability, scripts, fixtures and frontend assets retain their existing paths. Mock services keep their small controller/service/dto/exception/client/config/persistence/fault structure.
 
-## Common changes
+See [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) for placement rules and [CAPABILITY_REFACTOR.md](docs/CAPABILITY_REFACTOR.md) for every class move, decisions, tests and remaining debt. The earlier audit/report are historical records.
 
-| Change | Start here |
-|---|---|
-| Potential impact and paths | `domain/topology/DeterministicGraphEngine.java` |
-| Origin/evidence correlation | `service/IncidentAnalysisService.java` |
-| Severity | `domain/incident/IncidentSeverityCalculator.java` |
-| Detection/recovery | `adapters/scheduling/IncidentLifecycleMonitor.java`, `service/IncidentLifecycleService.java` |
-| New telemetry/topology provider | Matching `ports` contract and a new adapter |
-| AI provider | `ports/AiDiagnosisPort.java`, `adapters/ai` |
-| API data | `api/dto` |
-| Diagnostic schema | `blast-radius-api/src/main/resources/db/migration` |
-| Lab failure semantics | `mock-services/document-service/.../fault` |
+Maven `target`, frontend build output and Python bytecode are generated files. No `.gitkeep` placeholders or empty source packages are needed. Runtime mount/data directories remain Compose-managed.
 
-Runtime databases/topology live in Compose volumes. Maven `target`, frontend build output and Python bytecode are generated data, not source. Empty placeholder-only future directories have been removed; no runtime assets were removed.
-
-For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the original inventory see [ARCHITECTURAL_AUDIT.md](docs/ARCHITECTURAL_AUDIT.md).
-
-## Complete source tree after cleanup
+## Complete source tree
 
 ```text
 ├── .env.example
@@ -78,66 +91,75 @@ For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the o
 │       │   │       └── madlanga/
 │       │   │           └── blastradius/
 │       │   │               ├── BlastRadiusApplication.java
-│       │   │               ├── adapters/
-│       │   │               │   ├── ai/
-│       │   │               │   │   ├── .gitkeep
-│       │   │               │   │   ├── AiDiagnosisConfiguration.java
-│       │   │               │   │   ├── DeterministicDiagnosisAdapter.java
-│       │   │               │   │   ├── GeminiDiagnosisAdapter.java
-│       │   │               │   │   └── GeminiProperties.java
-│       │   │               │   ├── experiment/
-│       │   │               │   │   └── LocalFailureExperimentProvider.java
-│       │   │               │   ├── persistence/
-│       │   │               │   │   ├── .gitkeep
-│       │   │               │   │   ├── FileTopologyStore.java
-│       │   │               │   │   └── JdbcIncidentRepository.java
-│       │   │               │   ├── scheduling/
-│       │   │               │   │   └── IncidentLifecycleMonitor.java
-│       │   │               │   ├── telemetry/
-│       │   │               │   │   ├── LocalTelemetryProvider.java
-│       │   │               │   │   ├── health/
-│       │   │               │   │   │   ├── ActuatorHealthAdapter.java
-│       │   │               │   │   │   ├── ActuatorHealthProperties.java
-│       │   │               │   │   │   └── ActuatorHealthResponse.java
-│       │   │               │   │   ├── loki/
-│       │   │               │   │   │   ├── LokiLogAdapter.java
-│       │   │               │   │   │   ├── LokiLogLine.java
-│       │   │               │   │   │   ├── LokiProperties.java
-│       │   │               │   │   │   └── LokiResponse.java
-│       │   │               │   │   ├── prometheus/
-│       │   │               │   │   │   ├── PrometheusMetricsAdapter.java
-│       │   │               │   │   │   ├── PrometheusProperties.java
-│       │   │               │   │   │   └── PrometheusResponse.java
-│       │   │               │   │   └── tempo/
-│       │   │               │   │       ├── TempoProperties.java
-│       │   │               │   │       ├── TempoResponse.java
-│       │   │               │   │       ├── TempoSearchResponse.java
-│       │   │               │   │       └── TempoTraceAdapter.java
-│       │   │               │   └── topology/
-│       │   │               │       ├── .gitkeep
-│       │   │               │       ├── RetainedTopologyProvider.java
-│       │   │               │       └── TraceDiscoveredTopologyProvider.java
-│       │   │               ├── api/
-│       │   │               │   ├── BlastRadiusController.java
-│       │   │               │   ├── IncidentHistoryController.java
-│       │   │               │   ├── OpenApiConfiguration.java
-│       │   │               │   └── dto/
-│       │   │               │       ├── AnalyzeIncidentRequest.java
-│       │   │               │       ├── ErrorResponse.java
-│       │   │               │       ├── IncidentResponse.java
-│       │   │               │       └── ResolveIncidentRequest.java
-│       │   │               ├── config/
-│       │   │               │   ├── TelemetryAdapterConfig.java
-│       │   │               │   └── TopologyConfig.java
-│       │   │               ├── controller/
-│       │   │               │   └── .gitkeep
-│       │   │               ├── domain/
-│       │   │               │   ├── correlation/
-│       │   │               │   │   └── .gitkeep
-│       │   │               │   ├── diagnosis/
+│       │   │               ├── diagnosis/
+│       │   │               │   ├── application/
+│       │   │               │   │   ├── AiDiagnosisService.java
+│       │   │               │   │   ├── DiagnosisContextFactory.java
+│       │   │               │   │   ├── StoredAnalysisDiagnosisContextMapper.java
+│       │   │               │   │   └── port/
+│       │   │               │   │       └── AiDiagnosisPort.java
+│       │   │               │   ├── domain/
 │       │   │               │   │   ├── AiDiagnosis.java
 │       │   │               │   │   └── DiagnosisContext.java
-│       │   │               │   ├── evidence/
+│       │   │               │   └── infrastructure/
+│       │   │               │       ├── AiDiagnosisConfiguration.java
+│       │   │               │       ├── DeterministicDiagnosisAdapter.java
+│       │   │               │       ├── GeminiDiagnosisAdapter.java
+│       │   │               │       └── GeminiProperties.java
+│       │   │               ├── incident/
+│       │   │               │   ├── api/
+│       │   │               │   │   ├── BlastRadiusController.java
+│       │   │               │   │   ├── IncidentHistoryController.java
+│       │   │               │   │   └── dto/
+│       │   │               │   │       ├── AnalyzeIncidentRequest.java
+│       │   │               │   │       ├── ErrorResponse.java
+│       │   │               │   │       ├── IncidentResponse.java
+│       │   │               │   │       └── ResolveIncidentRequest.java
+│       │   │               │   ├── application/
+│       │   │               │   │   ├── IncidentAnalysisService.java
+│       │   │               │   │   └── port/
+│       │   │               │   │       ├── FailureExperimentProvider.java
+│       │   │               │   │       └── IncidentRepository.java
+│       │   │               │   ├── domain/
+│       │   │               │   │   ├── ComponentImpact.java
+│       │   │               │   │   ├── ConfidenceLevel.java
+│       │   │               │   │   ├── EvidenceSignal.java
+│       │   │               │   │   ├── IncidentAnalysis.java
+│       │   │               │   │   ├── IncidentSeverity.java
+│       │   │               │   │   ├── IncidentSeverityCalculator.java
+│       │   │               │   │   ├── IncidentStatus.java
+│       │   │               │   │   ├── ObservedState.java
+│       │   │               │   │   ├── OriginAssessment.java
+│       │   │               │   │   ├── PersistedIncident.java
+│       │   │               │   │   ├── SeverityLevel.java
+│       │   │               │   │   └── containment/
+│       │   │               │   │       ├── ContainmentStatus.java
+│       │   │               │   │       ├── ExperimentAssessment.java
+│       │   │               │   │       ├── FailureExperiment.java
+│       │   │               │   │       └── FailureExperimentAssessmentService.java
+│       │   │               │   └── infrastructure/
+│       │   │               │       ├── containment/
+│       │   │               │       │   └── LocalFailureExperimentProvider.java
+│       │   │               │       └── persistence/
+│       │   │               │           └── JdbcIncidentRepository.java
+│       │   │               ├── lifecycle/
+│       │   │               │   ├── application/
+│       │   │               │   │   └── IncidentLifecycleService.java
+│       │   │               │   └── infrastructure/
+│       │   │               │       └── IncidentLifecycleMonitor.java
+│       │   │               ├── shared/
+│       │   │               │   ├── config/
+│       │   │               │   │   └── OpenApiConfiguration.java
+│       │   │               │   └── sanitization/
+│       │   │               │       ├── BuiltInRedactionRules.java
+│       │   │               │       ├── RedactionPlaceholders.java
+│       │   │               │       ├── RedactionRule.java
+│       │   │               │       └── TelemetrySanitizer.java
+│       │   │               ├── telemetry/
+│       │   │               │   ├── application/
+│       │   │               │   │   └── port/
+│       │   │               │   │       └── TelemetryProvider.java
+│       │   │               │   ├── domain/
 │       │   │               │   │   ├── CoverageStatus.java
 │       │   │               │   │   ├── EvidenceFamily.java
 │       │   │               │   │   ├── EvidenceProvenance.java
@@ -151,63 +173,51 @@ For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the o
 │       │   │               │   │   ├── TelemetryBundle.java
 │       │   │               │   │   ├── TelemetryCoverage.java
 │       │   │               │   │   └── TelemetryQuery.java
-│       │   │               │   ├── experiment/
-│       │   │               │   │   ├── ContainmentStatus.java
-│       │   │               │   │   ├── ExperimentAssessment.java
-│       │   │               │   │   ├── FailureExperiment.java
-│       │   │               │   │   └── FailureExperimentAssessmentService.java
-│       │   │               │   ├── graph/
-│       │   │               │   │   └── .gitkeep
-│       │   │               │   ├── incident/
-│       │   │               │   │   ├── ComponentImpact.java
-│       │   │               │   │   ├── ConfidenceLevel.java
-│       │   │               │   │   ├── EvidenceSignal.java
-│       │   │               │   │   ├── IncidentAnalysis.java
-│       │   │               │   │   ├── IncidentSeverity.java
-│       │   │               │   │   ├── IncidentSeverityCalculator.java
-│       │   │               │   │   ├── IncidentStatus.java
-│       │   │               │   │   ├── ObservedState.java
-│       │   │               │   │   ├── OriginAssessment.java
-│       │   │               │   │   ├── PersistedIncident.java
-│       │   │               │   │   └── SeverityLevel.java
-│       │   │               │   ├── model/
-│       │   │               │   │   └── .gitkeep
-│       │   │               │   ├── severity/
-│       │   │               │   │   └── .gitkeep
-│       │   │               │   └── topology/
-│       │   │               │       ├── ComponentNode.java
-│       │   │               │       ├── ComponentType.java
-│       │   │               │       ├── DependencyEdge.java
-│       │   │               │       ├── DependencyTopology.java
-│       │   │               │       ├── DeterministicGraphEngine.java
-│       │   │               │       ├── GraphAnalysisResult.java
-│       │   │               │       ├── ImpactClassification.java
-│       │   │               │       ├── RetainedTopology.java
-│       │   │               │       └── TheoreticalImpact.java
-│       │   │               ├── dto/
-│       │   │               │   └── .gitkeep
-│       │   │               ├── exception/
-│       │   │               │   └── .gitkeep
-│       │   │               ├── ports/
-│       │   │               │   ├── AiDiagnosisPort.java
-│       │   │               │   ├── DependencyTopologyProvider.java
-│       │   │               │   ├── FailureExperimentProvider.java
-│       │   │               │   ├── IncidentRepository.java
-│       │   │               │   ├── RuntimeSpanSource.java
-│       │   │               │   ├── TelemetryProvider.java
-│       │   │               │   └── TopologyStore.java
-│       │   │               ├── sanitization/
-│       │   │               │   ├── BuiltInRedactionRules.java
-│       │   │               │   ├── RedactionPlaceholders.java
-│       │   │               │   ├── RedactionRule.java
-│       │   │               │   └── TelemetrySanitizer.java
-│       │   │               └── service/
-│       │   │                   ├── .gitkeep
-│       │   │                   ├── AiDiagnosisService.java
-│       │   │                   ├── DiagnosisContextFactory.java
-│       │   │                   ├── IncidentAnalysisService.java
-│       │   │                   ├── IncidentLifecycleService.java
-│       │   │                   └── StoredAnalysisDiagnosisContextMapper.java
+│       │   │               │   └── infrastructure/
+│       │   │               │       ├── LocalTelemetryProvider.java
+│       │   │               │       ├── config/
+│       │   │               │       │   └── TelemetryAdapterConfig.java
+│       │   │               │       ├── health/
+│       │   │               │       │   ├── ActuatorHealthAdapter.java
+│       │   │               │       │   ├── ActuatorHealthProperties.java
+│       │   │               │       │   └── ActuatorHealthResponse.java
+│       │   │               │       ├── loki/
+│       │   │               │       │   ├── LokiLogAdapter.java
+│       │   │               │       │   ├── LokiLogLine.java
+│       │   │               │       │   ├── LokiProperties.java
+│       │   │               │       │   └── LokiResponse.java
+│       │   │               │       ├── prometheus/
+│       │   │               │       │   ├── PrometheusMetricsAdapter.java
+│       │   │               │       │   ├── PrometheusProperties.java
+│       │   │               │       │   └── PrometheusResponse.java
+│       │   │               │       └── tempo/
+│       │   │               │           ├── TempoProperties.java
+│       │   │               │           ├── TempoResponse.java
+│       │   │               │           ├── TempoSearchResponse.java
+│       │   │               │           └── TempoTraceAdapter.java
+│       │   │               └── topology/
+│       │   │                   ├── application/
+│       │   │                   │   └── port/
+│       │   │                   │       ├── DependencyTopologyProvider.java
+│       │   │                   │       ├── RuntimeSpanSource.java
+│       │   │                   │       └── TopologyStore.java
+│       │   │                   ├── domain/
+│       │   │                   │   ├── ComponentNode.java
+│       │   │                   │   ├── ComponentType.java
+│       │   │                   │   ├── DependencyEdge.java
+│       │   │                   │   ├── DependencyTopology.java
+│       │   │                   │   ├── DeterministicGraphEngine.java
+│       │   │                   │   ├── GraphAnalysisResult.java
+│       │   │                   │   ├── ImpactClassification.java
+│       │   │                   │   ├── RetainedTopology.java
+│       │   │                   │   └── TheoreticalImpact.java
+│       │   │                   └── infrastructure/
+│       │   │                       ├── RetainedTopologyProvider.java
+│       │   │                       ├── TraceDiscoveredTopologyProvider.java
+│       │   │                       ├── config/
+│       │   │                       │   └── TopologyConfig.java
+│       │   │                       └── persistence/
+│       │   │                           └── FileTopologyStore.java
 │       │   └── resources/
 │       │       ├── application.yml
 │       │       └── db/
@@ -219,30 +229,32 @@ For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the o
 │           │   └── com/
 │           │       └── madlanga/
 │           │           └── blastradius/
+│           │               ├── ArchitectureBoundaryTest.java
 │           │               ├── BlastRadiusApplicationTests.java
-│           │               ├── adapters/
-│           │               │   ├── ai/
-│           │               │   │   └── GeminiDiagnosisAdapterTest.java
-│           │               │   ├── telemetry/
-│           │               │   │   ├── LocalTelemetryProviderLiveIT.java
-│           │               │   │   ├── LocalTelemetryProviderTest.java
-│           │               │   │   ├── health/
-│           │               │   │   │   └── ActuatorHealthAdapterTest.java
-│           │               │   │   ├── loki/
-│           │               │   │   │   └── LokiLogAdapterTest.java
-│           │               │   │   ├── prometheus/
-│           │               │   │   │   └── PrometheusMetricsAdapterTest.java
-│           │               │   │   └── tempo/
-│           │               │   │       ├── CapturedTempoRegressionTest.java
-│           │               │   │       └── TempoTraceAdapterTest.java
-│           │               │   └── topology/
-│           │               │       ├── RetainedTopologyProviderTest.java
-│           │               │       ├── TraceDiscoveredTopologyProviderLiveIT.java
-│           │               │       └── TraceDiscoveredTopologyProviderTest.java
-│           │               ├── api/
-│           │               │   └── BlastRadiusControllerTest.java
-│           │               ├── domain/
-│           │               │   ├── evidence/
+│           │               ├── diagnosis/
+│           │               │   ├── application/
+│           │               │   │   ├── AiDiagnosisServiceTest.java
+│           │               │   │   ├── DiagnosisContextFactoryTest.java
+│           │               │   │   └── StoredAnalysisDiagnosisContextMapperTest.java
+│           │               │   └── infrastructure/
+│           │               │       └── GeminiDiagnosisAdapterTest.java
+│           │               ├── incident/
+│           │               │   ├── api/
+│           │               │   │   └── BlastRadiusControllerTest.java
+│           │               │   ├── application/
+│           │               │   │   └── IncidentAnalysisServiceTest.java
+│           │               │   └── domain/
+│           │               │       ├── IncidentSeverityCalculatorTest.java
+│           │               │       └── containment/
+│           │               │           └── FailureExperimentAssessmentServiceTest.java
+│           │               ├── lifecycle/
+│           │               │   └── application/
+│           │               │       └── IncidentLifecycleServiceTest.java
+│           │               ├── shared/
+│           │               │   └── sanitization/
+│           │               │       └── TelemetrySanitizerTest.java
+│           │               ├── telemetry/
+│           │               │   ├── domain/
 │           │               │   │   ├── EvidenceProvenanceTest.java
 │           │               │   │   ├── HealthEvidenceTest.java
 │           │               │   │   ├── LogEvidenceTest.java
@@ -250,21 +262,26 @@ For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the o
 │           │               │   │   ├── SpanEvidenceTest.java
 │           │               │   │   ├── TelemetryBundleTest.java
 │           │               │   │   └── TelemetryQueryTest.java
-│           │               │   ├── experiment/
-│           │               │   │   └── FailureExperimentAssessmentServiceTest.java
-│           │               │   ├── incident/
-│           │               │   │   └── IncidentSeverityCalculatorTest.java
-│           │               │   └── topology/
-│           │               │       ├── DeterministicGraphEngineTest.java
-│           │               │       └── TopologyDomainTest.java
-│           │               ├── sanitization/
-│           │               │   └── TelemetrySanitizerTest.java
-│           │               └── service/
-│           │                   ├── AiDiagnosisServiceTest.java
-│           │                   ├── DiagnosisContextFactoryTest.java
-│           │                   ├── IncidentAnalysisServiceTest.java
-│           │                   ├── IncidentLifecycleServiceTest.java
-│           │                   └── StoredAnalysisDiagnosisContextMapperTest.java
+│           │               │   └── infrastructure/
+│           │               │       ├── LocalTelemetryProviderLiveIT.java
+│           │               │       ├── LocalTelemetryProviderTest.java
+│           │               │       ├── health/
+│           │               │       │   └── ActuatorHealthAdapterTest.java
+│           │               │       ├── loki/
+│           │               │       │   └── LokiLogAdapterTest.java
+│           │               │       ├── prometheus/
+│           │               │       │   └── PrometheusMetricsAdapterTest.java
+│           │               │       └── tempo/
+│           │               │           ├── CapturedTempoRegressionTest.java
+│           │               │           └── TempoTraceAdapterTest.java
+│           │               └── topology/
+│           │                   ├── domain/
+│           │                   │   ├── DeterministicGraphEngineTest.java
+│           │                   │   └── TopologyDomainTest.java
+│           │                   └── infrastructure/
+│           │                       ├── RetainedTopologyProviderTest.java
+│           │                       ├── TraceDiscoveredTopologyProviderLiveIT.java
+│           │                       └── TraceDiscoveredTopologyProviderTest.java
 │           └── resources/
 │               ├── application.yml
 │               └── tempo/
@@ -275,6 +292,7 @@ For placement rules see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md). For the o
 ├── docs/
 │   ├── ARCHITECTURAL_AUDIT.md
 │   ├── ARCHITECTURE.md
+│   ├── CAPABILITY_REFACTOR.md
 │   ├── DECISIONS.md
 │   ├── DEVELOPER_GUIDE.md
 │   ├── E2E_VALIDATION.md

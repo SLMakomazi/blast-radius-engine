@@ -1,44 +1,44 @@
 # Where new code belongs
 
-When adding a new file, put it in the package matching its responsibility, not simply beside the class that currently calls it.
+Choose the capability first, then the layer. When adding a new file, put it in the package matching its responsibility, not simply beside the class that currently calls it.
 
-## Main application
+## Capability ownership
 
-| Responsibility | Package | Rule |
+| Capability | Owns |
+|---|---|
+| `incident` | Origin/impact/severity concepts, analysis, incident persistence, containment validation and REST contracts |
+| `topology` | Components/dependencies, graph rules, acquisition/retention ports, discovery and file storage |
+| `telemetry` | Normalized evidence/coverage, acquisition port and provider adapters |
+| `diagnosis` | Advisory diagnosis contracts, use cases/context mapping, provider port and AI implementations |
+| `lifecycle` | Incident creation/update/resolution orchestration and scheduled detection/recovery entry point |
+| `shared` | Common sanitization utilities and OpenAPI metadata configuration |
+
+## Layer rules
+
+| Responsibility | Location | Rule |
 |---|---|---|
-| Controller | `api` | Handles HTTP, parses inputs and maps status/errors. Calls application functionality. No core business rules. |
-| DTO | `api.dto` | Request/response data only. Keep JSON compatible. No business logic. |
-| Domain | `domain.incident`, `domain.topology`, `domain.evidence`, `domain.diagnosis`, `domain.experiment` | Core concepts and pure rules. No Spring controllers, database clients or telemetry vendors. |
-| Application service | `service` | Coordinates use cases, ports and domain behavior. This is the application layer; a second `application` package is unnecessary. |
-| Port | `ports` | Defines what the application needs from an external system, using domain types. No vendor response objects. |
-| Adapter | `adapters.<responsibility>` | Implements a port or supplies an external entry point for a technology. Scheduled lifecycle entry points belong in `adapters.scheduling`. |
-| Persistence | `adapters.persistence` | SQL, row mapping and file details behind repository/store ports. Flyway migrations stay in `src/main/resources/db/migration`. |
-| Exception | Owning layer/package | Domain errors stay with the domain; application errors with their use case; provider errors with their adapter. HTTP handlers stay at the API boundary. No global bucket of unrelated exceptions. |
-| Configuration | `config` or owning adapter/API package | Spring/application wiring only. Keep provider properties beside their adapter. |
-| Sanitization | `sanitization` | Redacts sensitive telemetry before persistence, display, export or AI. Adapters sanitize before constructing normalized evidence; stored diagnosis is sanitized again. |
+| Controller | `incident.api` | Handles HTTP and calls application functionality. No core business rules. |
+| DTO | `incident.api.dto` | Request/response data only. Preserve JSON contracts. No business logic. |
+| Domain | Owning capability's `domain` | Plain Java concepts and rules. No Spring, HTTP clients, JDBC, database mapping or telemetry vendors. |
+| Application | Owning capability's `application` | Coordinates use cases, domain behavior and ports. Does not import vendor/infrastructure implementations. |
+| Port | Owning capability's `application.port` | Existing external boundary described using domain types. No vendor response objects; no interface added only for ceremony. |
+| Adapter | Owning capability's `infrastructure` | Implements a port or connects a technical entry point. Keep vendor models/properties beside the adapter. |
+| Persistence | `incident.infrastructure.persistence` or `topology.infrastructure.persistence` | SQL/row mapping or file-storage details. Keep JDBC and Flyway migrations in their existing resources directory. |
+| Exception | Owning responsibility/layer | Domain errors with domain rules, use-case errors with application, provider errors with infrastructure, REST handlers at API. No global exceptions bucket. |
+| Configuration | Capability infrastructure/config or `shared.config` | Spring wiring or shared application metadata only. |
+| Scheduling | `lifecycle.infrastructure` | Spring timer invokes analysis/lifecycle application services. AI stays out of deterministic recovery. |
+| Sanitization | `shared.sanitization` | Redacts sensitive evidence before persistence/display/export/AI. Providers sanitize before creating evidence; stored diagnosis is sanitized again. |
 
-Provider-internal Loki, Tempo, Prometheus and Actuator models stay beside their adapters. They are not public API DTOs. Domain diagnosis records describe the diagnosis port and contain no Gemini schema.
+The optional failure-experiment feature is incident containment: its plain Java types belong in `incident.domain.containment`, provider port in `incident.application.port`, local catalogue in `incident.infrastructure.containment`. Do not create a top-level experiment capability.
 
-Controllers currently return several domain results directly, and history/topology queries use ports directly. Preserve those JSON contracts during package cleanup. A query facade or independent response mapping should be reviewed as a separate change.
+API may expose the established domain-record data shape; this does not let domain code depend on HTTP. Applications may consume other capability domain contracts and application ports. Infrastructure-to-infrastructure wiring stays outside application/domain. The architecture tests guard these boundaries.
 
-## Dependencies
+## Mock services and repository assets
 
-API and scheduled entry points call application functionality. Application code calls ports and domain rules. External implementations depend on the ports they implement. Domain code depends on Java and other domain code only. Configuration may reference all layers to wire the application.
+Mock services remain simple independent lab applications with controller/service/dto/exception/client/config/persistence/fault packages. Their fault controls are separate from the main engine's containment metadata. Do not apply enterprise-scale DDD to them.
 
-Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized evidence. AI remains optional and advisory; it does not select origin, calculate impact or severity, or control lifecycle.
+Do not create empty layers or placeholder packages. Maven `target` directories are generated. Compose mount/data paths, observability settings, Flyway migrations, fixtures, scripts and frontend assets remain where their tooling requires them.
 
-Keep evidence timestamps, scope, provenance and coverage. Missing telemetry never proves health. Retained topology is knowledge about possible dependencies, not current incident evidence.
+## Verification
 
-## Mock services
-
-Payment, customer and document are small synthetic monitored applications. Keep their `controller`, `service`, `dto`, `exception`, `client`, `persistence`, `config` and `fault` packages where those responsibilities exist. Do not add enterprise DDD layers or a shared runtime library just to avoid a few repeated transport records or filters. Fault controls are local lab support only.
-
-## Working safely
-
-Start from current, clean `main`; work on a branch. Make small moves and update package declarations, imports, same-package references, tests and docs. Root Spring scanning already includes all application subpackages. Preserve bean names and configuration keys.
-
-Use each module's own Maven POM and Java 21. Run `mvn clean verify` in the affected module after each major move. Maven's default suite excludes `*LiveIT`; run those explicitly only against a healthy local lab. Do not weaken assertions or change telemetry requirements to make a refactor pass.
-
-Run `docker compose config --quiet`, build the full stack and run all Stage 1–4 suites in order. Follow the telemetry recovery checks and pauses in [E2E_VALIDATION.md](E2E_VALIDATION.md). Confirm no unexpected ACTIVE incident remains and inspect recent Collector errors.
-
-Use simple English in comments and docs. Keep established technical terms and API/error text when behavior depends on it. Avoid mass renaming for style.
+After each major capability move, run the API's actual Maven `clean verify`. Never weaken assertions or change thresholds to accommodate imports. The standard suite includes source architecture checks; opt-in live tests need a healthy lab. Stage 1–4 runtime validation remains the regression gate. If the user runs it separately, report that it is pending rather than reusing the historical 18 / 18 result.

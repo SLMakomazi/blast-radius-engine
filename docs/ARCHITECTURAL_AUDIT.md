@@ -1,5 +1,8 @@
 # Architecture audit before cleanup
 
+> Historical record of the original seven-commit cleanup. Current capability-first ownership and results are in [CAPABILITY_REFACTOR.md](CAPABILITY_REFACTOR.md); current tree is in [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md).
+
+
 Baseline: main at `2360328` (`fix: stabilize Stage 2-4 E2E validation runners`).
 Main was pulled and clean before creating `refactor/ddd-repository-cleanup`.
 No production source had been moved when this audit was written.

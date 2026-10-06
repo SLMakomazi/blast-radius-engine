@@ -226,7 +226,9 @@ fixtures/            Synthetic request/test data
 docs/                Durable architecture/integration/decision documentation
 ~~~
 
-See **PROJECT_STRUCTURE.md** for details.
+The Java engine uses capability-first packages: `incident`, `topology`, `telemetry`, `diagnosis`, `lifecycle` and `shared`. Each owns its domain/application/port/infrastructure/API code where needed. JDBC is retained. Optional controlled-failure assessment lives under incident containment; its API behavior is preserved.
+
+See **PROJECT_STRUCTURE.md** for the complete tree, [the developer guide](docs/DEVELOPER_GUIDE.md) for placement rules and [the capability refactor report](docs/CAPABILITY_REFACTOR.md) for moves and validation. The earlier 18 / 18 is a completed baseline result; the user will run Stage 1–4 after this package refactor.
 
 ## Security principles
 

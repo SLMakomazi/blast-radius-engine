@@ -112,3 +112,52 @@ Tests move beside the capability/layer they verify. `scripts/BootstrapCapturedTo
 ## Validation policy
 
 The user will run Stage 1–4 locally; this turn uses Maven validation only. The historical completed suite was 18 / 18. Fresh Stage results must not be claimed for this capability refactor.
+
+## Final result
+
+The engine now has six real capability roots: incident, topology, telemetry, diagnosis, lifecycle and shared. No global domain/service/ports/adapters/API/config/sanitization directories remain. There is no top-level experiment capability. The root `BlastRadiusApplication` remains the Spring entry point.
+
+Moved 89 production Java files and 29 existing tests; the root application/startup test remain in place. All class names are preserved. The inventory above lists every original/target package. The complete package/source tree is in [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md).
+
+Removed 11 `.gitkeep` files: seven placeholder-only packages (`controller`, `dto`, `exception`, `domain.correlation`, `domain.graph`, `domain.model`, `domain.severity`) and four redundant markers in populated AI/persistence/topology/service packages. The capability moves also emptied and removed the previous global layout. No empty source directories or actual placeholder files remain. Generated Maven annotation-output directories may reappear; they are not repository packages or runtime mounts.
+
+## Experiment workflow preserved
+
+- GET/POST analysis still accepts `experimentId`.
+- `FailureExperimentProvider` supplies the local catalogue's `postgres-outage-local` metadata.
+- `IncidentAnalysisService` preserves the declared-origin check and expected/observed containment assessment.
+- `ExperimentAssessment` remains in incident JSON and stored snapshots.
+- Both diagnosis context mappers preserve the optional containment data.
+- Existing feature and error-classification tests remain unchanged apart from package/import references.
+- Frontend/scheduler/Stage runners do not select this optional path, but that does not make it dead behavior.
+
+## Maven and source verification
+
+| Increment | Result |
+|---|---|
+| Shared | `clean verify`, 192 passed |
+| Telemetry | `clean verify`, 192 passed |
+| Topology | `clean verify`, 192 passed |
+| Diagnosis | `clean verify`, 192 passed |
+| Incident/containment/API | `clean verify`, 192 passed after fixing an implicit lifecycle import |
+| Lifecycle | `clean verify`, 192 passed |
+| Final, including architecture checks | `clean verify`, **195 passed**, zero failures/errors/skips |
+| Offline topology helper | Compiled with Java 21 against the final module test classpath |
+
+The three new architecture checks verify package ownership/directory matching, Java/domain-only domain dependencies, and application/API independence from infrastructure/JDBC implementations. They add no runtime dependency. An initial assertion-overload compile error in the new check was corrected before the final green build.
+
+All 90 original production files, 30 original test files and the offline helper were compared with `cdc48d8`, allowing only package/import/qualified-name changes. No other executable content changed. Root Spring component scanning remains unchanged and the application context test passes.
+
+Frontend, mock services, Stage runners, Docker configuration, resource settings, thresholds, JSON fields, endpoint paths, JDBC queries and Flyway migrations have no diff from the seven-commit baseline. No JPA introduced. The actual module Maven POM was used with Java 21; temporary proxy/CA/Maven cache settings remain outside Git.
+
+## Stage 1–4 handoff
+
+Per the user's instruction to use Maven only, the Stage runners and Docker rebuild were not run for this capability refactor. The historical completed baseline is Stage 1 6 / 6, Stage 2 4 / 4, Stage 3 4 / 4, Stage 4 4 / 4: **18 / 18**. Fresh capability-refactor Stage results are **pending the user's local validation**, not claimed as passed. The earlier interrupted experiment-removal runs do not validate this final capability-preserving code.
+
+Rebuild the API/stack locally and follow [E2E_VALIDATION.md](E2E_VALIDATION.md), including the stage pauses, tracing recovery and final health/ACTIVE-incident checks. No assertions or runners were weakened.
+
+## Git and remaining debt
+
+Logical commits are appended after the original seven; no squash, rewrite, merge or push. They cover placeholder cleanup, the audit, each of the six capability moves, architecture checks and current documentation. Review with `git log --oneline cdc48d8..HEAD` and `git diff cdc48d8..HEAD --stat`.
+
+Remaining behavior-sensitive debt: incident analysis still combines orchestration and evidence/origin policy; recovery policy remains inside the scheduler; controllers query application ports and expose established domain records as JSON; some error classification uses message prefixes; topology discovery still uses a helper constructed without a telemetry provider; per-provider timeout controls and multi-application/enterprise integration need separate work. Source/import checks do not replace Stage runtime validation.

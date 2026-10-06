@@ -10,7 +10,9 @@ Read [README.md](README.md), [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md), [the 
 
 - Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized evidence.
 - Domain rules stay independent of vendors, controllers, JDBC, Docker and the frontend.
-- `service` is the application layer. Use ports for external needs and adapters for implementations.
+- Organize code by capability first: incident, topology, telemetry, diagnosis, lifecycle and shared. Within each capability use domain, application/port, infrastructure and API only where actual code needs them.
+- Applications and APIs do not import infrastructure implementations. Plain Java domain code depends only on Java/domain concepts.
+- Keep optional experiment metadata/assessment under incident containment; preserve its API fields and separate lab fault injection.
 - Put new code in the package matching its responsibility, not simply beside its caller.
 - Preserve canonical identities, scope, evidence timestamps and provenance.
 - Missing telemetry is uncertainty, never proof of health or recovery.
@@ -34,6 +36,8 @@ Normal stable branch: `main`. Work on a separate branch, keep commits focused, r
 
 Compile and run relevant tests after each package change. `mvn clean verify` runs the standard suite; live `*LiveIT` tests require an explicit selection and a healthy lab. Run Compose configuration validation and build the complete stack.
 
-The completed baseline Stage 1–4 suite passed 18 / 18 scenarios: 6 / 6, 4 / 4, 4 / 4, 4 / 4. Every structural cleanup must rerun these suites and distinguish fresh results from baseline results. Follow [E2E_VALIDATION.md](docs/E2E_VALIDATION.md), including stage pauses, trace-export recovery and final ACTIVE-incident/Collector checks.
+The completed baseline Stage 1–4 suite passed 18 / 18 scenarios: 6 / 6, 4 / 4, 4 / 4, 4 / 4. Runtime validation of a structural cleanup requires these suites. If the user reserves their execution, document them as pending and distinguish fresh Maven results from the historical 18 / 18 baseline. Follow [E2E_VALIDATION.md](docs/E2E_VALIDATION.md), including stage pauses, trace-export recovery and final ACTIVE-incident/Collector checks.
 
 Do not delete migrations, runtime configuration, active fixtures, runners, test resources or frontend assets. Delete unused placeholders only after checking references. Use clear English; preserve established technical terms and public contracts.
+
+Current class ownership, moves and results: [CAPABILITY_REFACTOR.md](docs/CAPABILITY_REFACTOR.md). No global service/ports/adapters/domain package structure or empty future package placeholders should be reintroduced.

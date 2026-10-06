@@ -5,30 +5,56 @@ Topology calculates potential impact. Runtime telemetry proves observed impact. 
 ## Package boundaries
 
 ```text
-com.madlanga.blastradius
-├── BlastRadiusApplication
-├── domain
-│   ├── evidence     normalized telemetry, scope, coverage and provenance
-│   ├── topology     components, dependencies and DeterministicGraphEngine
-│   ├── incident     origin/impact/status and IncidentSeverityCalculator
-│   ├── experiment   expected impact and FailureExperimentAssessmentService
-│   └── diagnosis    provider-neutral diagnosis input/output
-├── service          analysis/lifecycle/diagnosis use cases and context mapping
-├── ports            seven external contracts
-├── adapters
-│   ├── telemetry    composite provider and Loki/Prometheus/Tempo/health adapters
-│   ├── topology     trace discovery and retained runtime knowledge
-│   ├── persistence  JDBC incident history and atomic topology files
-│   ├── ai           Gemini, optional provider wiring and deterministic fallback
-│   ├── experiment   local experiment metadata
-│   └── scheduling   proactive lifecycle entry point
-├── api
-│   └── dto          HTTP request/response records
-├── config           shared HTTP and topology wiring
-└── sanitization     redaction rules and telemetry sanitizer
+com.madlanga.blastradius/
+├── diagnosis/
+│   ├── application/
+│   │   └── port
+│   ├── domain
+│   └── infrastructure
+├── incident/
+│   ├── api/
+│   │   └── dto
+│   ├── application/
+│   │   └── port
+│   ├── domain/
+│   │   └── containment
+│   └── infrastructure/
+│       ├── containment
+│       └── persistence
+├── lifecycle/
+│   ├── application
+│   └── infrastructure
+├── shared/
+│   ├── config
+│   └── sanitization
+├── telemetry/
+│   ├── application/
+│   │   └── port
+│   ├── domain
+│   └── infrastructure/
+│       ├── config
+│       ├── health
+│       ├── loki
+│       ├── prometheus
+│       └── tempo
+└── topology/
+    ├── application/
+    │   └── port
+    ├── domain
+    └── infrastructure/
+        ├── config
+        └── persistence
 ```
 
-`service` is the application layer. Pure graph, severity and containment rules belong in the domain. A port describes an external need; its adapter supplies a technology-specific implementation. Provider response models and properties stay beside their adapter. See [the class audit](ARCHITECTURAL_AUDIT.md) for the original inventory and [the developer guide](DEVELOPER_GUIDE.md) for placement rules.
+Code is organized by capability first and layer second. `incident`, `topology`, `telemetry`, `diagnosis` and `lifecycle` own their concepts and workflows. `shared` contains common redaction utilities and OpenAPI configuration. No global domain/service/ports/adapters packages remain.
+
+API controllers call application services or application ports. Applications coordinate domain rules and external ports. Infrastructure supplies vendor implementations, persistence and Spring wiring/scheduling. Domain classes use plain Java and domain concepts only. Application and API code do not import infrastructure implementations. Existing domain records remain API data contracts where already exposed; this refactor preserves their JSON representation.
+
+The seven existing ports belong to their capabilities: incident owns incident persistence and failure-validation metadata; topology owns dependency acquisition, retained storage and runtime-span acquisition; telemetry owns telemetry acquisition; diagnosis owns the advisory provider boundary. No new runtime interfaces were introduced.
+
+Controlled failure metadata is incident containment, not a separate product capability. `incident.domain.containment` keeps `FailureExperiment`, `ExperimentAssessment`, `ContainmentStatus` and `FailureExperimentAssessmentService`. Its metadata provider is in `incident.application.port`, and the local catalogue is in `incident.infrastructure.containment`. The optional `experimentId` API and response fields are preserved. The catalogue describes failures; mock-service controls inject them.
+
+See [CAPABILITY_REFACTOR.md](CAPABILITY_REFACTOR.md) for every class move, validation and remaining debt, and [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for placement rules.
 
 ## Analysis flow
 
@@ -61,10 +87,10 @@ Four independent Maven projects build with Java 21 / Spring Boot 4.1.1. React/Vi
 
 ## Validation and integration
 
-Stages 1–4 are implemented and the completed baseline local suite passed 18 / 18 scenarios. [E2E_VALIDATION.md](E2E_VALIDATION.md) lists the actual scenarios and runner order. Synthetic change markers are not real deployment integration; distributed lab faults do not imply general multi-origin or network-partition analysis.
+Stages 1–4 are implemented and the completed baseline local suite passed 18 / 18 scenarios. The capability refactor has Maven validation; the user will rerun the Stage suites locally before it is considered runtime-validated. [E2E_VALIDATION.md](E2E_VALIDATION.md) lists the actual scenarios and runner order. Synthetic change markers are not real deployment integration; distributed lab faults do not imply general multi-origin or network-partition analysis.
 
 MadlangaAI topology, Datadog/MCP telemetry, canonical IDs, multi-application scheduling, authentication/RBAC/audit and production retention still need enterprise integration. See [INTEGRATION.md](INTEGRATION.md).
 
 ## Remaining debt
 
-Analysis combines orchestration and evidence policy, including lab markers and metric interpretation. Recovery policy still lives in the scheduler. Controllers read query ports directly and expose some domain results as JSON. Generic errors use message prefixes. Trace discovery has a mapper/helper lifecycle that could be clearer. These behavior-sensitive changes remain separate from package cleanup.
+Analysis combines orchestration and evidence policy, including lab markers and metric interpretation. Recovery policy still lives in the scheduler. Controllers read query ports directly and expose some domain results as JSON. Generic errors use message prefixes. Trace discovery has a mapper/helper lifecycle that could be clearer. These behavior-sensitive changes remain separate from package cleanup. The architecture checks protect package ownership and import direction; they do not replace runtime validation.
