@@ -21,7 +21,7 @@ import com.madlanga.blastradius.domain.evidence.EvidenceProvenance;
 import com.madlanga.blastradius.domain.evidence.HealthEvidence;
 import com.madlanga.blastradius.domain.evidence.HealthState;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 
 /**
  * Adapter that probes Spring Boot Actuator {@code /actuator/health} endpoints for

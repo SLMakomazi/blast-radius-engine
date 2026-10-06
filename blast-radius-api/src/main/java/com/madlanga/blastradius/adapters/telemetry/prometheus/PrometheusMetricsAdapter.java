@@ -18,7 +18,7 @@ import com.madlanga.blastradius.domain.evidence.EvidenceFamily;
 import com.madlanga.blastradius.domain.evidence.EvidenceProvenance;
 import com.madlanga.blastradius.domain.evidence.MetricEvidence;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 
 /**
  * Adapter that queries Prometheus {@code /api/v1/query_range} for each configured

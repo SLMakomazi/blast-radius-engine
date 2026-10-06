@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.sanitization;
+package com.madlanga.blastradius.shared.sanitization;
 
 import java.util.List;
 import java.util.Set;

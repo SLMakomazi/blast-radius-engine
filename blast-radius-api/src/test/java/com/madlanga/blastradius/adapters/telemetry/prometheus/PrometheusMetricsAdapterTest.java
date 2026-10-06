@@ -3,7 +3,7 @@ package com.madlanga.blastradius.adapters.telemetry.prometheus;
 import com.madlanga.blastradius.domain.evidence.CoverageStatus;
 import com.madlanga.blastradius.domain.evidence.MetricEvidence;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

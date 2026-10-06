@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.sanitization;
+package com.madlanga.blastradius.shared.sanitization;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

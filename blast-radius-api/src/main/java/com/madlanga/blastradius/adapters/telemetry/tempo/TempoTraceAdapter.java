@@ -22,7 +22,7 @@ import com.madlanga.blastradius.domain.evidence.SpanEvidence;
 import com.madlanga.blastradius.domain.evidence.SpanStatus;
 import com.madlanga.blastradius.domain.evidence.SpanKind;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 
 /**
  * Adapter that queries Tempo for distributed trace data and maps the response to

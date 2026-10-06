@@ -2,7 +2,7 @@ package com.madlanga.blastradius.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 

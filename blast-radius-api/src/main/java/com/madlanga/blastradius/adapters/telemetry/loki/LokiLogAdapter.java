@@ -19,7 +19,7 @@ import com.madlanga.blastradius.domain.evidence.EvidenceFamily;
 import com.madlanga.blastradius.domain.evidence.EvidenceProvenance;
 import com.madlanga.blastradius.domain.evidence.LogEvidence;
 import com.madlanga.blastradius.domain.evidence.TelemetryQuery;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 
 /**
  * Adapter that queries Loki's {@code /loki/api/v1/query_range} API and maps

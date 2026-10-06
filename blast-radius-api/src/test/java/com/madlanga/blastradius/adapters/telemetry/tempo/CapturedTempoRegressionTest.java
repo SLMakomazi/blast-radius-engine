@@ -5,7 +5,7 @@ import com.madlanga.blastradius.adapters.topology.RetainedTopologyProvider;
 import com.madlanga.blastradius.domain.evidence.*;
 import com.madlanga.blastradius.domain.incident.*;
 import com.madlanga.blastradius.domain.topology.*;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import com.madlanga.blastradius.service.IncidentAnalysisService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

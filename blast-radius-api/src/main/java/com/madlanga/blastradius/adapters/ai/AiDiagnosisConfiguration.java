@@ -5,7 +5,7 @@ import com.madlanga.blastradius.service.AiDiagnosisService;
 import com.madlanga.blastradius.adapters.ai.DeterministicDiagnosisAdapter;
 import com.madlanga.blastradius.service.DiagnosisContextFactory;
 import com.madlanga.blastradius.service.StoredAnalysisDiagnosisContextMapper;
-import com.madlanga.blastradius.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

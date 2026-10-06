@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.sanitization;
+package com.madlanga.blastradius.shared.sanitization;
 
 /**
  * Canonical placeholder strings used by redaction rules.

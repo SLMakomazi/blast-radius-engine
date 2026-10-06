@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.sanitization;
+package com.madlanga.blastradius.shared.sanitization;
 
 /**
  * A single pluggable redaction policy.
