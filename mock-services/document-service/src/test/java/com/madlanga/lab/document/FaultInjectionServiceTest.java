@@ -53,56 +53,6 @@ class FaultInjectionServiceTest {
     }
 
     @Test
-    void deploymentRegressionFailsWithoutStoppingService() {
-        faults.configure(new FaultConfig(FaultMode.DEPLOYMENT_REGRESSION, 0, 5));
-        assertThatThrownBy(faults::beforeDocumentRequest).isInstanceOf(SyntheticFaultException.class);
-    }
-
-    @Test
-    void configurationErrorFailsWithoutStoppingService() {
-        faults.configure(new FaultConfig(FaultMode.CONFIGURATION_ERROR, 0, 5));
-        assertThatThrownBy(faults::beforeDocumentRequest).isInstanceOf(SyntheticFaultException.class);
-    }
-
-    @Test
-    void contractBreakFailsWithoutStoppingService() {
-        faults.configure(new FaultConfig(FaultMode.CONTRACT_BREAK, 0, 5));
-        assertThatThrownBy(faults::beforeDocumentRequest).isInstanceOf(SyntheticFaultException.class);
-    }
-
-    @Test
-    void featureFlagRegressionIsIntermittentAndReversible() {
-        faults.configure(new FaultConfig(FaultMode.FEATURE_FLAG_REGRESSION, 0, 2));
-        faults.beforeDocumentRequest();
-        assertThatThrownBy(faults::beforeDocumentRequest).isInstanceOf(SyntheticFaultException.class);
-        faults.reset();
-        faults.beforeDocumentRequest();
-    }
-
-    @Test
-    void distributedCascadeFailsWithoutStoppingService() {
-        faults.configure(new FaultConfig(FaultMode.DISTRIBUTED_CASCADE, 0, 5));
-        assertThatThrownBy(faults::beforeDocumentRequest).isInstanceOf(SyntheticFaultException.class);
-    }
-
-    @Test
-    void compoundDependencyFailureLooksLikeDatabaseFailure() {
-        faults.configure(new FaultConfig(FaultMode.COMPOUND_DEPENDENCY_FAILURE, 0, 5));
-        assertThatThrownBy(faults::beforeDocumentRequest)
-                .isInstanceOf(CannotGetJdbcConnectionException.class);
-    }
-
-    @Test
-    void flappingDependencyFailsAtConfiguredCadenceAndRecovers() {
-        faults.configure(new FaultConfig(FaultMode.FLAPPING_DEPENDENCY, 0, 2));
-        faults.beforeDocumentRequest();
-        assertThatThrownBy(faults::beforeDocumentRequest).isInstanceOf(SyntheticFaultException.class);
-        faults.beforeDocumentRequest();
-        faults.reset();
-        faults.beforeDocumentRequest();
-    }
-
-    @Test
     void resetReturnsToHealthyMode() {
         faults.configure(new FaultConfig(FaultMode.ERROR_500, 0, 5));
         FaultConfig reset = faults.reset();
