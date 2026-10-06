@@ -15,11 +15,14 @@ The script always resets the injected fault in a finally block.
 import argparse
 import json
 import time
+import threading
+import uuid
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
 FAULTS = "http://127.0.0.1:8083/lab/faults"
+DOCUMENTS = "http://127.0.0.1:8083/api/documents"
 API = "http://127.0.0.1:8080/api/v1/blast-radius"
 APP = "document-platform"
 ENV = "local"
@@ -99,6 +102,20 @@ def reset_fault():
     return body
 
 
+def exercise_document_service(stop_event):
+    """Generate deterministic local requests so a scenario never depends on ambient traffic."""
+    while not stop_event.is_set():
+        payload = {
+            "customerId": "SYNTH-CUST-STAGE2",
+            "documentReference": "SYNTH-DOC-" + uuid.uuid4().hex[:16].upper(),
+        }
+        try:
+            request_json(DOCUMENTS, "POST", payload)
+        except (OSError, TimeoutError, ValueError):
+            pass
+        stop_event.wait(1)
+
+
 def new_active(baseline_ids, expected_origins):
     for incident in incidents("ACTIVE"):
         if str(incident.get("id")) in baseline_ids:
@@ -119,10 +136,15 @@ def run_scenario(name):
     scenario = SCENARIOS[name]
     baseline = {str(item["id"]) for item in incidents("ACTIVE")}
     detected = None
+    stimulus_stop = threading.Event()
+    stimulus = None
     try:
         configured = set_fault(scenario["fault"])
         if configured.get("mode") != scenario["fault"]["mode"]:
             raise Stage2Failure(f"Fault mode was not applied: {configured}")
+
+        stimulus = threading.Thread(target=exercise_document_service, args=(stimulus_stop,), daemon=True)
+        stimulus.start()
 
         detected = eventually(
             lambda: new_active(baseline, scenario["expected_origins"]),
@@ -140,6 +162,9 @@ def run_scenario(name):
             "serviceStayedRunning": True,
         }
     finally:
+        stimulus_stop.set()
+        if stimulus is not None:
+            stimulus.join(timeout=2)
         reset_fault()
         if detected is not None:
             eventually(lambda: resolved(detected["id"]), f"recovery after {name}", timeout=160)
