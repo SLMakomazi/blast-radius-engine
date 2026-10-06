@@ -203,6 +203,82 @@ class IncidentAnalysisServiceTest {
     }
 
     @Test
+    void acceptsSlowSpanAsTraceLatencyEvidence() {
+        SpanEvidence slow = SpanEvidence.builder().id("slow-doc").traceId("0123456789abcdef0123456789abcdef")
+                .spanId("slow-doc").service("document-service").environment("local")
+                .operation("POST /api/documents").startTime(FROM.plusSeconds(2)).durationMs(9000)
+                .status(SpanStatus.OK).kind(SpanKind.SERVER)
+                .provenance(provenance(EvidenceFamily.TRACES)).build();
+        TelemetryBundle tracesOnly = TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(slow)).build();
+
+        IncidentAnalysis result = service(q -> tracesOnly)
+                .analyze("document-platform", "local", FROM, TO, "document-service");
+
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("TRACE") && signal.signal().contains("slow span"));
+    }
+
+    @Test
+    void acceptsHighMeanHttpLatencyAsDegradationEvidence() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(
+                        metricNamed("c1","document-service","http.server.requests.seconds.count",10,FROM.plusSeconds(1),Map.of("status","201")),
+                        metricNamed("c2","document-service","http.server.requests.seconds.count",12,FROM.plusSeconds(30),Map.of("status","201")),
+                        metricNamed("s1","document-service","http.server.requests.seconds.sum",1,FROM.plusSeconds(1),Map.of("status","201")),
+                        metricNamed("s2","document-service","http.server.requests.seconds.sum",11,FROM.plusSeconds(30),Map.of("status","201"))))
+                .build();
+
+        IncidentAnalysis result=service(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"document-service");
+
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("METRIC") && signal.signal().contains("HTTP mean latency"));
+    }
+
+    @Test
+    void acceptsSustainedCpuPressureAsDegradationEvidence() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(
+                        metricNamed("cpu1","document-service","process.cpu.usage",0.94,FROM.plusSeconds(1),Map.of()),
+                        metricNamed("cpu2","document-service","process.cpu.usage",0.96,FROM.plusSeconds(30),Map.of())))
+                .build();
+
+        IncidentAnalysis result=service(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"document-service");
+
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("METRIC") && signal.signal().contains("CPU"));
+    }
+
+    @Test
+    void acceptsSustainedDatabasePoolContentionAsDegradationEvidence() {
+        TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(
+                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(
+                        metricNamed("pool1","document-service","hikaricp.connections.pending",2,FROM.plusSeconds(1),Map.of()),
+                        metricNamed("pool2","document-service","hikaricp.connections.pending",3,FROM.plusSeconds(30),Map.of())))
+                .build();
+
+        IncidentAnalysis result=service(q -> metricsOnly)
+                .analyze("document-platform","local",FROM,TO,"document-service");
+
+        assertThat(result.origin().evidence()).anyMatch(signal ->
+                signal.family().equals("METRIC") && signal.signal().contains("connection-pool contention"));
+    }
+
+    @Test
     void excludesHistoricalFailuresFromEveryEvidenceFamilyAndKeepsCoverageIndependent() {
         var healthy = TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(span("known-edge","api","database",SpanStatus.OK,FROM.plusSeconds(1),Map.of()))).build();

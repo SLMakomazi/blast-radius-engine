@@ -26,8 +26,36 @@ function evidenceRowKey(e) {
   return e.evidenceId || `${e.timestamp}-${e.component}-${e.family}-${e.signal}`;
 }
 
+function incidentSignals(incident) {
+  const analysis = incident?.analysis || incident?.analysisSnapshot || {};
+  return (analysis.timeline || []).map(e => String(e.signal || "").toLowerCase());
+}
+
+function incidentScenario(incident) {
+  const signals = incidentSignals(incident);
+  if (signals.some(s => s.includes("database connectivity"))) return "DB Connectivity";
+  if (signals.some(s => s.includes("latency") || s.includes("slow span") || s.includes("timeout"))) return "Latency";
+  if (signals.some(s => s.includes("intermittent http 500"))) return "Intermittent 500";
+  if (signals.some(s => s.includes("application error http 500") || s.includes("5xx counter"))) return "HTTP 500";
+  if (signals.some(s => s.includes("process cpu"))) return "CPU Pressure";
+  if (signals.some(s => s.includes("connection-pool"))) return "Pool Pressure";
+  return null;
+}
+
+function incidentStage(incident) {
+  return incidentSignals(incident).some(signal =>
+    signal.includes("stage2")
+    || signal.includes("http mean latency")
+    || signal.includes("5xx counter")
+    || signal.includes("timeout counter")
+    || signal.includes("process cpu")
+    || signal.includes("connection-pool contention")
+  ) ? "STAGE_2" : "STAGE_1";
+}
+
 function App() {
   const [status, setStatus] = useState("ACTIVE");
+  const [stage, setStage] = useState("STAGE_1");
   const [incidents, setIncidents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
@@ -48,7 +76,8 @@ function App() {
       const data = await res.json();
       setIncidents(data);
       setLastUpdated(new Date());
-      const nextSelectedId = chooseSelectedIncidentId(data, selected?.id);
+      const stageData = data.filter(i => incidentStage(i) === stage);
+      const nextSelectedId = chooseSelectedIncidentId(stageData, selected?.id);
       if (!nextSelectedId) {
         setSelected(null);
         setDiagnosis(null);
@@ -102,7 +131,7 @@ function App() {
       void loadIncidents(status);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [status]);
+  }, [status, stage]);
 
   const analysis = selected?.analysis || selected?.analysisSnapshot || {};
   const impacts = analysis.impacts || [];
@@ -119,12 +148,18 @@ function App() {
     && (evidenceFamily === "ALL" || e.family === evidenceFamily)
   );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
+  const stageMeta = stage === "STAGE_1"
+    ? { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." }
+    : { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." };
+  const visibleIncidents = incidents.filter(i => incidentStage(i) === stage);
 
   return <div className="app">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>MadlangaAI</strong><span>Blast Radius</span></div></div>
       <nav>
-        <button className="nav-active"><Activity size={18}/> Incident analysis</button>
+        <div className="nav-label nav-label-first">FAILURE STAGES</div>
+        <button className={stage==="STAGE_1"?"nav-active":""} onClick={()=>setStage("STAGE_1")}><AlertTriangle size={18}/><span><strong>Stage 1</strong><small>Hard failures</small></span></button>
+        <button className={stage==="STAGE_2"?"nav-active":""} onClick={()=>setStage("STAGE_2")}><Activity size={18}/><span><strong>Stage 2</strong><small>Degradation</small></span></button>
         <div className="nav-label">ENGINE</div>
         <button><GitBranch size={18}/> Topology</button>
         <button><Bot size={18}/> AI diagnosis</button>
@@ -134,11 +169,17 @@ function App() {
 
     <main>
       <header>
-        <div><span className="eyebrow">MADLANGAAI / PHASE 10</span><h1>Blast Radius Command Center</h1><p>Evidence-backed incident impact, propagation and diagnosis.</p></div>
+        <div><span className="eyebrow">MADLANGAAI / {stageMeta.label.toUpperCase()}</span><h1>{stageMeta.title}</h1><p>{stageMeta.description}</p></div>
         <div className="live-status"><span className="live-dot"></span><span>Live · auto-updates every 5s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
       </header>
 
       {error && <div className="error"><AlertTriangle size={18}/>{error}</div>}
+
+      <section className="stage-banner panel">
+        <div><span className="stage-number">{stageMeta.label}</span><strong>{stageMeta.title}</strong><p>{stageMeta.description}</p></div>
+        {stage === "STAGE_2" && <div className="scenario-chips"><span>HTTP 500</span><span>Intermittent 500</span><span>Latency</span><span>DB connectivity</span><span>CPU / pool pressure</span></div>}
+        {stage === "STAGE_1" && <div className="scenario-chips"><span>PostgreSQL outage</span><span>Document outage</span><span>Customer outage</span><span>Payment outage</span></div>}
+      </section>
 
       <section className="workspace">
         <div className="incident-column panel">
@@ -147,10 +188,11 @@ function App() {
           </div></div>
           <div className="incident-list">
             {loading && <div className="empty">Loading incidents…</div>}
-            {!loading && !incidents.length && <div className="empty">No {status.toLowerCase()} incidents.</div>}
-            {incidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>loadIncident(i.id)}>
+            {!loading && !visibleIncidents.length && <div className="empty">No {status.toLowerCase()} {stageMeta.label.toLowerCase()} incidents.</div>}
+            {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>loadIncident(i.id)}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
+              {incidentScenario(i) && <span className="scenario-label">{incidentScenario(i)}</span>}
               <span>{i.applicationId} · {i.environment}</span>
               <small><Clock3 size={12}/>{new Date(i.startedAt).toLocaleString()}</small>
             </button>)}
@@ -160,7 +202,7 @@ function App() {
         <div className="detail-column">
           {!selected ? <div className="panel empty large">Select an incident to inspect its deterministic evidence.</div> : <>
             <section className="incident-title panel">
-              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{selected.applicationId} / {selected.environment}</p></div>
+              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)} · {incidentStage(selected).replace("_"," ")}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{incidentScenario(selected) || "Availability failure"} · {selected.applicationId} / {selected.environment}</p></div>
               <div className="incident-badges"><span className={"severity "+statusClass(selected.severityLevel)}>{selected.severityLevel} · {selected.severityScore}</span><span className={"state "+statusClass(selected.status)}>{selected.status}</span></div>
             </section>
 

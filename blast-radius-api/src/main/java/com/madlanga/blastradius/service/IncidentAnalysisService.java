@@ -116,11 +116,15 @@ public class IncidentAnalysisService {
     private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry, DependencyTopology topology) {
         Map<String,List<EvidenceSignal>> result = new LinkedHashMap<>();
         for (LogEvidence log : telemetry.getLogs()) {
-            if (isErrorLevel(log.getLevel())) add(result, log.getService(),
+            if (isErrorLevel(log.getLevel()) || isStage2DegradationLog(log)) add(result, log.getService(),
                     new EvidenceSignal(log.getTimestamp(), log.getService(), "LOG",
-                            log.getLevel() + " log", log.getId()));
+                            logSignal(log), log.getId()));
         }
         for (SpanEvidence span : telemetry.getSpans()) {
+            if (span.getDurationMs() >= 2000) {
+                add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
+                        "slow span: " + span.getOperation() + " duration=" + span.getDurationMs() + "ms", span.getId()));
+            }
             if (span.isError()) {
                 add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
                         "error span: " + span.getOperation(), span.getId()));
@@ -208,16 +212,30 @@ public class IncidentAnalysisService {
     private Instant earliest(List<EvidenceSignal> evidence) { return evidence.stream().map(EvidenceSignal::timestamp).min(Instant::compareTo).orElse(Instant.MAX); }
     private void add(Map<String,List<EvidenceSignal>> map,String service,EvidenceSignal signal) { if(hasText(service)&&!"unknown".equalsIgnoreCase(service)) map.computeIfAbsent(service,k->new ArrayList<>()).add(signal); }
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
+    private boolean isStage2DegradationLog(LogEvidence log) {
+        String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
+        return message.contains("synthetic_latency");
+    }
+    private String logSignal(LogEvidence log) {
+        String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
+        if (message.contains("synthetic_application_failure") && message.contains("intermittent_500"))
+            return "stage2 intermittent HTTP 500";
+        if (message.contains("synthetic_application_failure") || message.contains("synthetic local application failure"))
+            return "stage2 application error HTTP 500";
+        if (message.contains("synthetic_dependency_failure"))
+            return "stage2 database connectivity failure";
+        if (message.contains("synthetic_latency"))
+            return "stage2 latency degradation";
+        return log.getLevel() + " log";
+    }
     private void correlateMetricDeltas(List<MetricEvidence> metrics, Map<String,List<EvidenceSignal>> result) {
         Map<String,List<MetricEvidence>> series = new LinkedHashMap<>();
         for (MetricEvidence m : metrics) {
-            String status=m.getDimensions().getOrDefault("status",m.getDimensions().get("code"));
-            boolean candidate=(status!=null && status.matches("5\\d\\d"))
-                    || m.getName().toLowerCase(Locale.ROOT).contains("timeout");
-            if (!candidate) continue;
-            String key=m.getService()+"|"+m.getName()+"|"+m.getDimensions();
+            String key=m.getService()+"|"+m.getName()+"|"+metricIdentity(m.getDimensions());
             series.computeIfAbsent(key,k->new ArrayList<>()).add(m);
         }
+
+        // Existing counter-based failure evidence: 5xx and connection timeouts.
         for (List<MetricEvidence> points : series.values()) {
             points.sort(Comparator.comparing(MetricEvidence::getTimestamp));
             if (points.size()<2) continue;
@@ -232,9 +250,6 @@ public class IncidentAnalysisService {
             boolean timeoutCounter=name.contains("timeout")
                     && (name.endsWith(".total") || name.endsWith(".count"));
 
-            // HTTP *_sum/_max series are latency/accumulator signals, not failure counts.
-            // Timeout counters are supporting evidence only: require another independent
-            // failure family for the same component before promoting them to observed impact.
             if (serverErrorCounter) {
                 add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
                         "METRIC",last.getName()+" 5xx counter increased by "+delta,last.getId()));
@@ -243,6 +258,95 @@ public class IncidentAnalysisService {
                         "METRIC",last.getName()+" timeout counter increased by "+delta,last.getId()));
             }
         }
+
+        correlateHttpLatency(series, result);
+        correlateSustainedResourcePressure(series, result);
+    }
+
+    /**
+     * Detect degraded-but-running HTTP services from the delta of Micrometer sum/count
+     * series. A 2 second mean latency is deliberately conservative for this synthetic
+     * lab and avoids treating a historical max value as a fresh incident.
+     */
+    private void correlateHttpLatency(Map<String,List<MetricEvidence>> series,
+                                      Map<String,List<EvidenceSignal>> result) {
+        Map<String,List<MetricEvidence>> counts = new LinkedHashMap<>();
+        Map<String,List<MetricEvidence>> sums = new LinkedHashMap<>();
+
+        for (List<MetricEvidence> points : series.values()) {
+            if (points.isEmpty()) continue;
+            MetricEvidence sample = points.get(0);
+            String name = sample.getName().toLowerCase(Locale.ROOT);
+            if (!name.startsWith("http.") || (!name.endsWith(".count") && !name.endsWith(".sum"))) continue;
+
+            String baseName = name.substring(0, name.lastIndexOf('.'));
+            String key = sample.getService()+"|"+baseName+"|"+metricIdentity(sample.getDimensions());
+            (name.endsWith(".count") ? counts : sums).put(key, points);
+        }
+
+        for (Map.Entry<String,List<MetricEvidence>> entry : counts.entrySet()) {
+            List<MetricEvidence> countPoints = entry.getValue();
+            List<MetricEvidence> sumPoints = sums.get(entry.getKey());
+            if (sumPoints == null || countPoints.size()<2 || sumPoints.size()<2) continue;
+
+            countPoints.sort(Comparator.comparing(MetricEvidence::getTimestamp));
+            sumPoints.sort(Comparator.comparing(MetricEvidence::getTimestamp));
+            MetricEvidence firstCount=countPoints.get(0), lastCount=countPoints.get(countPoints.size()-1);
+            MetricEvidence firstSum=sumPoints.get(0), lastSum=sumPoints.get(sumPoints.size()-1);
+            double requestDelta=lastCount.getValue()-firstCount.getValue();
+            double secondsDelta=lastSum.getValue()-firstSum.getValue();
+            if (requestDelta<=0 || secondsDelta<0) continue;
+
+            double meanSeconds=secondsDelta/requestDelta;
+            if (meanSeconds>=2.0) {
+                add(result,lastCount.getService(),new EvidenceSignal(lastCount.getTimestamp(),
+                        lastCount.getService(),"METRIC",
+                        String.format(Locale.ROOT,"HTTP mean latency %.3fs across %.0f requests",meanSeconds,requestDelta),
+                        lastCount.getId()));
+            }
+        }
+    }
+
+    /**
+     * Resource signals are only promoted when pressure is sustained across at least
+     * two samples. Memory-used alone is intentionally not interpreted because without
+     * a configured/max value it cannot prove memory pressure.
+     */
+    private void correlateSustainedResourcePressure(Map<String,List<MetricEvidence>> series,
+                                                    Map<String,List<EvidenceSignal>> result) {
+        for (List<MetricEvidence> points : series.values()) {
+            if (points.size()<2) continue;
+            points.sort(Comparator.comparing(MetricEvidence::getTimestamp));
+            MetricEvidence last=points.get(points.size()-1);
+            String name=last.getName().toLowerCase(Locale.ROOT);
+
+            if ("process.cpu.usage".equals(name)) {
+                long high=points.stream().filter(p -> p.getValue()>=0.90).count();
+                if (high>=2) {
+                    add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
+                            "METRIC","sustained process CPU usage >= 90%",last.getId()));
+                }
+            } else if ("hikaricp.connections.pending".equals(name)) {
+                long pending=points.stream().filter(p -> p.getValue()>0).count();
+                if (pending>=2) {
+                    add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
+                            "METRIC","sustained database connection-pool contention",last.getId()));
+                }
+            }
+        }
+    }
+
+    private Map<String,String> metricIdentity(Map<String,String> dimensions) {
+        Map<String,String> identity = new TreeMap<>();
+        dimensions.forEach((key,value) -> {
+            // Micrometer histogram/Prometheus series may include labels that vary
+            // between samples. Keep only dimensions that identify the HTTP route
+            // and outcome so counter deltas can be calculated across scrapes.
+            if (Set.of("method","uri","status","outcome","exception","error").contains(key)) {
+                identity.put(key,value);
+            }
+        });
+        return identity;
     }
 
     private boolean hasIndependentFailureSignal(Map<String,List<EvidenceSignal>> result, String service) {

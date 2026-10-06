@@ -212,6 +212,58 @@ The runner validates the healthy baseline, PostgreSQL/service outages, dependenc
 
 See `docs/E2E_VALIDATION.md` for scenario expectations and single-scenario commands.
 
+## Stage 2 degradation validation
+
+Stage 2 keeps every application container running and injects bounded failures into the
+synthetic document service. This proves that Blast Radius is not limited to detecting
+stopped containers.
+
+Run the complete degradation suite:
+
+~~~bash
+python3 scripts/run-stage2-e2e.py
+~~~
+
+Or run one scenario:
+
+~~~bash
+python3 scripts/run-stage2-e2e.py --scenario http-500
+python3 scripts/run-stage2-e2e.py --scenario intermittent
+python3 scripts/run-stage2-e2e.py --scenario latency
+python3 scripts/run-stage2-e2e.py --scenario db-connectivity
+~~~
+
+The local fault-control endpoint is published only through document-service's
+localhost-bound Compose port. It is synthetic lab code and must not be copied into
+a production application.
+
+Manual examples:
+
+~~~bash
+# Continuous HTTP 500 while document-service stays UP
+curl -X PUT http://localhost:8083/lab/faults \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"ERROR_500","latencyMs":0,"everyNthRequest":5}'
+
+# 9 second latency; customer-service has an 8 second read timeout
+curl -X PUT http://localhost:8083/lab/faults \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"LATENCY","latencyMs":9000,"everyNthRequest":5}'
+
+# Synthetic database connectivity failure while Postgres remains running
+curl -X PUT http://localhost:8083/lab/faults \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"DATABASE_FAILURE","latencyMs":0,"everyNthRequest":5}'
+
+# Always restore healthy behaviour
+curl -X DELETE http://localhost:8083/lab/faults
+~~~
+
+The engine also correlates sustained process CPU usage (>= 90%), sustained Hikari
+connection-pool contention, HTTP 5xx counter growth and high mean HTTP latency.
+Memory-used by itself is deliberately not treated as memory pressure because a
+used-byte value without a configured/max limit is insufficient evidence.
+
 ## Useful commands
 
 ~~~bash

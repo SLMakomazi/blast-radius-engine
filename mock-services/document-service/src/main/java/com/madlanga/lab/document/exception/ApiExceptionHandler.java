@@ -1,6 +1,7 @@
 package com.madlanga.lab.document.exception;
 
 import com.madlanga.lab.document.dto.ApiError;
+import com.madlanga.lab.document.fault.SyntheticFaultException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -26,6 +27,13 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiError> databaseFailure(Exception ex) {
         log.warn("event=dependency_failed dependency=postgres code=DATABASE_UNAVAILABLE");
         return error(HttpStatus.SERVICE_UNAVAILABLE, "DATABASE_UNAVAILABLE", "Document storage is unavailable", "postgres", null);
+    }
+
+    @ExceptionHandler(SyntheticFaultException.class)
+    ResponseEntity<ApiError> syntheticApplicationFailure(SyntheticFaultException ex) {
+        log.error("event=request_failed code=SYNTHETIC_APPLICATION_FAILURE");
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "SYNTHETIC_APPLICATION_FAILURE",
+                "Synthetic local application failure", null, null);
     }
 
     private ResponseEntity<ApiError> error(HttpStatus status, String code, String message,
