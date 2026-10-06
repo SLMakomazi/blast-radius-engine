@@ -132,3 +132,20 @@
 .impact-summary b { font-size:15px; color:#dce9f7; }
 .impact-summary small { margin-top:4px; color:#73859b; font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
 @media (max-width:600px) { .impact-summary { grid-template-columns:1fr 1fr; padding:0 15px 15px; } }
+
+
+/* Failure-stage navigation */
+nav button span{display:flex;flex-direction:column;gap:2px}
+nav button span strong{font-size:12px}
+nav button span small{font-size:9px;color:#60758d;font-weight:600}
+nav button.nav-active span small{color:#8fa8c2}
+.nav-label-first{margin-top:2px}
+.stage-banner{margin-bottom:16px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.stage-banner>div:first-child{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center}
+.stage-banner .stage-number{grid-row:1 / span 2;background:#10283b;color:#4ee1aa;border:1px solid #21435c;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}
+.stage-banner strong{font-size:14px}
+.stage-banner p{grid-column:2;margin:3px 0 0;color:#7e90a5;font-size:11px}
+.scenario-chips{display:flex!important;flex-direction:row!important;flex-wrap:wrap;justify-content:flex-end;gap:6px!important}
+.scenario-chips span{display:inline-flex!important;border:1px solid #22394f;background:#091522;color:#8fa2b8;border-radius:20px;padding:5px 8px;font-size:9px;white-space:nowrap}
+@media (max-width:900px){.stage-banner{align-items:flex-start;flex-direction:column}.scenario-chips{justify-content:flex-start}}
+@media (max-width:600px){.stage-banner{padding:14px}.stage-banner>div:first-child{grid-template-columns:1fr}.stage-banner .stage-number{grid-row:auto;width:max-content;margin-bottom:8px}.stage-banner p{grid-column:1;margin-top:5px}}
