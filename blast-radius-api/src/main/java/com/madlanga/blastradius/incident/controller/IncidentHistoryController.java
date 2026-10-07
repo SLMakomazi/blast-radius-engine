@@ -3,14 +3,14 @@ package com.madlanga.blastradius.incident.controller;
 import com.madlanga.blastradius.incident.dto.ErrorResponse;
 import com.madlanga.blastradius.incident.dto.IncidentResponse;
 import com.madlanga.blastradius.incident.dto.ResolveIncidentRequest;
-import com.madlanga.blastradius.incident.model.IncidentStatus;
+import com.madlanga.blastradius.incident.model.PersistedIncident.Status;
 import com.madlanga.blastradius.incident.model.PersistedIncident;
 import com.madlanga.blastradius.incident.repository.IncidentRepository;
 import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
-import com.madlanga.blastradius.diagnosis.AiDiagnosisService;
-import com.madlanga.blastradius.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.diagnosis.DiagnosisContext;
-import com.madlanga.blastradius.diagnosis.DiagnosisContextMapper;
+import com.madlanga.blastradius.diagnosis.service.DiagnosisService;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisResponse;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
+import com.madlanga.blastradius.diagnosis.mapper.DiagnosisRequestMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import java.time.Instant;
 import java.util.List;
@@ -27,12 +27,12 @@ public class IncidentHistoryController {
     private final IncidentRepository repository;
     private final JsonMapper jsonMapper;
     private final IncidentLifecycleService lifecycleService;
-    private final AiDiagnosisService aiDiagnosisService;
-    private final DiagnosisContextMapper diagnosisContextMapper;
+    private final DiagnosisService aiDiagnosisService;
+    private final DiagnosisRequestMapper diagnosisContextMapper;
 
     public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
-            IncidentLifecycleService lifecycleService, AiDiagnosisService aiDiagnosisService,
-            DiagnosisContextMapper diagnosisContextMapper) {
+            IncidentLifecycleService lifecycleService, DiagnosisService aiDiagnosisService,
+            DiagnosisRequestMapper diagnosisContextMapper) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
         this.lifecycleService = lifecycleService;
@@ -75,8 +75,8 @@ public class IncidentHistoryController {
             return ResponseEntity.status(404).body(new ErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
         }
         try {
-            DiagnosisContext context = diagnosisContextMapper.fromStoredJson(incident.get().analysisSnapshot());
-            AiDiagnosis diagnosis = aiDiagnosisService.diagnose(context);
+            DiagnosisRequest context = diagnosisContextMapper.fromStoredJson(incident.get().analysisSnapshot());
+            DiagnosisResponse diagnosis = aiDiagnosisService.diagnose(context);
             return ResponseEntity.ok(diagnosis);
         } catch (Exception e) {
             throw new IllegalStateException("stored incident snapshot cannot be diagnosed", e);
@@ -106,7 +106,7 @@ public class IncidentHistoryController {
         if (status == null || status.isBlank()) return null;
         String normalized = status.trim().toUpperCase(Locale.ROOT);
         try {
-            IncidentStatus.valueOf(normalized);
+            PersistedIncident.Status.valueOf(normalized);
             return normalized;
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("status must be ACTIVE or RESOLVED");
