@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.topology.provider;
 
-import com.madlanga.blastradius.topology.domain.DependencyTopology;
+import com.madlanga.blastradius.topology.model.DependencyTopology;
 
 /**
  * Gets dependency topology from an external source.
