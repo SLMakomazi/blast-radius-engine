@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.madlanga.blastradius.telemetry.provider.health.ActuatorHealthAdapter;
+import com.madlanga.blastradius.telemetry.provider.health.DatabaseHealthAdapter;
 import com.madlanga.blastradius.telemetry.provider.loki.LokiLogAdapter;
 import com.madlanga.blastradius.telemetry.provider.prometheus.PrometheusMetricsAdapter;
 import com.madlanga.blastradius.telemetry.provider.tempo.TempoTraceAdapter;
@@ -52,15 +53,18 @@ public class LocalTelemetryProvider implements TelemetryProvider {
     private final PrometheusMetricsAdapter prometheusAdapter;
     private final TempoTraceAdapter tempoAdapter;
     private final ActuatorHealthAdapter healthAdapter;
+    private final DatabaseHealthAdapter databaseHealthAdapter;
 
     public LocalTelemetryProvider(LokiLogAdapter lokiAdapter,
                                    PrometheusMetricsAdapter prometheusAdapter,
                                    TempoTraceAdapter tempoAdapter,
-                                   ActuatorHealthAdapter healthAdapter) {
+                                   ActuatorHealthAdapter healthAdapter,
+                                   DatabaseHealthAdapter databaseHealthAdapter) {
         this.lokiAdapter = lokiAdapter;
         this.prometheusAdapter = prometheusAdapter;
         this.tempoAdapter = tempoAdapter;
         this.healthAdapter = healthAdapter;
+        this.databaseHealthAdapter = databaseHealthAdapter;
     }
 
     /**
@@ -89,6 +93,9 @@ public class LocalTelemetryProvider implements TelemetryProvider {
 
         // ----- Health (Actuator) -----
         ActuatorHealthAdapter.HealthAdapterResult healthResult = fetchHealth(query, allWarnings);
+        var healthEvidence = new ArrayList<>(healthResult.getHealth());
+        var databaseHealth = databaseHealthAdapter.fetchHealth(query);
+        if (databaseHealth != null) healthEvidence.add(databaseHealth);
 
         TelemetryCoverage coverage = TelemetryCoverage.builder()
                 .logs(logsResult.getCoverage())
@@ -109,7 +116,7 @@ public class LocalTelemetryProvider implements TelemetryProvider {
                 .logs(logsResult.getLogs())
                 .metrics(metricsResult.getMetrics())
                 .spans(spansResult.getSpans())
-                .health(healthResult.getHealth())
+                .health(healthEvidence)
                 .coverage(coverage)
                 .warnings(allWarnings)
                 .build();
