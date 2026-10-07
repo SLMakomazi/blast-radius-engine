@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.telemetry.provider.tempo;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig;
+
 import com.madlanga.blastradius.telemetry.model.CoverageStatus;
 import com.madlanga.blastradius.telemetry.model.SpanEvidence;
 import com.madlanga.blastradius.telemetry.model.SpanStatus;
@@ -45,7 +47,7 @@ class TempoTraceAdapterTest {
 
     @BeforeEach
     void setUp() {
-        TempoProperties props = new TempoProperties();
+        TelemetryConfig.TempoProperties props = new TelemetryConfig.TempoProperties();
         TelemetrySanitizer sanitizer = new TelemetrySanitizer();
 
         when(restClientBuilder.baseUrl(anyString())).thenReturn(restClientBuilder);
@@ -73,19 +75,19 @@ class TempoTraceAdapterTest {
                 .build();
     }
 
-    private TempoResponse buildHealthyTrace() {
-        TempoResponse response = new TempoResponse();
+    private TempoTraceAdapter.TempoResponse buildHealthyTrace() {
+        TempoTraceAdapter.TempoResponse response = new TempoTraceAdapter.TempoResponse();
 
-        TempoResponse.Batch batch = new TempoResponse.Batch();
-        batch.resource = new TempoResponse.Resource();
-        TempoResponse.KeyValue serviceKv = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.Batch batch = new TempoTraceAdapter.TempoResponse.Batch();
+        batch.resource = new TempoTraceAdapter.TempoResponse.Resource();
+        TempoTraceAdapter.TempoResponse.KeyValue serviceKv = new TempoTraceAdapter.TempoResponse.KeyValue();
         serviceKv.key = "service.name";
-        serviceKv.value = new TempoResponse.AnyValue();
+        serviceKv.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         serviceKv.value.stringValue = "document-service";
         batch.resource.attributes = List.of(serviceKv);
 
-        TempoResponse.ScopeSpans scope = new TempoResponse.ScopeSpans();
-        TempoResponse.Span span = new TempoResponse.Span();
+        TempoTraceAdapter.TempoResponse.ScopeSpans scope = new TempoTraceAdapter.TempoResponse.ScopeSpans();
+        TempoTraceAdapter.TempoResponse.Span span = new TempoTraceAdapter.TempoResponse.Span();
         span.traceId = TRACE_ID;
         span.spanId = "a08f368e31e4992c";
         span.parentSpanId = "41c503f305ad0e47";
@@ -93,7 +95,7 @@ class TempoTraceAdapterTest {
         span.kind = "SPAN_KIND_SERVER";
         span.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
         span.endTimeUnixNano   = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L + 1_250_000_000L);
-        span.status = new TempoResponse.SpanStatusDto();
+        span.status = new TempoTraceAdapter.TempoResponse.SpanStatusDto();
         span.status.code = "1"; // OK
         span.attributes = List.of();
         scope.spans = List.of(span);
@@ -108,7 +110,7 @@ class TempoTraceAdapterTest {
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doThrow(new ResourceAccessException("Connection refused"))
-                .when(responseSpec).body(TempoResponse.class);
+                .when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -122,7 +124,7 @@ class TempoTraceAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(buildHealthyTrace()).when(responseSpec).body(TempoResponse.class);
+        doReturn(buildHealthyTrace()).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -146,7 +148,7 @@ class TempoTraceAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(buildHealthyTrace()).when(responseSpec).body(TempoResponse.class);
+        doReturn(buildHealthyTrace()).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -159,8 +161,8 @@ class TempoTraceAdapterTest {
 
     @Test
     void normalizesRealTempoBase64IdsToHexForCrossProviderCorrelation() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
 
         // Real Tempo /api/traces payload shape observed in the local lab.
         span.traceId = "AWV2g0KeagpBHAjBqFVERA==";
@@ -170,7 +172,7 @@ class TempoTraceAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -192,19 +194,19 @@ class TempoTraceAdapterTest {
 
     @Test
     void mapsErrorSpanCorrectly() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
         errorSpan.status.code = "2"; // ERROR
-        TempoResponse.KeyValue errorKv = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.KeyValue errorKv = new TempoTraceAdapter.TempoResponse.KeyValue();
         errorKv.key = "error.type";
-        errorKv.value = new TempoResponse.AnyValue();
+        errorKv.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         errorKv.value.stringValue = "ConnectionException";
         errorSpan.attributes = List.of(errorKv);
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -216,14 +218,14 @@ class TempoTraceAdapterTest {
 
     @Test
     void mapsRealTempoSymbolicErrorStatus() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span errorSpan = response.batches.get(0).scopeSpans.get(0).spans.get(0);
         errorSpan.status.code = "STATUS_CODE_ERROR";
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -233,20 +235,20 @@ class TempoTraceAdapterTest {
 
     @Test
     void doesNotTreatServerAddressOnServerSpanAsDependencyPeer() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
         span.kind = "SPAN_KIND_SERVER";
 
-        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.KeyValue address = new TempoTraceAdapter.TempoResponse.KeyValue();
         address.key = "server.address";
-        address.value = new TempoResponse.AnyValue();
+        address.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         address.value.stringValue = "localhost";
         span.attributes = List.of(address);
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -256,24 +258,24 @@ class TempoTraceAdapterTest {
 
     @Test
     void doesNotInventTechnologyIdentityForLoopbackDatabase() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
         span.kind = "SPAN_KIND_CLIENT";
 
-        TempoResponse.KeyValue db = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.KeyValue db = new TempoTraceAdapter.TempoResponse.KeyValue();
         db.key = "db.system.name";
-        db.value = new TempoResponse.AnyValue();
+        db.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         db.value.stringValue = "postgresql";
-        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.KeyValue address = new TempoTraceAdapter.TempoResponse.KeyValue();
         address.key = "server.address";
-        address.value = new TempoResponse.AnyValue();
+        address.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         address.value.stringValue = "localhost";
         span.attributes = List.of(db, address);
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -283,24 +285,24 @@ class TempoTraceAdapterTest {
 
     @Test
     void usesConcreteDatabaseEndpointAsPeerAndKeepsTechnologyInAttributes() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span span = response.batches.get(0).scopeSpans.get(0).spans.get(0);
         span.kind = "SPAN_KIND_INTERNAL";
 
-        TempoResponse.KeyValue db = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.KeyValue db = new TempoTraceAdapter.TempoResponse.KeyValue();
         db.key = "db.system.name";
-        db.value = new TempoResponse.AnyValue();
+        db.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         db.value.stringValue = "postgresql";
-        TempoResponse.KeyValue address = new TempoResponse.KeyValue();
+        TempoTraceAdapter.TempoResponse.KeyValue address = new TempoTraceAdapter.TempoResponse.KeyValue();
         address.key = "server.address";
-        address.value = new TempoResponse.AnyValue();
+        address.value = new TempoTraceAdapter.TempoResponse.AnyValue();
         address.value.stringValue = "postgres";
         span.attributes = List.of(db, address);
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
@@ -310,8 +312,8 @@ class TempoTraceAdapterTest {
 
     @Test
     void retriesTransientTraceFetchFailureAfterSuccessfulSearch() {
-        TempoSearchResponse search = new TempoSearchResponse();
-        TempoSearchResponse.TraceSummary summary = new TempoSearchResponse.TraceSummary();
+        TempoTraceAdapter.TempoSearchResponse search = new TempoTraceAdapter.TempoSearchResponse();
+        TempoTraceAdapter.TempoSearchResponse.TraceSummary summary = new TempoTraceAdapter.TempoSearchResponse.TraceSummary();
         summary.traceId = TRACE_ID;
         summary.startTimeUnixNano = String.valueOf(FROM.getEpochSecond() * 1_000_000_000L);
         search.traces = List.of(summary);
@@ -320,8 +322,8 @@ class TempoTraceAdapterTest {
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.any(java.util.function.Function.class));
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        when(responseSpec.body(TempoSearchResponse.class)).thenReturn(search);
-        when(responseSpec.body(TempoResponse.class))
+        when(responseSpec.body(TempoTraceAdapter.TempoSearchResponse.class)).thenReturn(search);
+        when(responseSpec.body(TempoTraceAdapter.TempoResponse.class))
                 .thenThrow(new ResourceAccessException("transient Tempo read failure"))
                 .thenReturn(buildHealthyTrace());
 
@@ -330,24 +332,24 @@ class TempoTraceAdapterTest {
         assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
         assertEquals(1, result.getSpans().size());
         assertTrue(result.getWarnings().isEmpty());
-        verify(responseSpec, times(2)).body(TempoResponse.class);
+        verify(responseSpec, times(2)).body(TempoTraceAdapter.TempoResponse.class);
     }
 
     @Test
     void filtersMixedTraceBySpanStartWithInclusiveFromAndExclusiveTo() {
-        TempoResponse response = buildHealthyTrace();
-        TempoResponse.Span inside = response.batches.get(0).scopeSpans.get(0).spans.get(0);
-        TempoResponse.Span old = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse response = buildHealthyTrace();
+        TempoTraceAdapter.TempoResponse.Span inside = response.batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse.Span old = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
         old.startTimeUnixNano = String.valueOf(FROM.minusSeconds(60).getEpochSecond() * 1_000_000_000L);
         old.status.code = "STATUS_CODE_ERROR";
-        TempoResponse.Span atEnd = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
+        TempoTraceAdapter.TempoResponse.Span atEnd = buildHealthyTrace().batches.get(0).scopeSpans.get(0).spans.get(0);
         atEnd.startTimeUnixNano = String.valueOf(TO.getEpochSecond() * 1_000_000_000L);
         atEnd.status.code = "STATUS_CODE_ERROR";
         response.batches.get(0).scopeSpans.get(0).spans = List.of(old, inside, atEnd);
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(TempoResponse.class);
+        doReturn(response).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
         var result = adapter.fetchSpans(queryWithTraceId());
         assertEquals(CoverageStatus.AVAILABLE, result.getCoverage());
         assertEquals(1, result.getSpans().size());
@@ -357,13 +359,13 @@ class TempoTraceAdapterTest {
 
     @Test
     void returnsUnavailableWhenResponseHasNoBatches() {
-        TempoResponse empty = new TempoResponse();
+        TempoTraceAdapter.TempoResponse empty = new TempoTraceAdapter.TempoResponse();
         empty.batches = List.of();
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString(), anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(empty).when(responseSpec).body(TempoResponse.class);
+        doReturn(empty).when(responseSpec).body(TempoTraceAdapter.TempoResponse.class);
 
         TempoTraceAdapter.TraceAdapterResult result = adapter.fetchSpans(queryWithTraceId());
 
