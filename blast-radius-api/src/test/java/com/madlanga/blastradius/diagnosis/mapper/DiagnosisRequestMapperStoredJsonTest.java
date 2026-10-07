@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.diagnosis.mapper;
 
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
