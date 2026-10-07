@@ -285,13 +285,9 @@ This is the bottom application service and the only synthetic service that talks
 
 - `run-phase11-e2e.py` — Stage 1 acceptance runner: healthy baseline, hard outages, stable incident identity, recovery and partial-observability protection; expected 6/6.
 - `run-stage2-e2e.py` — Stage 2 runner: HTTP 500, intermittent errors, latency and DB-connectivity degradation while services stay running; expected 4/4.
-- `verify-observability.py` — detailed checks that logs/metrics/traces/health are flowing through the local observability stack.
-- `verify-observability.sh` — shell wrapper for the observability verifier.
-- `verify-phase2.py` — earlier/low-level deterministic phase verification utility retained as executable support code.
 
 ## fixtures/
 
-- `payment-request.json` — reusable synthetic payment request payload for manual/local testing.
 
 ## How the main files connect
 
