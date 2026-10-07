@@ -1,6 +1,6 @@
 # MadlangaAI Blast Radius Engine — Setup and Handover
 
-This guide is for cloning, running, validating and handing over the current Blast Radius Engine.
+Read this after [README.md](README.md). It takes a new operator from a clean checkout to a healthy local lab and verified incident detection; use [PRESENTATION.md](PRESENTATION.md) for the demonstration.
 
 ## 1. Prerequisites
 
@@ -19,7 +19,7 @@ For direct API development/testing:
 
 For direct frontend development:
 
-- Node.js 20+
+- Node.js 22.12+ (the container build uses Node 22)
 - npm
 
 PostgreSQL, Loki, Prometheus, Tempo and OpenTelemetry Collector run through Docker Compose.
@@ -111,7 +111,7 @@ Run the current API suite:
 mvn -f blast-radius-api/pom.xml clean test
 ```
 
-Current validated result:
+Previously recorded result (rerun for the current checkout):
 
 ```text
 Tests run: 189
@@ -136,7 +136,7 @@ Run:
 python3 scripts/run-phase11-e2e.py
 ```
 
-Current validated result: **6/6 PASS**.
+Previously recorded result (rerun for the current checkout): **6/6 PASS**.
 
 Scenarios:
 
@@ -156,6 +156,8 @@ postgres -> document-service -> customer-service -> payment-service
 ```
 
 The partial-observability scenario verifies that loss of Tempo coverage cannot falsely resolve an ACTIVE incident.
+
+Before Stage 2, wait at least 10 seconds after Stage 1. Confirm Tempo `/ready`, Collector health on port 13133, and fresh traces through Tempo `/api/search`; inspect recent Collector logs for export failures. If tracing has not recovered after the deliberate outage, restart `tempo` and `otel-collector`, wait for readiness and fresh traces, then continue. A running container alone is not sufficient.
 
 ## 9. Stage 2 — degraded but still running
 
@@ -204,7 +206,8 @@ Frontend:
 
 ```bash
 cd frontend
-npm install
+npm ci
+node --test src/incident-visuals.test.js
 npm run build
 cd ..
 ```
@@ -300,4 +303,24 @@ docker compose ps
 git status
 ```
 
-Read **ARCHITECTURE.md** for the current package/class map.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for every file and its connections.
+
+## 17. Rebuild and demonstrate the visual dashboard
+
+```bash
+docker compose up -d --build frontend
+```
+
+Open [the dashboard](http://localhost:5173). Select an ACTIVE or RESOLVED incident and its Stage 1 or Stage 2 view. If there are no active incidents, use resolved history; an empty ACTIVE list is legitimate.
+
+1. Search the incident list for a service or symptom.
+2. Open the service map. Red is unavailable, amber is failure signals, pulsing green is potential impact, and gray is uncertainty.
+3. Hover, focus or select a service to read its explanation and recorded dependency path. Select “Inspect supporting evidence” to see the underlying observations.
+4. Use the evidence timeline legend to filter by logs, measurements, traces or health. Expand “Technical observation” for the original sanitized signal.
+5. “Copy team handoff” copies text locally for review; it does not notify anyone. Browser clipboard restrictions may require manual copying.
+
+Resolved snapshots are historical, not a live uptime map. Potential impact must never be presented as a confirmed outage or confirmed health. The animation respects reduced-motion settings.
+
+The frontend build uses `VITE_API_BASE_URL`. Compose defaults to the same-origin Nginx proxy in `frontend/nginx.conf`; keep this path for the simplest setup. A standalone Vite development server needs an API URL and backend CORS support or a local proxy.
+
+For a manual local demonstration, stop `customer-service`, wait for automatic detection, then start it again and wait for recovery. Do not stop the diagnostic database or inject faults during a validation run.
