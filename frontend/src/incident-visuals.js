@@ -12,7 +12,7 @@ export function evidenceFor(impact, analysis) {
 
 export function explainSignal(signal = '') {
   const s = signal.toLowerCase();
-  if (/liveness health (down|out_of_service)|liveness unreachable/.test(s)) return 'The liveness check indicates this service is unavailable or unreachable.';
+  if (/availability health (down|out_of_service)|liveness health (down|out_of_service)|liveness unreachable/.test(s)) return 'The liveness check indicates this service is unavailable or unreachable.';
   if (/readiness health (down|out_of_service)|aggregate health (down|out_of_service)/.test(s)) return 'The service is not ready to serve normally. A failed dependency can cause this while the service process remains alive.';
   if (s.includes('database connectivity') || s.includes('connection timeout')) return 'Requests could not establish a database connection. A database outage or connection problem needs investigation.';
   if (s.includes('connection-pool')) return 'The service is waiting for free database connections, which can delay requests.';
@@ -35,7 +35,7 @@ export function nodeView(impact, incident) {
   else if (impact.state === 'UNKNOWN') { tone = 'unknown'; }
   else if (impact.state === 'THEORETICAL_ONLY') { tone = 'risk'; label = 'At risk · unconfirmed'; }
   else if (evidence.length) {
-    const hardUnavailable = signals.some(s => /liveness health (down|out_of_service)|liveness unreachable/.test(s));
+    const hardUnavailable = signals.some(s => /availability health (down|out_of_service)|liveness health (down|out_of_service)|liveness unreachable/.test(s));
     if (hardUnavailable) { tone = 'failed'; label = 'Unavailable'; }
     else { tone = 'degraded'; label = 'Observed impact'; }
   }
