@@ -99,7 +99,15 @@ public class ActuatorHealthAdapter {
             if (rootResult.warning != null) warnings.add(rootResult.warning);
             if (rootResult.success) successCount++;
 
-            // Also probe readiness separately — document-service readiness reflects DB
+            // Probe liveness separately. Readiness can be DOWN because a dependency
+            // failed while the service process itself is still alive.
+            HealthProbeResult livenessResult = probeEndpoint(
+                    componentName, baseUrl, LIVENESS_PATH,
+                    query.getEnvironment(), probeTime);
+            allHealth.add(livenessResult.evidence);
+            if (livenessResult.warning != null) warnings.add(livenessResult.warning);
+
+            // Readiness represents the ability to serve normally, not process liveness.
             HealthProbeResult readinessResult = probeEndpoint(
                     componentName, baseUrl, READINESS_PATH,
                     query.getEnvironment(), probeTime);
