@@ -54,9 +54,8 @@ public class BlastRadiusController {
             @RequestParam(defaultValue = "local") String environment,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @RequestParam(required = false) String originHint,
-            @RequestParam(required = false) String experimentId) {
-        return executeAnalysis(applicationId, environment, from, to, originHint, experimentId, false);
+            @RequestParam(required = false) String originHint) {
+        return executeAnalysis(applicationId, environment, from, to, originHint, false);
     }
 
     /**
@@ -74,16 +73,11 @@ public class BlastRadiusController {
             throw new IllegalArgumentException("request body is required");
         }
         return executeAnalysis(request.applicationId(), request.environment(), request.from(), request.to(),
-                request.originHint(), request.experimentId(), true);
+                request.originHint(), true);
     }
 
     private IncidentAnalysis executeAnalysis(String applicationId, String environment, Instant from, Instant to,
-            String originHint, String experimentId) {
-        return executeAnalysis(applicationId, environment, from, to, originHint, experimentId, false);
-    }
-
-    private IncidentAnalysis executeAnalysis(String applicationId, String environment, Instant from, Instant to,
-            String originHint, String experimentId, boolean persistLifecycle) {
+            String originHint, boolean persistLifecycle) {
         String resolvedApplicationId = requireText(applicationId, "applicationId");
         String resolvedEnvironment = hasText(environment) ? environment.trim() : "local";
         Instant resolvedTo = to == null ? Instant.now() : to;
@@ -92,13 +86,12 @@ public class BlastRadiusController {
             throw new ApiRequestException("INVALID_TIME_WINDOW", "from must be before to");
         }
         String resolvedOriginHint = trimToNull(originHint);
-        String resolvedExperimentId = trimToNull(experimentId);
         if (persistLifecycle && lifecycleService != null) {
             return lifecycleService.analyzeAndPersist(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
-                    resolvedOriginHint, resolvedExperimentId);
+                    resolvedOriginHint);
         }
         return service.analyze(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
-                resolvedOriginHint, resolvedExperimentId);
+                resolvedOriginHint);
     }
 
     @ExceptionHandler(ApiRequestException.class)
@@ -121,9 +114,7 @@ public class BlastRadiusController {
 
     private String classifyIllegalArgument(IllegalArgumentException e) {
         String message = e.getMessage() == null ? "" : e.getMessage();
-        if (message.startsWith("unknown failure experiment:")) return "UNKNOWN_EXPERIMENT";
         if (message.startsWith("originHint is not present in discovered topology:")) return "ORIGIN_NOT_IN_TOPOLOGY";
-        if (message.startsWith("originHint conflicts with controlled experiment origin:")) return "ORIGIN_CONFLICT";
         return "INVALID_REQUEST";
     }
 
