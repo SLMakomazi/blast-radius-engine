@@ -114,9 +114,22 @@ public class IncidentAnalysisService {
             }
         }
         for (HealthEvidence health : telemetry.getHealth()) {
-            if (health.isDegraded()) add(result, health.getService(),
-                    new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
-                            "health " + health.getState(), health.getId()));
+            if (health.isDegraded()) {
+                String endpoint = health.getEndpoint() == null ? "" : health.getEndpoint().toLowerCase(Locale.ROOT);
+                String signal;
+                if (endpoint.endsWith("/liveness")) {
+                    signal = health.getState() == HealthState.UNKNOWN && health.getHttpStatus() == null
+                            ? "liveness unreachable"
+                            : "liveness health " + health.getState();
+                } else if (endpoint.endsWith("/readiness")) {
+                    signal = "readiness health " + health.getState();
+                } else {
+                    signal = "aggregate health " + health.getState();
+                }
+                add(result, health.getService(),
+                        new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
+                                signal, health.getId()));
+            }
         }
         correlateMetricDeltas(telemetry.getMetrics(), result);
         result.replaceAll((k,v) -> v.stream().sorted(Comparator.comparing(EvidenceSignal::timestamp)).toList());
