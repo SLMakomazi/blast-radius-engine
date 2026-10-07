@@ -5,7 +5,7 @@ import com.madlanga.blastradius.incident.model.ComponentImpact;
 import com.madlanga.blastradius.incident.model.EvidenceSignal;
 import com.madlanga.blastradius.incident.model.IncidentSeverity;
 import com.madlanga.blastradius.incident.model.OriginAssessment;
-import com.madlanga.blastradius.topology.domain.*;
+import com.madlanga.blastradius.topology.model.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
