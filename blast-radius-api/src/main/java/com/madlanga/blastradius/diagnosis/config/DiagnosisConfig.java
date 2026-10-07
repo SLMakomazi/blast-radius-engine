@@ -1,5 +1,9 @@
 package com.madlanga.blastradius.diagnosis.config;
 
+import com.madlanga.blastradius.diagnosis.mapper.DiagnosisRequestMapper;
+import com.madlanga.blastradius.diagnosis.provider.DiagnosisProvider;
+import com.madlanga.blastradius.diagnosis.service.DiagnosisService;
+
 import com.madlanga.blastradius.diagnosis.provider.DeterministicDiagnosisProvider;
 import com.madlanga.blastradius.diagnosis.provider.GeminiDiagnosisProvider;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
