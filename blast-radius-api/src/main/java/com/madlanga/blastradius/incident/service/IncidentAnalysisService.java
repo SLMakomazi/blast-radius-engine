@@ -117,7 +117,9 @@ public class IncidentAnalysisService {
             if (health.isDegraded()) {
                 String endpoint = health.getEndpoint() == null ? "" : health.getEndpoint().toLowerCase(Locale.ROOT);
                 String signal;
-                if (endpoint.endsWith("/liveness")) {
+                if (endpoint.equals("database/availability")) {
+                    signal = "availability health " + health.getState();
+                } else if (endpoint.endsWith("/liveness")) {
                     signal = health.getState() == HealthState.UNKNOWN && health.getHttpStatus() == null
                             ? "liveness unreachable"
                             : "liveness health " + health.getState();
