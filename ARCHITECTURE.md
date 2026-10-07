@@ -1,324 +1,468 @@
-# Repository Architecture — Folder and File Guide
+# Repository Architecture — Current Code Map
 
-This document is the code map for the MadlangaAI Blast Radius Engine. It explains what each tracked source/configuration file is responsible for and how it connects to the rest of the system.
+This document describes the current MadlangaAI Blast Radius Engine after the feature-first package refactor.
 
-## Root
+The central design rule is:
 
-- `.env.example` — template for local environment values, including optional AI configuration. Docker Compose reads the corresponding local `.env`.
-- `.gitignore` — prevents generated files, secrets and build output from being committed.
-- `LICENSE` — repository licence.
-- `docker-compose.yml` — assembles the complete local lab: API, dashboard, three synthetic services, two PostgreSQL databases, traffic generator and observability stack. It is the main runtime wiring file.
-- `README.md` — system overview and entry point.
-- `SETUP.md` — clone/build/run/test handover.
-- `ARCHITECTURE.md` — this file-by-file map.
-- `PRESENTATION_GUIDE.md` — short manager-facing walkthrough.
+> **Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized deterministic evidence.**
 
-## blast-radius-api/
-
-The production-shaped Spring Boot engine. It is organized by capability first and layer second.
-
-- `blast-radius-api/.dockerignore` — excludes unnecessary files from the API Docker build context.
-- `blast-radius-api/Dockerfile` — builds/runs the Spring Boot API container.
-- `blast-radius-api/pom.xml` — Maven dependencies/plugins for Spring Boot, JDBC/Flyway, HTTP/JSON, testing and related API concerns.
-- `BlastRadiusApplication.java` — Spring Boot entry point; component scanning discovers the capability packages below.
-
-### diagnosis
-
-The diagnosis capability is packaged by feature. Its core types live directly under `diagnosis/`, while external provider implementations live under `diagnosis/provider/`.
-
-- `DiagnosisResponse.java` — provider-neutral diagnosis result returned to the application/API.
-- `DiagnosisRequest.java` — bounded, provider-neutral input model sent to diagnosis providers.
-- `DiagnosisProvider.java` — provider contract used by the diagnosis service.
-- `DiagnosisService.java` — orchestrates advisory diagnosis and deterministic fallback without calculating blast radius.
-- `DiagnosisRequestMapper.java` — builds diagnosis context from either a fresh `IncidentAnalysis` or a persisted sanitized incident snapshot.
-- `GeminiProperties.java` — binds Gemini-specific configuration.
-- `DiagnosisConfig.java` — Spring wiring for the mapper, providers and diagnosis service.
-- `provider/DeterministicDiagnosisProvider.java` — local deterministic fallback used when external AI is disabled or unavailable.
-- `provider/GeminiDiagnosisProvider.java` — Gemini HTTP integration, bounded retry/fallback-model handling and response mapping.
-
-### incident
-
-**API**
-- `IncidentController.java` — HTTP entry point for analysis/diagnosis operations; delegates to application services rather than performing graph/telemetry logic itself.
-- `IncidentHistoryController.java` — HTTP access to persisted ACTIVE/RESOLVED incident history and resolution operations.
-- `api/dto/AnalyzeIncidentRequest.java` — request contract for explicit incident analysis.
-- `api/dto/ErrorResponse.java` — stable HTTP error payload.
-- `api/dto/IncidentResponse.java` — API representation of persisted incident data.
-- `api/dto/ResolveIncidentRequest.java` — transport contract for a manual resolution request.
-
-**Application**
-- `IncidentAnalysisService.java` — central orchestration use case. It obtains topology and telemetry through ports, runs deterministic graph/origin/severity logic, builds evidence/coverage and returns the incident analysis consumed by lifecycle/API/diagnosis.
-- `application/port/IncidentRepository.java` — persistence contract used by incident/lifecycle code; JDBC is hidden behind this interface.
-
-**Domain**
-- `ComponentImpact.java` — impact of the incident on one component, including observed/theoretical classification data.
-- `OriginAssessment.Confidence.java` — bounded confidence classification used for origin assessment.
-- `EvidenceSignal.java` — domain representation of an evidence signal attached to the incident.
-- `IncidentAnalysis.java` — aggregate analysis result joining origin, impacts, evidence, coverage and deterministic severity.
-- `IncidentSeverity.java` — deterministic severity result.
-- `IncidentSeverityService.java` — pure business rule that converts incident evidence/impact into deterministic severity.
-- `PersistedIncident.Status.java` — persisted lifecycle state such as ACTIVE/RESOLVED.
-- `ComponentImpact.State.java` — identifies whether component impact was observed or only theoretical.
-- `OriginAssessment.java` — likely origin plus confidence/evidence.
-- `PersistedIncident.java` — domain representation stored/retrieved through `IncidentRepository`.
-- `IncidentSeverity.Level.java` — named severity levels used with the numeric score.
-
-
-**Infrastructure**
-- `infrastructure/persistence/JdbcIncidentRepository.java` — JDBC implementation of `IncidentRepository`; reads/writes the diagnostic PostgreSQL database.
-
-### lifecycle
-
-- `application/IncidentLifecycleService.java` — creates/updates one ACTIVE incident from analysis and applies recovery rules without duplicating the incident.
-- `infrastructure/IncidentLifecycleScheduler.java` — Spring scheduled entry point. It periodically invokes analysis/lifecycle logic for the configured local application/environment and drives proactive detection/recovery.
-
-### shared
-
-- `config/OpenApiConfig.java` — OpenAPI metadata/configuration for the REST service.
-- `sanitization/TelemetrySanitizer.java` — standard sensitive-data patterns to remove before persistence/display/AI use.
-- `sanitization/TelemetrySanitizer.java` — stable replacement values used when redaction occurs.
-- `sanitization/RedactionRule.java` — one redaction rule abstraction.
-- `sanitization/TelemetrySanitizer.java` — applies redaction rules to telemetry before evidence leaves the trusted collection boundary.
-
-### telemetry
-
-**Application port**
-- `application/port/TelemetryProvider.java` — provider-neutral contract used by incident analysis to request logs, metrics, traces and health without depending on Loki/Prometheus/Tempo.
-
-**Domain**
-- `CoverageStatus.java` — availability/coverage state used to distinguish missing evidence from healthy evidence.
-- `EvidenceFamily.java` — LOG/METRIC/TRACE/HEALTH family classification.
-- `EvidenceProvenance.java` — source/timestamp/provenance attached to normalized evidence.
-- `HealthEvidence.java` — normalized health evidence.
-- `HealthState.java` — health-state classification.
-- `LogEvidence.java` — normalized log evidence.
-- `MetricEvidence.java` — normalized metric evidence.
-- `SpanEvidence.java` — normalized distributed-trace span evidence.
-- `SpanKind.java` — normalized span kind.
-- `SpanStatus.java` — normalized trace status.
-- `TelemetryBundle.java` — combined evidence returned by `TelemetryProvider`.
-- `TelemetryCoverage.java` — describes which evidence families were available for a query; lifecycle uses this to avoid unsafe recovery.
-- `TelemetryQuery.java` — provider-neutral component/time-window query.
-
-**Infrastructure**
-- `LocalTelemetryProvider.java` — composes the local Loki, Prometheus, Tempo and Actuator adapters into the provider-neutral `TelemetryBundle`.
-- `config/TelemetryConfig.java` — Spring wiring for telemetry adapters.
-- `health/ActuatorHealthAdapter.java` — queries service health endpoints and converts responses to `HealthEvidence`.
-- `health/ActuatorHealthProperties.java` — configured health endpoints/component mapping.
-- `health/ActuatorHealthResponse.java` — infrastructure DTO for Actuator responses.
-- `loki/LokiLogAdapter.java` — queries Loki and normalizes matching log lines.
-- `loki/LokiLogLine.java` — parsed Loki log-line model used inside the adapter.
-- `loki/LokiProperties.java` — Loki URL/query configuration.
-- `loki/LokiResponse.java` — Loki HTTP response DTO.
-- `prometheus/PrometheusMetricsAdapter.java` — queries Prometheus for failure/degradation signals and normalizes metrics.
-- `prometheus/PrometheusProperties.java` — Prometheus query/configuration properties.
-- `prometheus/PrometheusResponse.java` — Prometheus HTTP response DTO.
-- `tempo/TempoProperties.java` — Tempo endpoint/query configuration.
-- `tempo/TempoResponse.java` — trace-detail DTO returned by Tempo.
-- `tempo/TempoSearchResponse.java` — Tempo trace-search DTO.
-- `tempo/TempoTraceAdapter.java` — discovers/searches traces and converts spans to `SpanEvidence`; it also supports runtime topology discovery.
-
-### topology
-
-**Application ports**
-- `application/port/DependencyTopologyProvider.java` — supplies the canonical dependency graph used by incident analysis.
-- `application/port/RuntimeSpanSource.java` — boundary through which topology discovery can obtain runtime spans.
-- `application/port/TopologyStore.java` — persistence boundary for retained topology snapshots.
-
-**Domain**
-- `ComponentNode.java` — one canonical component in the dependency graph.
-- `ComponentType.java` — component category such as service/database.
-- `DependencyEdge.java` — directed caller/dependency relationship.
-- `DependencyTopology.java` — complete graph of nodes and edges.
-- `DeterministicGraphEngine.java` — traverses the graph from an origin to calculate theoretical blast radius and propagation depth.
-- `GraphAnalysisResult.java` — result of deterministic graph traversal.
-- `ImpactClassification.java` — graph/impact classification used during analysis.
-- `RetainedTopology.java` — topology plus retention metadata.
-- `TheoreticalImpact.java` — one component's potential impact according to topology.
-
-**Infrastructure**
-- `RetainedTopologyProvider.java` — serves a retained topology to the application and coordinates refresh/persistence.
-- `TraceDiscoveredTopologyProvider.java` — derives dependency relationships from runtime trace spans obtained through `RuntimeSpanSource`.
-- `config/TopologyConfig.java` — Spring configuration for topology providers/store.
-- `persistence/FileTopologyStore.java` — local filesystem implementation of `TopologyStore`.
-
-### API resources and migrations
-
-- `src/main/resources/application.yml` — central Spring configuration: database, telemetry endpoints, topology, lifecycle scheduling, AI and local application/environment settings.
-- `db/migration/V1__create_incidents.sql` — Flyway baseline creating incident persistence structures.
-- `db/migration/V2__enforce_single_active_incident.sql` — database protection enforcing the intended single-active-incident identity rule.
-
-### API tests
-
-- `ArchitectureBoundaryTest.java` — guards capability/layer boundaries so future code cannot casually reintroduce global service/adapter architecture.
-- `BlastRadiusApplicationTests.java` — Spring application/context smoke tests.
-- `diagnosis/DiagnosisServiceTest.java` — verifies diagnosis orchestration and fallback behavior.
-- `diagnosis/DiagnosisRequestMapperTest.java` — verifies mapping from live incident analysis to diagnosis context.
-- `diagnosis/DiagnosisRequestMapperStoredJsonTest.java` — verifies persisted snapshot reconstruction and re-sanitization.
-- `diagnosis/provider/GeminiDiagnosisProviderTest.java` — tests Gemini request/response/retry/failure behavior.
-- `incident/controller/IncidentControllerTest.java` — verifies HTTP analysis/diagnosis contract and error mapping.
-- `incident/service/IncidentAnalysisServiceTest.java` — tests orchestration across topology, telemetry and deterministic rules.
-- `incident/model/IncidentSeverityServiceTest.java` — verifies deterministic severity rules.
-- `lifecycle/application/IncidentLifecycleServiceTest.java` — verifies ACTIVE reuse and recovery transitions.
-- `shared/sanitization/TelemetrySanitizerTest.java` — verifies sensitive telemetry is redacted.
-- `telemetry/model/EvidenceProvenanceTest.java`, `HealthEvidenceTest.java`, `LogEvidenceTest.java`, `MetricEvidenceTest.java`, `SpanEvidenceTest.java`, `TelemetryBundleTest.java`, `TelemetryQueryTest.java` — verify provider-neutral evidence validation and behavior.
-- `telemetry/provider/LocalTelemetryProviderTest.java` — verifies composition of local telemetry families.
-- `telemetry/provider/LocalTelemetryProviderLiveIT.java` — integration check against live local observability backends.
-- `telemetry/provider/health/ActuatorHealthAdapterTest.java` — verifies health normalization.
-- `telemetry/provider/loki/LokiLogAdapterTest.java` — verifies Loki parsing/query behavior.
-- `telemetry/provider/prometheus/PrometheusMetricsAdapterTest.java` — verifies metric query/normalization.
-- `telemetry/provider/tempo/CapturedTempoRegressionTest.java` — regression test using captured Tempo payloads.
-- `telemetry/provider/tempo/TempoTraceAdapterTest.java` — verifies Tempo search/trace normalization.
-- `topology/domain/DeterministicGraphEngineTest.java` — verifies deterministic graph traversal.
-- `topology/domain/TopologyDomainTest.java` — verifies topology invariants.
-- `topology/infrastructure/RetainedTopologyProviderTest.java` — verifies retained topology behavior.
-- `topology/infrastructure/TraceDiscoveredTopologyProviderLiveIT.java` — live integration check for trace-discovered topology.
-- `topology/infrastructure/TraceDiscoveredTopologyProviderTest.java` — unit tests for trace-to-topology mapping.
-- `src/test/resources/application.yml` — test-specific Spring configuration.
-- `src/test/resources/tempo/failed-connection.json` — captured trace fixture representing a failed dependency connection.
-- `src/test/resources/tempo/healthy-database.json` — captured healthy database trace fixture.
-
-## frontend/
-
-- `.dockerignore` — trims frontend Docker context.
-- `.env.example` — frontend environment template, primarily API endpoint configuration.
-- `Dockerfile` — builds/serves the React/Vite dashboard.
-- `index.html` — Vite HTML entry point.
-- `nginx.conf` — serves the built frontend and routes browser traffic as configured.
-- `package.json` — frontend scripts/dependencies.
-- `package-lock.json` — pinned npm dependency graph.
-- `src/main.jsx` — dashboard application: fetches incident data, presents Stage 1/Stage 2 views and requests optional diagnosis.
-- `src/styles.css` — dashboard styling.
-
-## infrastructure/observability/
-
-- `logging/loki.yml` — Loki local storage/server configuration; receives logs from the collector and is queried by `LokiLogAdapter`.
-- `otel/collector.yml` — OpenTelemetry Collector pipelines routing application telemetry to Loki/Prometheus/Tempo.
-- `otel/javaagent.properties` — shared OpenTelemetry Java-agent settings used by the synthetic Java services.
-- `prometheus/prometheus.yml` — Prometheus scrape/query configuration consumed by `PrometheusMetricsAdapter`.
-- `tracing/tempo.yml` — Tempo trace backend configuration consumed by `TempoTraceAdapter`.
-
-## mock-services/payment-service/
-
-This is the top of the synthetic business request chain.
-
-- `.dockerignore`, `Dockerfile`, `pom.xml` — container/build definition.
-- `PaymentApplication.java` — Spring Boot entry point.
-- `client/CustomerClient.java` — HTTP client from payment-service to customer-service; creates the first downstream dependency edge visible in traces.
-- `config/CorrelationIdFilter.java` — propagates/creates correlation IDs for cross-service evidence.
-- `config/HttpClientConfig.java` — HTTP client timeout/configuration.
-- `controller/PaymentController.java` — receives synthetic payment requests from the traffic generator.
-- `dto/ApiError.java` — payment API error payload.
-- `dto/CustomerValidation.java` — downstream customer validation response.
-- `dto/DocumentReceipt.java` — downstream document result carried through the chain.
-- `dto/DownstreamRequest.java` — request sent to customer-service.
-- `dto/PaymentRequest.java` — inbound payment request.
-- `dto/PaymentResult.java` — successful payment response.
-- `exception/ApiExceptionHandler.java` — maps payment exceptions to HTTP errors/log evidence.
-- `exception/DownstreamException.java` — represents customer-service call failures.
-- `service/PaymentService.java` — business flow that calls `CustomerClient` and returns a payment result.
-- `src/main/resources/application.yml` — port, downstream URL, actuator and telemetry settings.
-- `PaymentApplicationTests.java` — payment service behavior tests.
-- `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker` — Mockito test-engine configuration.
-
-## mock-services/customer-service/
-
-This is the middle service in the synthetic chain.
-
-- `.dockerignore`, `Dockerfile`, `pom.xml` — container/build definition.
-- `CustomerApplication.java` — Spring Boot entry point.
-- `client/DocumentClient.java` — HTTP client from customer-service to document-service; forms the second service dependency.
-- `config/CorrelationIdFilter.java` — correlation-ID propagation.
-- `config/HttpClientConfig.java` — downstream timeout/client configuration; relevant to the Stage 2 latency scenario.
-- `controller/CustomerController.java` — receives validation requests from payment-service.
-- `dto/ApiError.java` — API error payload.
-- `dto/CustomerRequest.java` — customer validation request.
-- `dto/CustomerValidation.java` — validation result returned upstream.
-- `dto/DocumentReceipt.java` — document result returned by document-service.
-- `dto/DownstreamRequest.java` — document-service request.
-- `exception/ApiExceptionHandler.java` — HTTP error mapping.
-- `exception/DownstreamException.java` — document-service call failure.
-- `service/CustomerService.java` — customer flow that calls `DocumentClient`.
-- `src/main/resources/application.yml` — service/downstream/telemetry settings.
-- `CustomerApplicationTests.java` — customer behavior tests.
-- `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker` — Mockito configuration.
-
-## mock-services/document-service/
-
-This is the bottom application service and the only synthetic service that talks directly to the monitored PostgreSQL database.
-
-- `.dockerignore`, `Dockerfile`, `pom.xml` — container/build definition.
-- `DocumentApplication.java` — Spring Boot entry point.
-- `config/CorrelationIdFilter.java` — correlation-ID propagation.
-- `controller/DocumentController.java` — receives document operations from customer-service.
-- `controller/FaultInjectionController.java` — localhost lab endpoint used by Stage 2 to enable/reset bounded degradation.
-- `dto/ApiError.java` — API error payload.
-- `dto/DocumentReceipt.java` — successful document response.
-- `dto/DocumentRequest.java` — inbound document request.
-- `exception/ApiExceptionHandler.java` — HTTP error mapping, including synthetic failures.
-- `fault/FaultConfig.java` — current fault-mode configuration.
-- `fault/FaultInjectionService.java` — applies configured latency/error/database degradation before/around normal document work.
-- `fault/FaultMode.java` — allowed synthetic modes.
-- `fault/SyntheticFaultException.java` — explicit lab failure exception.
-- `persistence/DocumentRepository.java` — JDBC access to the monitored PostgreSQL database; database failure here produces real downstream consequences.
-- `service/DocumentService.java` — document flow connecting fault injection and persistence.
-- `src/main/resources/application.yml` — DB, actuator and telemetry configuration.
-- `db/migration/V1__create_synthetic_documents.sql` — Flyway schema for synthetic documents.
-- `DocumentApplicationTests.java` — normal document behavior tests.
-- `DocumentFailureTests.java` — failure-path tests.
-- `FaultInjectionServiceTest.java` — Stage 2 fault-mode unit tests.
-- `src/test/resources/application-test.yml` — isolated document test configuration.
-- `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker` — Mockito configuration.
-
-## traffic-generator/
-
-- `.dockerignore` — Docker build exclusions.
-- `Dockerfile` — packages the Python generator.
-- `traffic.py` — continuously posts synthetic payment requests so failures produce real cross-service telemetry without manual traffic.
-- `test_traffic.py` — verifies traffic-generator request/payload behavior.
-
-## scripts/
-
-- `run-phase11-e2e.py` — Stage 1 acceptance runner: healthy baseline, hard outages, stable incident identity, recovery and partial-observability protection; expected 6/6.
-- `run-stage2-e2e.py` — Stage 2 runner: HTTP 500, intermittent errors, latency and DB-connectivity degradation while services stay running; expected 4/4.
-
-## fixtures/
-
-
-## How the main files connect
+## 1. Repository layout
 
 ```text
-traffic.py
+blast-radius-engine/
+├── blast-radius-api/          Spring Boot blast-radius engine
+├── frontend/                  React/Vite dashboard
+├── mock-services/
+│   ├── payment-service/
+│   ├── customer-service/
+│   └── document-service/
+├── traffic-generator/         continuous synthetic business traffic
+├── infrastructure/
+│   └── observability/         OTel, Loki, Prometheus and Tempo configuration
+├── scripts/
+│   ├── run-phase11-e2e.py
+│   └── run-stage2-e2e.py
+├── fixtures/
+├── docker-compose.yml
+├── README.md
+├── SETUP.md
+└── ARCHITECTURE.md
+```
+
+The repository intentionally keeps three Markdown documents: README, SETUP and ARCHITECTURE.
+
+## 2. Local runtime architecture
+
+```text
+traffic-generator
+      |
+      v
+payment-service
+      |
+      v
+customer-service
+      |
+      v
+document-service
+      |
+      v
+postgres
+```
+
+The monitored chain runs beside:
+
+```text
+blast-radius-api ---> blast-radius-db
+       |
+       +-- Loki
+       +-- Prometheus
+       +-- Tempo
+       +-- Actuator health endpoints
+
+frontend ---> blast-radius-api
+```
+
+`postgres` is the monitored synthetic application database. `blast-radius-db` is the engine's own incident database.
+
+## 3. Blast Radius API package structure
+
+Production Java root:
+
+```text
+blast-radius-api/src/main/java/com/madlanga/blastradius/
+├── BlastRadiusApplication.java
+├── diagnosis/
+│   ├── config/
+│   │   ├── DiagnosisConfig.java
+│   │   └── GeminiProperties.java
+│   ├── dto/
+│   │   ├── DiagnosisRequest.java
+│   │   └── DiagnosisResponse.java
+│   ├── mapper/
+│   │   └── DiagnosisRequestMapper.java
+│   ├── provider/
+│   │   ├── DiagnosisProvider.java
+│   │   ├── DeterministicDiagnosisProvider.java
+│   │   └── GeminiDiagnosisProvider.java
+│   └── service/
+│       └── DiagnosisService.java
+├── incident/
+│   ├── controller/
+│   │   ├── IncidentController.java
+│   │   └── IncidentHistoryController.java
+│   ├── dto/
+│   │   ├── AnalyzeIncidentRequest.java
+│   │   ├── ErrorResponse.java
+│   │   ├── IncidentResponse.java
+│   │   └── ResolveIncidentRequest.java
+│   ├── model/
+│   │   ├── ComponentImpact.java
+│   │   ├── EvidenceSignal.java
+│   │   ├── IncidentAnalysis.java
+│   │   ├── IncidentSeverity.java
+│   │   ├── OriginAssessment.java
+│   │   └── PersistedIncident.java
+│   ├── repository/
+│   │   ├── IncidentRepository.java
+│   │   └── JdbcIncidentRepository.java
+│   └── service/
+│       ├── IncidentAnalysisService.java
+│       └── IncidentSeverityService.java
+├── lifecycle/
+│   ├── scheduler/
+│   │   └── IncidentLifecycleScheduler.java
+│   └── service/
+│       └── IncidentLifecycleService.java
+├── shared/
+│   └── ...
+├── telemetry/
+│   ├── config/
+│   │   └── TelemetryConfig.java
+│   ├── model/
+│   │   ├── CoverageStatus.java
+│   │   ├── EvidenceFamily.java
+│   │   ├── EvidenceProvenance.java
+│   │   ├── HealthEvidence.java
+│   │   ├── HealthState.java
+│   │   ├── LogEvidence.java
+│   │   ├── MetricEvidence.java
+│   │   ├── SpanEvidence.java
+│   │   ├── SpanKind.java
+│   │   ├── SpanStatus.java
+│   │   ├── TelemetryBundle.java
+│   │   ├── TelemetryCoverage.java
+│   │   └── TelemetryQuery.java
+│   └── provider/
+│       ├── LocalTelemetryProvider.java
+│       ├── TelemetryProvider.java
+│       ├── health/ActuatorHealthAdapter.java
+│       ├── loki/LokiLogAdapter.java
+│       ├── prometheus/PrometheusMetricsAdapter.java
+│       └── tempo/TempoTraceAdapter.java
+└── topology/
+    ├── config/
+    │   └── TopologyConfig.java
+    ├── model/
+    │   ├── BlastRadiusResult.java
+    │   ├── ComponentNode.java
+    │   ├── ComponentType.java
+    │   ├── DependencyEdge.java
+    │   ├── DependencyTopology.java
+    │   ├── RetainedTopology.java
+    │   └── TheoreticalImpact.java
+    ├── provider/
+    │   ├── DependencyTopologyProvider.java
+    │   └── RuntimeSpanProvider.java
+    ├── repository/
+    │   ├── FileTopologyRepository.java
+    │   └── TopologyRepository.java
+    └── service/
+        ├── BlastRadiusGraphService.java
+        ├── TopologyService.java
+        └── TraceTopologyService.java
+```
+
+The package convention is intentionally familiar Spring naming: `controller`, `service`, `dto`, `model`, `repository`, `provider`, `mapper`, `config` and `scheduler`. A feature only gets folders it actually needs.
+
+The previous `api/application/domain/infrastructure/port` package structure is no longer used.
+
+## 4. Diagnosis
+
+`DiagnosisService` coordinates advisory diagnosis after deterministic incident analysis.
+
+- `DiagnosisRequest` — bounded provider input.
+- `DiagnosisResponse` — provider-neutral diagnosis result.
+- `DiagnosisRequestMapper` — maps fresh or persisted incident information into diagnosis context.
+- `DiagnosisProvider` — replaceable diagnosis boundary.
+- `DeterministicDiagnosisProvider` — local fallback.
+- `GeminiDiagnosisProvider` — optional Gemini HTTP integration.
+- `DiagnosisConfig` / `GeminiProperties` — Spring/provider configuration.
+
+Diagnosis does not own blast-radius calculation or severity.
+
+## 5. Incident
+
+`IncidentAnalysisService` is the main deterministic orchestration service. It:
+
+1. requests telemetry,
+2. obtains dependency topology,
+3. correlates evidence by component,
+4. assesses the likely origin,
+5. invokes `BlastRadiusGraphService`,
+6. distinguishes observed, theoretical-only and unexpected impact,
+7. builds the evidence timeline,
+8. invokes `IncidentSeverityService`,
+9. returns `IncidentAnalysis`.
+
+Important models:
+
+- `ComponentImpact` contains nested `State`.
+- `OriginAssessment` contains nested `Confidence`.
+- `IncidentSeverity` contains nested `Level`.
+- `PersistedIncident` contains nested `Status`.
+
+These nested enums replaced unnecessary standalone enum files.
+
+Persistence:
+
+- `IncidentRepository` — persistence interface.
+- `JdbcIncidentRepository` — JDBC implementation against `blast-radius-db`.
+
+There is no JPA layer in the current engine.
+
+## 6. Lifecycle
+
+- `IncidentLifecycleScheduler` — scheduled trigger for proactive evaluation.
+- `IncidentLifecycleService` — creates/updates the ACTIVE incident and applies guarded recovery.
+
+The lifecycle reuses one incident UUID while the same incident remains active. Automatic recovery requires healthy windows and adequate telemetry coverage. Missing telemetry cannot be treated as proof of recovery.
+
+## 7. Topology
+
+Topology represents **potential** failure propagation.
+
+### Models
+
+- `ComponentNode` — canonical component.
+- `ComponentType` — component category.
+- `DependencyEdge` — directed dependent-to-dependency edge.
+- `DependencyTopology` — validated immutable graph.
+- `TheoreticalImpact` — affected component, distance, path and nested `Classification`.
+- `BlastRadiusResult` — graph traversal result.
+- `RetainedTopology` — durable learned snapshot with nested persistence records.
+
+### Providers/repository
+
+- `DependencyTopologyProvider` — supplies topology to consumers.
+- `RuntimeSpanProvider` — supplies normalized spans for topology learning.
+- `TopologyRepository` — retained-topology persistence contract.
+- `FileTopologyRepository` — local durable file implementation.
+
+### Services
+
+- `TraceTopologyService` — derives dependency relationships from normalized spans.
+- `TopologyService` — learns/merges retained topology, reloads it and expires stale observations.
+- `BlastRadiusGraphService` — deterministic graph traversal.
+
+Stored edges use:
+
+```text
+dependent -> dependency
+
+payment-service -> customer-service
+customer-service -> document-service
+document-service -> postgres
+```
+
+Failure propagation is evaluated in reverse:
+
+```text
+postgres -> document-service -> customer-service -> payment-service
+```
+
+The graph service uses deterministic breadth-first traversal, minimum distance/path and stable lexical tie-breaking.
+
+## 8. Telemetry
+
+`TelemetryProvider` is the normalized evidence boundary. `LocalTelemetryProvider` combines the local adapters.
+
+Models cover:
+
+- evidence provenance/family,
+- logs,
+- metrics,
+- spans,
+- health,
+- coverage,
+- query scope,
+- normalized telemetry bundles.
+
+Adapters:
+
+- `LokiLogAdapter` — Loki query/normalization.
+- `PrometheusMetricsAdapter` — Prometheus query/normalization.
+- `TempoTraceAdapter` — Tempo query/trace normalization.
+- `ActuatorHealthAdapter` — Spring Actuator health normalization.
+
+`TelemetryConfig` contains the Spring wiring and adapter property types. Small provider-specific response structures are kept with the adapters rather than spread across standalone DTO files.
+
+## 9. Shared
+
+`shared` contains code that is genuinely cross-feature, including telemetry sanitization/redaction and shared application configuration. It should not become a dumping ground for feature-specific code.
+
+The shared package is the next cleanup/audit area; its behavior must remain compatible with the already-green API and E2E validation.
+
+## 10. Database and migrations
+
+The Blast Radius API uses Spring JDBC and Flyway with PostgreSQL.
+
+The diagnostic database stores incident lifecycle/history independently from the monitored application's PostgreSQL database. Flyway owns the diagnostic schema, including protection for the single-active-incident rule.
+
+## 11. Synthetic services
+
+### payment-service
+
+Receives synthetic payment requests and calls customer-service.
+
+Important areas:
+
+- controller — inbound payment API.
+- service — payment flow.
+- client — customer-service HTTP dependency.
+- dto — request/response contracts.
+- exception — downstream/API error mapping.
+- config — HTTP client and correlation IDs.
+
+### customer-service
+
+Receives validation requests and calls document-service.
+
+Its downstream timeout is important for Stage 2 latency testing.
+
+### document-service
+
+Calls the monitored PostgreSQL database and hosts the localhost-only Stage 2 fault-injection endpoint.
+
+Important areas:
+
+- `DocumentService` — normal document flow.
+- `DocumentRepository` — JDBC database access.
+- `FaultInjectionController` — lab fault control.
+- `FaultInjectionService` — bounded synthetic degradation.
+- `FaultMode` / `FaultConfig` — supported fault state.
+
+## 12. Observability
+
+```text
+synthetic Java services
+        |
+ OpenTelemetry Java agent
+        |
+ OpenTelemetry Collector
+   |        |        |
+   v        v        v
+ Loki   Prometheus  Tempo
+   \        |        /
+    \       |       /
+     LocalTelemetryProvider
+```
+
+Configuration lives under:
+
+```text
+infrastructure/observability/
+├── logging/loki.yml
+├── otel/collector.yml
+├── otel/javaagent.properties
+├── prometheus/prometheus.yml
+└── tracing/tempo.yml
+```
+
+## 13. Frontend
+
+`frontend` is a React/Vite dashboard served locally through its container. It reads incident state from the Blast Radius API and can request optional diagnosis. It does not calculate topology, impact or severity.
+
+## 14. Traffic generator
+
+`traffic-generator/traffic.py` continuously sends requests into payment-service so the complete synthetic chain produces runtime telemetry without manual traffic.
+
+## 15. E2E scripts
+
+### `scripts/run-phase11-e2e.py`
+
+Stage 1 / Phase 11 validates:
+
+- healthy baseline,
+- PostgreSQL outage,
+- document-service outage,
+- customer-service outage,
+- payment-service outage,
+- partial-observability protection,
+- ACTIVE -> RESOLVED lifecycle,
+- stable incident UUID,
+- dependency direction.
+
+Current validated result after the package refactor: **6/6 PASS**.
+
+### `scripts/run-stage2-e2e.py`
+
+Stage 2 keeps document-service running and injects:
+
+- continuous HTTP 500,
+- intermittent HTTP 500,
+- latency,
+- database-connectivity failure.
+
+It requires appropriate runtime evidence families and verifies recovery after the injected fault is reset.
+
+Target: **4/4 PASS**.
+
+## 16. Current test layout
+
+```text
+blast-radius-api/src/test/java/com/madlanga/blastradius/
+├── ArchitectureBoundaryTest.java
+├── BlastRadiusApplicationTests.java
+├── diagnosis/
+│   ├── mapper/
+│   ├── provider/
+│   └── service/
+├── incident/
+│   ├── controller/
+│   └── service/
+├── lifecycle/
+│   └── service/
+├── shared/
+│   └── sanitization/
+├── telemetry/
+│   ├── model/
+│   └── provider/
+└── topology/
+    ├── model/
+    │   └── TopologyModelTest.java
+    └── service/
+        ├── BlastRadiusGraphServiceTest.java
+        ├── TopologyServiceTest.java
+        ├── TraceTopologyServiceLiveIT.java
+        └── TraceTopologyServiceTest.java
+```
+
+Current Maven validation: **189 tests, 0 failures, 0 errors, 0 skipped**.
+
+## 17. Main execution flow
+
+```text
+traffic-generator
    -> PaymentController -> PaymentService -> CustomerClient
    -> CustomerController -> CustomerService -> DocumentClient
    -> DocumentController -> DocumentService -> DocumentRepository -> postgres
 
-Java agents / service logs / actuator
-   -> OpenTelemetry Collector / Prometheus
-   -> Loki + Tempo + Prometheus + health endpoints
+runtime telemetry
+   -> OTel / Loki / Prometheus / Tempo / Actuator
    -> LocalTelemetryProvider
-   -> TelemetryProvider
    -> IncidentAnalysisService
 
-Tempo spans
-   -> TempoTraceAdapter / RuntimeSpanSource
-   -> TraceDiscoveredTopologyProvider
-   -> TopologyStore / RetainedTopologyProvider
+runtime spans
+   -> RuntimeSpanProvider
+   -> TraceTopologyService
+   -> TopologyService
+   -> TopologyRepository / FileTopologyRepository
    -> DependencyTopologyProvider
    -> IncidentAnalysisService
 
 IncidentAnalysisService
-   -> DeterministicGraphEngine
+   -> BlastRadiusGraphService
    -> IncidentSeverityService
    -> IncidentAnalysis
    -> IncidentLifecycleService
-   -> JdbcIncidentRepository -> blast-radius-db
-   -> IncidentHistoryController -> frontend/src/main.jsx
+   -> JdbcIncidentRepository
+   -> IncidentHistoryController
+   -> frontend
 
-Persisted/fresh IncidentAnalysis
+IncidentAnalysis / persisted incident
    -> DiagnosisRequestMapper
-   -> DiagnosisService -> DiagnosisProvider
+   -> DiagnosisService
    -> DeterministicDiagnosisProvider or GeminiDiagnosisProvider
 ```
 
-That flow is the architectural spine of the repository.
+That is the current architectural spine of the repository.
