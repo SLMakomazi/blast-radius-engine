@@ -12,6 +12,9 @@ services:
       BLAST_RADIUS_DB_URL: jdbc:postgresql://blast-radius-db:5432/${BLAST_RADIUS_DB_NAME:-blast_radius}
       BLAST_RADIUS_DB_USER: ${BLAST_RADIUS_DB_USER:-blast_radius}
       BLAST_RADIUS_DB_PASSWORD: ${BLAST_RADIUS_DB_PASSWORD:-blast-radius-local-only}
+      MONITORED_POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-synthetic_lab}?connectTimeout=2&socketTimeout=3
+      MONITORED_POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
+      MONITORED_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
