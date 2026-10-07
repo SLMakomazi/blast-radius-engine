@@ -1,21 +1,28 @@
 package com.madlanga.blastradius.diagnosis;
 
-import com.madlanga.blastradius.diagnosis.provider.DeterministicDiagnosisProvider;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
-import com.madlanga.blastradius.incident.domain.*;
 
+import com.madlanga.blastradius.diagnosis.provider.DeterministicDiagnosisProvider;
+import com.madlanga.blastradius.incident.domain.ComponentImpact;
+import com.madlanga.blastradius.incident.domain.ConfidenceLevel;
+import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
+import com.madlanga.blastradius.incident.domain.IncidentSeverity;
+import com.madlanga.blastradius.incident.domain.ObservedState;
+import com.madlanga.blastradius.incident.domain.OriginAssessment;
+import com.madlanga.blastradius.incident.domain.SeverityLevel;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
+import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 class AiDiagnosisServiceTest {
     @Test
     void returnsPrimaryAiDiagnosisWhenProviderSucceeds() {
         AiDiagnosisProvider primary = context -> new AiDiagnosis("gemini", "test", "summary", "cause",
                 List.of("now"), List.of("later"), List.of("strategy"), List.of());
-        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisProvider(), new DiagnosisContextMapper(tools.jackson.databind.json.JsonMapper.builder().build(), new com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer()));
+        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisProvider(), new DiagnosisContextMapper(JsonMapper.builder().build(), new TelemetrySanitizer()));
 
         assertThat(service.diagnose(analysis()).provider()).isEqualTo("gemini");
     }
@@ -23,7 +30,7 @@ class AiDiagnosisServiceTest {
     @Test
     void isolatesProviderFailureAndReturnsDeterministicFallback() {
         AiDiagnosisProvider primary = context -> { throw new IllegalStateException("provider down"); };
-        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisProvider(), new DiagnosisContextMapper(tools.jackson.databind.json.JsonMapper.builder().build(), new com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer()));
+        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisProvider(), new DiagnosisContextMapper(JsonMapper.builder().build(), new TelemetrySanitizer()));
 
         var result = service.diagnose(analysis());
 
