@@ -39,14 +39,14 @@ public class IncidentAnalysisService {
         theoretical.getImpacts().forEach(i -> theoreticalById.put(i.getComponent().getId(), i));
 
         List<ComponentImpact> impacts = new ArrayList<>();
-        impacts.add(new ComponentImpact(origin.component(), ObservedState.ORIGIN, 0,
+        impacts.add(new ComponentImpact(origin.component(), ComponentImpact.State.ORIGIN, 0,
                 List.of(origin.component()), origin.evidence()));
 
         for (TheoreticalImpact impact : theoretical.getImpacts()) {
             List<EvidenceSignal> componentSignals = signals.getOrDefault(impact.getComponent().getId(), List.of());
-            ObservedState state = componentSignals.isEmpty()
-                    ? (telemetry.isFullyCovered() ? ObservedState.THEORETICAL_ONLY : ObservedState.UNKNOWN)
-                    : ObservedState.OBSERVED;
+            ComponentImpact.State state = componentSignals.isEmpty()
+                    ? (telemetry.isFullyCovered() ? ComponentImpact.State.THEORETICAL_ONLY : ComponentImpact.State.UNKNOWN)
+                    : ComponentImpact.State.OBSERVED;
             impacts.add(new ComponentImpact(impact.getComponent().getId(), state, impact.getDistance(),
                     impact.getPath(), componentSignals));
         }
@@ -54,7 +54,7 @@ public class IncidentAnalysisService {
         signals.entrySet().stream()
                 .filter(e -> !e.getKey().equals(origin.component()) && !theoreticalById.containsKey(e.getKey()))
                 .sorted(Map.Entry.comparingByKey())
-                .forEach(e -> impacts.add(new ComponentImpact(e.getKey(), ObservedState.UNEXPECTED, null,
+                .forEach(e -> impacts.add(new ComponentImpact(e.getKey(), ComponentImpact.State.UNEXPECTED, null,
                         List.of(), e.getValue())));
 
         List<EvidenceSignal> timeline = signals.values().stream().flatMap(Collection::stream)
@@ -143,7 +143,7 @@ public class IncidentAnalysisService {
             String id=hint.trim();
             if (topology.getNode(id)==null) throw new IllegalArgumentException("originHint is not present in discovered topology: "+id);
             List<EvidenceSignal> evidence=signals.getOrDefault(id,List.of());
-            return new OriginAssessment(id, evidence.isEmpty()?ConfidenceLevel.LOW:ConfidenceLevel.HIGH, score(evidence), evidence);
+            return new OriginAssessment(id, evidence.isEmpty()?OriginAssessment.Confidence.LOW:OriginAssessment.Confidence.HIGH, score(evidence), evidence);
         }
         Set<String> candidates = new LinkedHashSet<>();
         signals.keySet().stream().filter(id -> topology.getNode(id) != null).forEach(candidates::add);
@@ -178,7 +178,7 @@ public class IncidentAnalysisService {
         };
         return score;
     }
-    private ConfidenceLevel confidence(int score) { return score>=80?ConfidenceLevel.HIGH:score>=40?ConfidenceLevel.MEDIUM:ConfidenceLevel.LOW; }
+    private OriginAssessment.Confidence confidence(int score) { return score>=80?OriginAssessment.Confidence.HIGH:score>=40?OriginAssessment.Confidence.MEDIUM:OriginAssessment.Confidence.LOW; }
     private Instant earliest(List<EvidenceSignal> evidence) { return evidence.stream().map(EvidenceSignal::timestamp).min(Instant::compareTo).orElse(Instant.MAX); }
     private void add(Map<String,List<EvidenceSignal>> map,String service,EvidenceSignal signal) { if(hasText(service)&&!"unknown".equalsIgnoreCase(service)) map.computeIfAbsent(service,k->new ArrayList<>()).add(signal); }
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
