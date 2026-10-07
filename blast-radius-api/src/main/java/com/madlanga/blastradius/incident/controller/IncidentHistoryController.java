@@ -27,17 +27,17 @@ public class IncidentHistoryController {
     private final IncidentRepository repository;
     private final JsonMapper jsonMapper;
     private final IncidentLifecycleService lifecycleService;
-    private final DiagnosisService aiDiagnosisService;
-    private final DiagnosisRequestMapper diagnosisContextMapper;
+    private final DiagnosisService diagnosisService;
+    private final DiagnosisRequestMapper diagnosisRequestMapper;
 
     public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
-            IncidentLifecycleService lifecycleService, DiagnosisService aiDiagnosisService,
-            DiagnosisRequestMapper diagnosisContextMapper) {
+            IncidentLifecycleService lifecycleService, DiagnosisService diagnosisService,
+            DiagnosisRequestMapper diagnosisRequestMapper) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
         this.lifecycleService = lifecycleService;
-        this.aiDiagnosisService = aiDiagnosisService;
-        this.diagnosisContextMapper = diagnosisContextMapper;
+        this.diagnosisService = diagnosisService;
+        this.diagnosisRequestMapper = diagnosisRequestMapper;
     }
 
     @Operation(summary = "List persisted blast radius incidents")
@@ -75,8 +75,8 @@ public class IncidentHistoryController {
             return ResponseEntity.status(404).body(new ErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
         }
         try {
-            DiagnosisRequest context = diagnosisContextMapper.fromStoredJson(incident.get().analysisSnapshot());
-            DiagnosisResponse diagnosis = aiDiagnosisService.diagnose(context);
+            DiagnosisRequest context = diagnosisRequestMapper.fromStoredJson(incident.get().analysisSnapshot());
+            DiagnosisResponse diagnosis = diagnosisService.diagnose(context);
             return ResponseEntity.ok(diagnosis);
         } catch (Exception e) {
             throw new IllegalStateException("stored incident snapshot cannot be diagnosed", e);
