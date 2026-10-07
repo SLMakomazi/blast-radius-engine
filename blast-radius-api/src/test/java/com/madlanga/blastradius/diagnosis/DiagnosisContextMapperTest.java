@@ -1,11 +1,21 @@
 package com.madlanga.blastradius.diagnosis;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
+import com.madlanga.blastradius.incident.domain.ComponentImpact;
+import com.madlanga.blastradius.incident.domain.ConfidenceLevel;
+import com.madlanga.blastradius.incident.domain.EvidenceSignal;
+import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
+import com.madlanga.blastradius.incident.domain.IncidentSeverity;
+import com.madlanga.blastradius.incident.domain.ObservedState;
+import com.madlanga.blastradius.incident.domain.OriginAssessment;
+import com.madlanga.blastradius.incident.domain.SeverityLevel;
+import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
-import com.madlanga.blastradius.incident.domain.*;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 class DiagnosisContextMapperTest {
     @Test
@@ -21,7 +31,7 @@ class DiagnosisContextMapperTest {
                 new IncidentSeverity(SeverityLevel.HIGH, 50, List.of("observed propagation")),
                 List.of());
 
-        var result = new DiagnosisContextMapper(tools.jackson.databind.json.JsonMapper.builder().build(), new com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer()).from(analysis);
+        var result = new DiagnosisContextMapper(JsonMapper.builder().build(), new TelemetrySanitizer()).from(analysis);
 
         assertThat(result.origin().component()).isEqualTo("postgres");
         assertThat(result.severity().score()).isEqualTo(50);
