@@ -2,7 +2,6 @@ package com.madlanga.blastradius.diagnosis.domain;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 public record DiagnosisContext(
         String applicationId,
