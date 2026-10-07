@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.madlanga.blastradius.topology.model.DependencyTopology;
 import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
-import com.madlanga.blastradius.topology.model.DeterministicGraphEngine;
+import com.madlanga.blastradius.topology.service.BlastRadiusGraphService;
 import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
@@ -40,7 +40,7 @@ class TraceTopologyServiceLiveIT {
                         "customer-service->document-service",
                         "document-service->postgres");
 
-        assertThat(new DeterministicGraphEngine().calculate(topology, "postgres").getImpacts())
+        assertThat(new BlastRadiusGraphService().calculate(topology, "postgres").getImpacts())
                 .extracting(i -> i.getComponent().getId())
                 .containsSubsequence("document-service", "customer-service", "payment-service");
     }
