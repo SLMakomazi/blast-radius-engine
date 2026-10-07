@@ -13,7 +13,7 @@ import com.madlanga.blastradius.incident.model.ComponentImpact.State;
 import com.madlanga.blastradius.incident.model.OriginAssessment;
 import com.madlanga.blastradius.incident.model.IncidentSeverity.Level;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
-import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
+import com.madlanga.blastradius.telemetry.model.TelemetryCoverage;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
