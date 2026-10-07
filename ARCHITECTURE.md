@@ -102,7 +102,7 @@ The diagnosis capability is packaged by feature. Its core types live directly un
 
 **Infrastructure**
 - `LocalTelemetryProvider.java` — composes the local Loki, Prometheus, Tempo and Actuator adapters into the provider-neutral `TelemetryBundle`.
-- `config/TelemetryAdapterConfig.java` — Spring wiring for telemetry adapters.
+- `config/TelemetryConfig.java` — Spring wiring for telemetry adapters.
 - `health/ActuatorHealthAdapter.java` — queries service health endpoints and converts responses to `HealthEvidence`.
 - `health/ActuatorHealthProperties.java` — configured health endpoints/component mapping.
 - `health/ActuatorHealthResponse.java` — infrastructure DTO for Actuator responses.
@@ -161,14 +161,14 @@ The diagnosis capability is packaged by feature. Its core types live directly un
 - `incident/model/IncidentSeverityServiceTest.java` — verifies deterministic severity rules.
 - `lifecycle/application/IncidentLifecycleServiceTest.java` — verifies ACTIVE reuse and recovery transitions.
 - `shared/sanitization/TelemetrySanitizerTest.java` — verifies sensitive telemetry is redacted.
-- `telemetry/domain/EvidenceProvenanceTest.java`, `HealthEvidenceTest.java`, `LogEvidenceTest.java`, `MetricEvidenceTest.java`, `SpanEvidenceTest.java`, `TelemetryBundleTest.java`, `TelemetryQueryTest.java` — verify provider-neutral evidence validation and behavior.
-- `telemetry/infrastructure/LocalTelemetryProviderTest.java` — verifies composition of local telemetry families.
-- `telemetry/infrastructure/LocalTelemetryProviderLiveIT.java` — integration check against live local observability backends.
-- `telemetry/infrastructure/health/ActuatorHealthAdapterTest.java` — verifies health normalization.
-- `telemetry/infrastructure/loki/LokiLogAdapterTest.java` — verifies Loki parsing/query behavior.
-- `telemetry/infrastructure/prometheus/PrometheusMetricsAdapterTest.java` — verifies metric query/normalization.
-- `telemetry/infrastructure/tempo/CapturedTempoRegressionTest.java` — regression test using captured Tempo payloads.
-- `telemetry/infrastructure/tempo/TempoTraceAdapterTest.java` — verifies Tempo search/trace normalization.
+- `telemetry/model/EvidenceProvenanceTest.java`, `HealthEvidenceTest.java`, `LogEvidenceTest.java`, `MetricEvidenceTest.java`, `SpanEvidenceTest.java`, `TelemetryBundleTest.java`, `TelemetryQueryTest.java` — verify provider-neutral evidence validation and behavior.
+- `telemetry/provider/LocalTelemetryProviderTest.java` — verifies composition of local telemetry families.
+- `telemetry/provider/LocalTelemetryProviderLiveIT.java` — integration check against live local observability backends.
+- `telemetry/provider/health/ActuatorHealthAdapterTest.java` — verifies health normalization.
+- `telemetry/provider/loki/LokiLogAdapterTest.java` — verifies Loki parsing/query behavior.
+- `telemetry/provider/prometheus/PrometheusMetricsAdapterTest.java` — verifies metric query/normalization.
+- `telemetry/provider/tempo/CapturedTempoRegressionTest.java` — regression test using captured Tempo payloads.
+- `telemetry/provider/tempo/TempoTraceAdapterTest.java` — verifies Tempo search/trace normalization.
 - `topology/domain/DeterministicGraphEngineTest.java` — verifies deterministic graph traversal.
 - `topology/domain/TopologyDomainTest.java` — verifies topology invariants.
 - `topology/infrastructure/RetainedTopologyProviderTest.java` — verifies retained topology behavior.
