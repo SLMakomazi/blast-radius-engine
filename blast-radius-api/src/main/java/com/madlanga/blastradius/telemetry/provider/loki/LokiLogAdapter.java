@@ -1,8 +1,12 @@
 package com.madlanga.blastradius.telemetry.provider.loki;
 
 import com.madlanga.blastradius.telemetry.config.TelemetryConfig.LokiProperties;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -341,4 +345,81 @@ public class LokiLogAdapter {
         public CoverageStatus getCoverage() { return coverage; }
         public List<String> getWarnings() { return warnings; }
     }
+
+    // Loki response DTOs ------------------------------------------------------
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class LokiResponse {
+    
+        @JsonProperty("status")
+        String status;
+    
+        @JsonProperty("data")
+        Data data;
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Data {
+            @JsonProperty("resultType")
+            String resultType;
+    
+            @JsonProperty("result")
+            List<Stream> result = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Stream {
+            /** Loki stream labels, e.g. {"service_name":"document-service","deployment_environment_name":"local"}. */
+            @JsonProperty("stream")
+            Map<String, String> stream = Collections.emptyMap();
+    
+            /**
+             * Array of [nanosecond-unix-timestamp-string, log-line-string] pairs.
+             */
+            @JsonProperty("values")
+            List<List<String>> values = Collections.emptyList();
+        }
+    }
+    
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class LokiLogLine {
+    
+        /** Severity/level as emitted by the agent, e.g. "INFO", "ERROR", "WARN". */
+        @JsonProperty("severityText")
+        String severityText;
+    
+        /** The log message body. */
+        @JsonProperty("body")
+        String body;
+    
+        /** W3C trace ID if the log was emitted within a trace context. */
+        @JsonProperty("traceId")
+        String traceId;
+    
+        /** W3C span ID if the log was emitted within a span context. */
+        @JsonProperty("spanId")
+        String spanId;
+    
+        /** Business correlation ID (renamed from correlationId by the Collector transform). */
+        @JsonProperty("correlation_id")
+        String correlationId;
+    
+        /**
+         * Catch-all for any remaining structured fields not explicitly mapped above.
+         * These are treated as additional attributes and sanitized before use.
+         */
+        private final Map<String, String> extraAttributes = new LinkedHashMap<>();
+    
+        @JsonAnySetter
+        void setExtraAttribute(String key, Object value) {
+            if (value != null) {
+                extraAttributes.put(key, value.toString());
+            }
+        }
+    
+        Map<String, String> getExtraAttributes() {
+            return extraAttributes;
+        }
+    }
+    
 }
