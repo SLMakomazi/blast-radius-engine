@@ -7,6 +7,7 @@ import com.madlanga.blastradius.diagnosis.config.GeminiProperties;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -80,31 +81,52 @@ public final class GeminiDiagnosisProvider implements DiagnosisProvider {
                             "responseMimeType", "application/json"));
             String requestBody = jsonMapper.writeValueAsString(body);
 
-            IllegalStateException lastTransientFailure = null;
+            IllegalStateException lastModelFailure = null;
             for (String model : configuredModels()) {
-                HttpResponse<String> response = send(request(model, requestBody));
-                if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                    return parseDiagnosis(response.body(), model);
-                }
+                try {
+                    HttpResponse<String> response = send(request(model, requestBody));
+                    if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                        return parseDiagnosis(response.body(), model);
+                    }
 
-                if (!RETRYABLE_STATUS_CODES.contains(response.statusCode())) {
-                    throw requestFailure(response, model);
-                }
+                    if (response.statusCode() == 404) {
+                        // A model can be unavailable, retired, or mistyped while another configured model is healthy.
+                        lastModelFailure = requestFailure(response, model);
+                        continue;
+                    }
 
-                // One bounded retry of the current model before moving to the next configured model.
-                response = send(request(model, requestBody));
-                if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                    return parseDiagnosis(response.body(), model);
-                }
-                if (!RETRYABLE_STATUS_CODES.contains(response.statusCode())) {
+                    if (!RETRYABLE_STATUS_CODES.contains(response.statusCode())) {
+                        // Authentication, authorization, and malformed-request failures apply to the provider/request,
+                        // so trying another model would only hide the real configuration problem.
+                        throw requestFailure(response, model);
+                    }
+
+                    // One bounded retry of the current model before moving to the next configured model.
+                    response = send(request(model, requestBody));
+                    if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                        return parseDiagnosis(response.body(), model);
+                    }
+                    if (response.statusCode() == 404 || RETRYABLE_STATUS_CODES.contains(response.statusCode())) {
+                        lastModelFailure = requestFailure(response, model);
+                        continue;
+                    }
                     throw requestFailure(response, model);
+                } catch (HttpTimeoutException e) {
+                    // A slow/unresponsive model must not prevent a configured fallback model from being attempted.
+                    lastModelFailure = new IllegalStateException(
+                            "Gemini request timed out for model " + model,
+                            e);
+                } catch (IOException e) {
+                    // Transport failures may be model/request-path specific; allow the next configured model a chance.
+                    lastModelFailure = new IllegalStateException(
+                            "Gemini request failed for model " + model,
+                            e);
                 }
-                lastTransientFailure = requestFailure(response, model);
             }
 
             throw new IllegalStateException(
                     "All configured Gemini models were unavailable",
-                    lastTransientFailure);
+                    lastModelFailure);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Gemini diagnosis was interrupted", e);
