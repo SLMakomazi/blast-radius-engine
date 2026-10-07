@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.diagnosis.service;
 
-import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
+import com.madlanga.blastradius.incident.model.IncidentAnalysis;
 import java.util.ArrayList;
 
 public final class DiagnosisService {
