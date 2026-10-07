@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.diagnosis.mapper;
 
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
+
 import com.madlanga.blastradius.incident.model.EvidenceSignal;
 import com.madlanga.blastradius.incident.model.IncidentAnalysis;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
