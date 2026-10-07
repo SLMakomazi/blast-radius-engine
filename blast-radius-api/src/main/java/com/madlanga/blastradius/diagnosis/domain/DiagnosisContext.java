@@ -14,7 +14,6 @@ public record DiagnosisContext(
         Severity severity,
         List<Impact> impacts,
         List<Evidence> timeline,
-        Experiment experiment,
         List<String> warnings) {
 
     public DiagnosisContext {
@@ -35,21 +34,4 @@ public record DiagnosisContext(
         }
     }
     public record Evidence(Instant timestamp, String component, String family, String signal, String evidenceId) {}
-    public record Experiment(
-            String experimentId,
-            String containment,
-            List<String> expectedImpact,
-            List<String> observedExpectedImpact,
-            List<String> expectedButUnobserved,
-            List<String> unexpectedImpact) {
-        public Experiment {
-            expectedImpact = copy(expectedImpact);
-            observedExpectedImpact = copy(observedExpectedImpact);
-            expectedButUnobserved = copy(expectedButUnobserved);
-            unexpectedImpact = copy(unexpectedImpact);
-        }
-        private static List<String> copy(List<String> values) {
-            return values == null ? List.of() : List.copyOf(values);
-        }
-    }
 }
