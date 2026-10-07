@@ -1,10 +1,11 @@
-package com.madlanga.blastradius.diagnosis.infrastructure;
+package com.madlanga.blastradius.diagnosis.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
-import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.AiDiagnosis;
+import com.madlanga.blastradius.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.GeminiProperties;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -17,7 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
-class GeminiDiagnosisAdapterTest {
+class GeminiDiagnosisProviderTest {
     private HttpServer server;
 
     @AfterEach
@@ -76,7 +77,7 @@ class GeminiDiagnosisAdapterTest {
     @Test
     void missingApiKeyFailsBeforeProviderCall() {
         GeminiProperties properties = new GeminiProperties(true, "", "gemini-test", List.of(), "http://127.0.0.1:1", 1);
-        GeminiDiagnosisAdapter adapter = new GeminiDiagnosisAdapter(properties, JsonMapper.builder().build());
+        GeminiDiagnosisProvider adapter = new GeminiDiagnosisProvider(properties, JsonMapper.builder().build());
 
         IllegalStateException error = assertThrows(
                 IllegalStateException.class,
@@ -85,10 +86,10 @@ class GeminiDiagnosisAdapterTest {
         assertEquals("Gemini API key is not configured", error.getMessage());
     }
 
-    private GeminiDiagnosisAdapter adapter(String apiKey) {
+    private GeminiDiagnosisProvider adapter(String apiKey) {
         GeminiProperties properties = new GeminiProperties(
                 true, apiKey, "gemini-test", List.of(), "http://127.0.0.1:" + server.getAddress().getPort(), 2);
-        return new GeminiDiagnosisAdapter(properties, JsonMapper.builder().build());
+        return new GeminiDiagnosisProvider(properties, JsonMapper.builder().build());
     }
 
     private AtomicInteger startServer(int firstStatus, int laterStatus, String successBody) throws IOException {
