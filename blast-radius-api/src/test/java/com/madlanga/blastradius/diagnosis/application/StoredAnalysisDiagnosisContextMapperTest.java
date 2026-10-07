@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.diagnosis.application;
+package com.madlanga.blastradius.diagnosis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,14 +6,14 @@ import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
-class StoredAnalysisDiagnosisContextMapperTest {
+class DiagnosisContextMapperStoredJsonTest {
 
-    private final StoredAnalysisDiagnosisContextMapper mapper =
-            new StoredAnalysisDiagnosisContextMapper(JsonMapper.builder().build(), new TelemetrySanitizer());
+    private final DiagnosisContextMapper mapper =
+            new DiagnosisContextMapper(JsonMapper.builder().build(), new TelemetrySanitizer());
 
     @Test
     void mapsPersistedSnapshotDirectlyWithoutReconstructingDomainObjects() {
-        var context = mapper.fromJson(snapshot(
+        var context = mapper.fromStoredJson(snapshot(
                 "database connection failed",
                 "live health snapshots outside incident window excluded"));
 
@@ -31,7 +31,7 @@ class StoredAnalysisDiagnosisContextMapperTest {
 
     @Test
     void sanitizesFreeTextAgainBeforeItCanReachAiProvider() {
-        var context = mapper.fromJson(snapshot(
+        var context = mapper.fromStoredJson(snapshot(
                 "database failed Authorization: Bearer super-secret-token",
                 "operator note Authorization: Bearer another-secret"));
 
