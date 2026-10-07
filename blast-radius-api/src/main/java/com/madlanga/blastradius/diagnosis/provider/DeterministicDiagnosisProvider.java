@@ -1,19 +1,19 @@
 package com.madlanga.blastradius.diagnosis.provider;
 
-import com.madlanga.blastradius.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.diagnosis.AiDiagnosisProvider;
-import com.madlanga.blastradius.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisResponse;
+import com.madlanga.blastradius.diagnosis.provider.DiagnosisProvider;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
 import java.util.List;
 
-public final class DeterministicDiagnosisProvider implements AiDiagnosisProvider {
+public final class DeterministicDiagnosisProvider implements DiagnosisProvider {
     @Override
-    public AiDiagnosis diagnose(DiagnosisContext context) {
+    public DiagnosisResponse diagnose(DiagnosisRequest context) {
         String origin = context.origin().component();
         long observed = context.impacts().stream()
                 .filter(impact -> "OBSERVED".equals(impact.state()) || "UNEXPECTED".equals(impact.state()))
                 .count();
 
-        return new AiDiagnosis(
+        return new DiagnosisResponse(
                 "deterministic",
                 "fallback-v1",
                 "Deterministic analysis identified " + origin + " as the incident origin with "
