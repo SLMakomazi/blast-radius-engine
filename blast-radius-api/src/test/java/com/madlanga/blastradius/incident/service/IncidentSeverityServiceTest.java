@@ -1,7 +1,10 @@
-package com.madlanga.blastradius.incident.model;
+package com.madlanga.blastradius.incident.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import com.madlanga.blastradius.incident.model.*;
+import com.madlanga.blastradius.incident.model.ComponentImpact;
+import com.madlanga.blastradius.incident.model.EvidenceSignal;
+import com.madlanga.blastradius.incident.model.IncidentSeverity;
+import com.madlanga.blastradius.incident.model.OriginAssessment;
 import com.madlanga.blastradius.topology.domain.*;
 import java.time.Instant;
 import java.util.List;
