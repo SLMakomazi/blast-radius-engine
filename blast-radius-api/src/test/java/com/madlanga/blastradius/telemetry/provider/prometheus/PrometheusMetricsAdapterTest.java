@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.telemetry.provider.prometheus;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig;
+
 import com.madlanga.blastradius.telemetry.model.CoverageStatus;
 import com.madlanga.blastradius.telemetry.model.MetricEvidence;
 import com.madlanga.blastradius.telemetry.model.TelemetryQuery;
@@ -42,7 +44,7 @@ class PrometheusMetricsAdapterTest {
 
     @BeforeEach
     void setUp() {
-        PrometheusProperties props = new PrometheusProperties();
+        TelemetryConfig.PrometheusProperties props = new TelemetryConfig.PrometheusProperties();
         // Use a single metric selector for deterministic testing
         props.setMetricSelectors(List.of("http_server_requests_seconds_count"));
 
@@ -69,7 +71,7 @@ class PrometheusMetricsAdapterTest {
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doThrow(new ResourceAccessException("Connection refused"))
-                .when(responseSpec).body(PrometheusResponse.class);
+                .when(responseSpec).body(PrometheusMetricsAdapter.PrometheusResponse.class);
 
         PrometheusMetricsAdapter.MetricAdapterResult result = adapter.fetchMetrics(query());
 
@@ -80,11 +82,11 @@ class PrometheusMetricsAdapterTest {
 
     @Test
     void mapsMatrixSeriesesToNormalizedMetricEvidence() {
-        PrometheusResponse response = new PrometheusResponse();
+        PrometheusMetricsAdapter.PrometheusResponse response = new PrometheusMetricsAdapter.PrometheusResponse();
         response.status = "success";
-        response.data = new PrometheusResponse.Data();
+        response.data = new PrometheusMetricsAdapter.PrometheusResponse.Data();
 
-        PrometheusResponse.Series series = new PrometheusResponse.Series();
+        PrometheusMetricsAdapter.PrometheusResponse.Series series = new PrometheusMetricsAdapter.PrometheusResponse.Series();
         series.metric = Map.of(
                 "service", "document-service",
                 "status", "503",
@@ -98,7 +100,7 @@ class PrometheusMetricsAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(PrometheusResponse.class);
+        doReturn(response).when(responseSpec).body(PrometheusMetricsAdapter.PrometheusResponse.class);
 
         PrometheusMetricsAdapter.MetricAdapterResult result = adapter.fetchMetrics(query());
 
@@ -116,10 +118,10 @@ class PrometheusMetricsAdapterTest {
 
     @Test
     void preservesTimestampFromPrometheusPoint() {
-        PrometheusResponse response = new PrometheusResponse();
+        PrometheusMetricsAdapter.PrometheusResponse response = new PrometheusMetricsAdapter.PrometheusResponse();
         response.status = "success";
-        response.data = new PrometheusResponse.Data();
-        PrometheusResponse.Series series = new PrometheusResponse.Series();
+        response.data = new PrometheusMetricsAdapter.PrometheusResponse.Data();
+        PrometheusMetricsAdapter.PrometheusResponse.Series series = new PrometheusMetricsAdapter.PrometheusResponse.Series();
         series.metric = Map.of("service", "payment-service");
         // Unix epoch seconds for 2026-10-01T10:31:02Z = 1727776262
         series.values = List.of(List.of(1727776262.0, "170"));
@@ -128,7 +130,7 @@ class PrometheusMetricsAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(PrometheusResponse.class);
+        doReturn(response).when(responseSpec).body(PrometheusMetricsAdapter.PrometheusResponse.class);
 
         PrometheusMetricsAdapter.MetricAdapterResult result = adapter.fetchMetrics(query());
 
@@ -139,15 +141,15 @@ class PrometheusMetricsAdapterTest {
 
     @Test
     void returnsUnavailableWhenSeriesIsEmpty() {
-        PrometheusResponse response = new PrometheusResponse();
+        PrometheusMetricsAdapter.PrometheusResponse response = new PrometheusMetricsAdapter.PrometheusResponse();
         response.status = "success";
-        response.data = new PrometheusResponse.Data();
+        response.data = new PrometheusMetricsAdapter.PrometheusResponse.Data();
         response.data.result = List.of();
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(PrometheusResponse.class);
+        doReturn(response).when(responseSpec).body(PrometheusMetricsAdapter.PrometheusResponse.class);
 
         PrometheusMetricsAdapter.MetricAdapterResult result = adapter.fetchMetrics(query());
 
@@ -156,10 +158,10 @@ class PrometheusMetricsAdapterTest {
 
     @Test
     void sanitizesMetricLabelsThroughSanitizer() {
-        PrometheusResponse response = new PrometheusResponse();
+        PrometheusMetricsAdapter.PrometheusResponse response = new PrometheusMetricsAdapter.PrometheusResponse();
         response.status = "success";
-        response.data = new PrometheusResponse.Data();
-        PrometheusResponse.Series series = new PrometheusResponse.Series();
+        response.data = new PrometheusMetricsAdapter.PrometheusResponse.Data();
+        PrometheusMetricsAdapter.PrometheusResponse.Series series = new PrometheusMetricsAdapter.PrometheusResponse.Series();
         // In a real scenario labels don't contain passwords, but the adapter sanitizes defensively
         series.metric = Map.of("service", "document-service", "password", "synthetic-pass");
         series.values = List.of(List.of(1727776262.0, "5"));
@@ -168,7 +170,7 @@ class PrometheusMetricsAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(PrometheusResponse.class);
+        doReturn(response).when(responseSpec).body(PrometheusMetricsAdapter.PrometheusResponse.class);
 
         PrometheusMetricsAdapter.MetricAdapterResult result = adapter.fetchMetrics(query());
 
