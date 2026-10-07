@@ -1,13 +1,13 @@
 package com.madlanga.blastradius.lifecycle.application;
 
-import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.madlanga.blastradius.incident.domain.*;
-import com.madlanga.blastradius.incident.application.port.IncidentRepository;
+import com.madlanga.blastradius.incident.model.*;
+import com.madlanga.blastradius.incident.repository.IncidentRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +38,7 @@ class IncidentLifecycleServiceTest {
 
         PersistedIncident saved = service.persistLifecycle(analysis).orElseThrow();
 
-        assertThat(saved.status()).isEqualTo(IncidentStatus.ACTIVE);
+        assertThat(saved.status()).isEqualTo(PersistedIncident.Status.ACTIVE);
         assertThat(saved.originComponent()).isEqualTo("postgres");
         assertThat(saved.resolvedAt()).isNull();
         assertThat(saved.analysisSnapshot()).contains("document-platform");
@@ -76,19 +76,19 @@ class IncidentLifecycleServiceTest {
         PersistedIncident saved = service.resolve(active.id(), resolvedAt).orElseThrow();
 
         assertThat(saved.id()).isEqualTo(active.id());
-        assertThat(saved.status()).isEqualTo(IncidentStatus.RESOLVED);
+        assertThat(saved.status()).isEqualTo(PersistedIncident.Status.RESOLVED);
         assertThat(saved.startedAt()).isEqualTo(active.startedAt());
         assertThat(saved.resolvedAt()).isEqualTo(resolvedAt);
-        assertThat(saved.severityLevel()).isEqualTo(SeverityLevel.HIGH);
+        assertThat(saved.severityLevel()).isEqualTo(IncidentSeverity.Level.HIGH);
         assertThat(saved.severityScore()).isEqualTo(50);
         assertThat(saved.analysisSnapshot()).isEqualTo(active.analysisSnapshot());
     }
 
     private PersistedIncident activeIncident() {
         return new PersistedIncident(
-                java.util.UUID.randomUUID(), "document-platform", "local", IncidentStatus.ACTIVE,
-                Instant.parse("2026-10-03T05:20:12Z"), null, "postgres", ConfidenceLevel.HIGH,
-                SeverityLevel.HIGH, 50, Instant.parse("2026-10-03T05:20:00Z"),
+                java.util.UUID.randomUUID(), "document-platform", "local", PersistedIncident.Status.ACTIVE,
+                Instant.parse("2026-10-03T05:20:12Z"), null, "postgres", OriginAssessment.Confidence.HIGH,
+                IncidentSeverity.Level.HIGH, 50, Instant.parse("2026-10-03T05:20:00Z"),
                 Instant.parse("2026-10-03T05:21:00Z"), "{\"peak\":true}",
                 Instant.parse("2026-10-03T05:20:12Z"), Instant.parse("2026-10-03T05:21:00Z"));
     }
@@ -100,11 +100,11 @@ class IncidentLifecycleServiceTest {
                 Instant.parse("2026-10-03T05:20:12Z"), "postgres", "TRACE", "dependency error", "span-1");
         List<EvidenceSignal> evidence = failure ? List.of(signal) : List.of();
         OriginAssessment origin = new OriginAssessment("postgres",
-                failure ? ConfidenceLevel.HIGH : ConfidenceLevel.LOW, failure ? 80 : 0, evidence);
-        IncidentSeverity severity = new IncidentSeverity(failure ? SeverityLevel.HIGH : SeverityLevel.LOW,
+                failure ? OriginAssessment.Confidence.HIGH : OriginAssessment.Confidence.LOW, failure ? 80 : 0, evidence);
+        IncidentSeverity severity = new IncidentSeverity(failure ? IncidentSeverity.Level.HIGH : IncidentSeverity.Level.LOW,
                 failure ? 50 : 0, List.of());
         List<ComponentImpact> impacts = List.of(new ComponentImpact(
-                "postgres", ObservedState.ORIGIN, 0, List.of("postgres"), evidence));
+                "postgres", ComponentImpact.State.ORIGIN, 0, List.of("postgres"), evidence));
         return new IncidentAnalysis("document-platform", "local", from, to, origin, null,
                 impacts, evidence, severity, List.of());
     }
