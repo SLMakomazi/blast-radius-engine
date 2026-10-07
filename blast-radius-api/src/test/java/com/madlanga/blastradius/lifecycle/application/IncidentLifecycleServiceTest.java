@@ -106,6 +106,6 @@ class IncidentLifecycleServiceTest {
         List<ComponentImpact> impacts = List.of(new ComponentImpact(
                 "postgres", ObservedState.ORIGIN, 0, List.of("postgres"), evidence));
         return new IncidentAnalysis("document-platform", "local", from, to, origin, null,
-                impacts, evidence, severity, null, List.of());
+                impacts, evidence, severity, List.of());
     }
 }
