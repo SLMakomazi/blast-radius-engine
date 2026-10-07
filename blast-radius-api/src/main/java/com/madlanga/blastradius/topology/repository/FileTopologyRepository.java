@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.topology.repository;
 
-import com.madlanga.blastradius.topology.domain.RetainedTopology;
+import com.madlanga.blastradius.topology.model.RetainedTopology;
 import com.madlanga.blastradius.topology.repository.TopologyRepository;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
