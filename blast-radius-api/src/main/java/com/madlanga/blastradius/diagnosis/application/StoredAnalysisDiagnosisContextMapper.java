@@ -49,7 +49,6 @@ public final class StoredAnalysisDiagnosisContextMapper {
                             strings(severity.get("reasons"), true)),
                     impacts(root.get("impacts")),
                     evidenceList(root.get("timeline")),
-                    experiment(root.get("experimentAssessment")),
                     strings(root.get("warnings"), true));
         } catch (RuntimeException e) {
             throw e;
@@ -80,17 +79,6 @@ public final class StoredAnalysisDiagnosisContextMapper {
                 sanitize(text(item, "signal")),
                 text(item, "evidenceId"))));
         return List.copyOf(result);
-    }
-
-    private DiagnosisContext.Experiment experiment(JsonNode node) {
-        if (node == null || node.isNull()) return null;
-        return new DiagnosisContext.Experiment(
-                text(node, "experimentId"),
-                text(node, "containment"),
-                strings(node.get("expectedImpact"), false),
-                strings(node.get("observedExpectedImpact"), false),
-                strings(node.get("expectedButUnobserved"), false),
-                strings(node.get("unexpectedImpact"), false));
     }
 
     private List<String> strings(JsonNode node, boolean sanitize) {
