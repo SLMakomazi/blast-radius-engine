@@ -51,45 +51,14 @@ function incidentScenario(incident) {
   return null;
 }
 
-function incidentStage(incident) {
-  const signals = incidentSignals(incident);
-
-  // Explicit Stage 2 evidence identifies degraded-but-running scenarios,
-  // including synthetic DB connectivity failures.
-  if (signals.some(signal => signal.includes("stage2"))) return "STAGE_2";
-
-  // Hard outages can also produce secondary timeout/5xx symptoms.
-  // Those downstream symptoms must not reclassify an availability failure.
-  const hardFailure = signals.some(signal =>
-    signal.includes("liveness health down")
-    || signal.includes("liveness health out_of_service")
-    || signal.includes("liveness unreachable")
-    || signal.includes("dependency error observed by")
-    || signal.includes("dependency error inferred from topology")
-  );
-
-  if (hardFailure) return "STAGE_1";
-
-  // Remaining degradation evidence belongs to Stage 2.
-  return signals.some(signal =>
-    signal.includes("http mean latency")
-    || signal.includes("5xx counter")
-    || signal.includes("timeout counter")
-    || signal.includes("process cpu")
-    || signal.includes("connection-pool contention")
-  ) ? "STAGE_2" : "STAGE_1";
-}
-
 function App() {
   const [search, setSearch] = useState("");
   const [evidenceSearch, setEvidenceSearch] = useState("");
   const [status, setStatus] = useState("ACTIVE");
-  const [stage, setStage] = useState("STAGE_1");
   const [incidents, setIncidents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [diagnoses, setDiagnoses] = useState({});
   const selectedIdRef = useRef(null);
-  const stageRef = useRef(stage);
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState("");
@@ -107,10 +76,8 @@ function App() {
       setIncidents(data);
       setLastUpdated(new Date());
 
-      const currentStage = stageRef.current;
-      const stageData = data.filter(i => incidentStage(i) === currentStage);
       const currentSelectedId = selectedIdRef.current;
-      const nextSelectedId = chooseSelectedIncidentId(stageData, currentSelectedId);
+      const nextSelectedId = chooseSelectedIncidentId(data, currentSelectedId);
 
       if (!nextSelectedId) {
         selectedIdRef.current = null;
@@ -159,9 +126,6 @@ function App() {
     selectedIdRef.current = selected?.id ?? null;
   }, [selected?.id]);
 
-  useEffect(() => {
-    stageRef.current = stage;
-  }, [stage]);
 
   useEffect(() => {
     void loadIncidents(status);
@@ -169,7 +133,7 @@ function App() {
       void loadIncidents(status);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [status, stage]);
+  }, [status]);
 
   const analysis = analysisOf(selected);
   const diagnosis = selected ? diagnoses[selected.id] ?? null : null;
@@ -189,12 +153,7 @@ function App() {
     && `${e.component} ${e.signal} ${e.family}`.toLowerCase().includes(evidenceSearch.trim().toLowerCase())
   );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
-  const stageMetaById = {
-    STAGE_1: { label: "Stage 1", title: "Failure Analysis", description: "Hard failures and outages: stopped services, database outages and dependency propagation." },
-    STAGE_2: { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." },
-  };
-  const stageMeta = stageMetaById[stage] || stageMetaById.STAGE_1;
-  const visibleIncidents = incidents.filter(i => incidentStage(i) === stage && matchesIncident(i, search));
+  const visibleIncidents = incidents.filter(i => matchesIncident(i, search));
   const inspectEvidence = (component = null, family = "ALL") => {
     setEvidenceComponent(component); setEvidenceFamily(family); setEvidenceSearch("");
     document.getElementById("evidence-explorer")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -204,10 +163,7 @@ function App() {
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>MadlangaAI</strong><span>Blast Radius</span></div></div>
       <nav>
-        <div className="nav-label nav-label-first">FAILURE STAGES</div>
-        <button className={stage==="STAGE_1"?"nav-active":""} onClick={()=>setStage("STAGE_1")}><AlertTriangle size={18}/><span><strong>Stage 1</strong><small>Hard failures</small></span></button>
-        <button className={stage==="STAGE_2"?"nav-active":""} onClick={()=>setStage("STAGE_2")}><Activity size={18}/><span><strong>Stage 2</strong><small>Degradation</small></span></button>
-        <div className="nav-label">ENGINE</div>
+        <div className="nav-label nav-label-first">ENGINE</div>
         <button onClick={() => document.getElementById("service-map")?.scrollIntoView({ behavior: "smooth" })} disabled={!selected}><GitBranch size={18}/> Service map</button>
         <button onClick={() => document.getElementById("ai-diagnosis")?.scrollIntoView({ behavior: "smooth" })} disabled={!selected}><Bot size={18}/> AI diagnosis</button>
       </nav>
@@ -216,17 +172,11 @@ function App() {
 
     <main>
       <header>
-        <div><span className="eyebrow">MADLANGAAI / {stageMeta.label.toUpperCase()}</span><h1>{stageMeta.title}</h1><p>{stageMeta.description}</p></div>
+        <div><span className="eyebrow">MADLANGAAI</span><h1>Blast Radius Analysis</h1><p>Understand the likely origin, observed impact, potential impact and supporting telemetry.</p></div>
         <div className="live-status"><span className={error ? "live-dot stale" : "live-dot"}></span><span>{error ? "Updates interrupted" : "Polling every 5s"}{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
       </header>
 
       {error && <div className="error"><AlertTriangle size={18}/>{error}</div>}
-
-      <section className="stage-banner panel">
-        <div><span className="stage-number">{stageMeta.label}</span><strong>{stageMeta.title}</strong><p>{stageMeta.description}</p></div>
-        {stage === "STAGE_2" && <div className="scenario-chips"><span>HTTP 500</span><span>Intermittent 500</span><span>Latency</span><span>DB connectivity</span><span>CPU / pool pressure</span></div>}
-        {stage === "STAGE_1" && <div className="scenario-chips"><span>PostgreSQL outage</span><span>Document outage</span><span>Customer outage</span><span>Payment outage</span></div>}
-      </section>
 
       <section className="workspace">
         <div className="incident-column panel">
@@ -236,7 +186,7 @@ function App() {
           <label className="visual-search incident-search"><Search size={16}/><input aria-label="Search incidents" placeholder="Search service, symptom, ID…" value={search} onChange={e => setSearch(e.target.value)}/></label>
           <div className="incident-list">
             {loading && !incidents.length && <div className="empty">Loading incidents…</div>}
-            {!loading && !visibleIncidents.length && <div className="empty">{search ? "No incidents match your search." : `No ${status.toLowerCase()} ${stageMeta.label.toLowerCase()} incidents.`}</div>}
+            {!loading && !visibleIncidents.length && <div className="empty">{search ? "No incidents match your search." : `No ${status.toLowerCase()} incidents.`}</div>}
             {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>{selectedIdRef.current=i.id;void loadIncident(i.id)}}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
@@ -250,7 +200,7 @@ function App() {
         <div className="detail-column">
           {!selected ? <div className="panel empty large">Select an incident to inspect its deterministic evidence.</div> : <>
             <section className="incident-title panel">
-              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)} · {incidentStage(selected).replace("_"," ")}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{incidentScenario(selected) || "Availability failure"} · {selected.applicationId} / {selected.environment}</p></div>
+              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{incidentScenario(selected) || "Incident"} · {selected.applicationId} / {selected.environment}</p></div>
               <div className="incident-badges"><span className={"severity "+statusClass(selected.severityLevel)}>{selected.severityLevel} · {selected.severityScore}</span><span className={"state "+statusClass(selected.status)}>{selected.status}</span></div>
             </section>
 
