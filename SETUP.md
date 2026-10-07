@@ -67,7 +67,7 @@ Local endpoints:
 
 ## 4. Know the two PostgreSQL containers
 
-`postgres` belongs to the synthetic document application. Stopping it is a monitored Stage 1 failure.
+`postgres` belongs to the synthetic document application. Stopping it is a monitored hard-failure validation failure.
 
 `blast-radius-db` belongs to the Blast Radius Engine and stores incidents.
 
@@ -128,7 +128,7 @@ rm -rf blast-radius-api/target
 mvn -f blast-radius-api/pom.xml clean test
 ```
 
-## 8. Stage 1 / Phase 11 — hard failures
+## 8. Hard failure validation
 
 Run:
 
@@ -157,28 +157,28 @@ postgres -> document-service -> customer-service -> payment-service
 
 The partial-observability scenario verifies that loss of Tempo coverage cannot falsely resolve an ACTIVE incident.
 
-Before Stage 2, wait at least 10 seconds after Stage 1. Confirm Tempo `/ready`, Collector health on port 13133, and fresh traces through Tempo `/api/search`; inspect recent Collector logs for export failures. If tracing has not recovered after the deliberate outage, restart `tempo` and `otel-collector`, wait for readiness and fresh traces, then continue. A running container alone is not sufficient.
+Before degradation validation, wait at least 10 seconds after hard-failure validation. Confirm Tempo `/ready`, Collector health on port 13133, and fresh traces through Tempo `/api/search`; inspect recent Collector logs for export failures. If tracing has not recovered after the deliberate outage, restart `tempo` and `otel-collector`, wait for readiness and fresh traces, then continue. A running container alone is not sufficient.
 
-## 9. Stage 2 — degraded but still running
+## 9. degradation validation — degraded but still running
 
 Run all four:
 
 ```bash
-python3 scripts/run-stage2-e2e.py --scenario all
+python3 scripts/run-degradation-e2e.py --scenario all
 ```
 
 Individual scenarios:
 
 ```bash
-python3 scripts/run-stage2-e2e.py --scenario http-500
-python3 scripts/run-stage2-e2e.py --scenario intermittent
-python3 scripts/run-stage2-e2e.py --scenario latency
-python3 scripts/run-stage2-e2e.py --scenario db-connectivity
+python3 scripts/run-degradation-e2e.py --scenario http-500
+python3 scripts/run-degradation-e2e.py --scenario intermittent
+python3 scripts/run-degradation-e2e.py --scenario latency
+python3 scripts/run-degradation-e2e.py --scenario db-connectivity
 ```
 
 Target: **4/4 PASS**.
 
-Stage 2 uses the localhost-only `document-service` fault endpoint. The injected condition is synthetic; the resulting logs, metrics and traces come from the running services.
+degradation validation uses the localhost-only `document-service` fault endpoint. The injected condition is synthetic; the resulting logs, metrics and traces come from the running services.
 
 Manual reset:
 
@@ -215,8 +215,8 @@ cd ..
 Full E2E acceptance target:
 
 ```text
-Stage 1: 6/6
-Stage 2: 4/4
+hard-failure validation: 6/6
+degradation validation: 4/4
 TOTAL: 10/10
 ```
 
@@ -280,7 +280,7 @@ Both must use the same canonical component identities. The deterministic engine 
 
 **Telemetry provider is AVAILABLE but has no evidence:** the backend responded, but no normalized evidence matched the requested scope/window.
 
-**Stage 2 misses TRACE:** inspect service Java-agent output, OpenTelemetry Collector and Tempo ingestion/search.
+**degradation validation misses TRACE:** inspect service Java-agent output, OpenTelemetry Collector and Tempo ingestion/search.
 
 **AI fails:** deterministic incident analysis should continue. Gemini is optional. Check `GEMINI_ENABLED`, `GEMINI_API_KEY`, `GEMINI_MODEL` and `GEMINI_FALLBACK_MODELS`. The default model chain is `gemini-3.5-flash-lite` -> `gemini-3.5-flash`; model unavailability, timeout and retryable provider failures can move diagnosis to the configured fallback model, while the deterministic provider remains the final application fallback.
 
@@ -298,7 +298,7 @@ mvn -f blast-radius-api/pom.xml clean test
 docker compose up -d --build blast-radius-api
 curl -s http://127.0.0.1:8080/actuator/health
 python3 scripts/run-phase11-e2e.py
-python3 scripts/run-stage2-e2e.py --scenario all
+python3 scripts/run-degradation-e2e.py --scenario all
 docker compose ps
 git status
 ```
@@ -311,7 +311,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) for every file and its connections.
 docker compose up -d --build frontend
 ```
 
-Open [the dashboard](http://localhost:5173). Select an ACTIVE or RESOLVED incident and its Stage 1 or Stage 2 view. If there are no active incidents, use resolved history; an empty ACTIVE list is legitimate.
+Open [the dashboard](http://localhost:5173). Select an ACTIVE or RESOLVED incident and its hard-failure validation or degradation validation view. If there are no active incidents, use resolved history; an empty ACTIVE list is legitimate.
 
 1. Search the incident list for a service or symptom.
 2. Open the service map. Red is unavailable, amber is failure signals, pulsing green is potential impact, and gray is uncertainty.
