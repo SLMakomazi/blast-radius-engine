@@ -178,6 +178,16 @@ The previous `api/application/domain/infrastructure/port` package structure is n
 - `GeminiDiagnosisProvider` — optional Gemini HTTP integration.
 - `DiagnosisConfig` / `GeminiProperties` — Spring/provider configuration.
 
+`GeminiDiagnosisProvider` tries the configured primary model first and can continue to configured fallback models for model unavailability, request timeout, transport failure and retryable HTTP failures. Authentication/authorization and malformed-request failures fail the Gemini provider directly. `DiagnosisService` then preserves the deterministic provider as the final application fallback.
+
+Current local defaults:
+
+```text
+primary Gemini model   -> gemini-3.5-flash-lite
+fallback Gemini model  -> gemini-3.5-flash
+provider failure       -> deterministic diagnosis
+```
+
 Diagnosis does not own blast-radius calculation or severity.
 
 ## 5. Incident
@@ -360,7 +370,7 @@ infrastructure/observability/
 
 ## 13. Frontend
 
-`frontend` is a React/Vite dashboard served locally through its container. It reads incident state from the Blast Radius API and can request optional diagnosis. It does not calculate topology, impact or severity.
+`frontend` is a React/Vite dashboard served locally through its container. It reads incident state from the Blast Radius API and can request optional diagnosis. Its five-second polling refresh preserves an explicitly selected incident when that incident remains in the current stage, and diagnosis results are cached by incident for the current browser session. This prevents polling from jumping the operator back to the newest incident or clearing a generated diagnosis. The frontend does not calculate topology, impact or severity.
 
 ## 14. Traffic generator
 

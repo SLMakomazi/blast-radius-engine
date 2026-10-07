@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity, AlertTriangle, Bot, CheckCircle2, ChevronRight, Clock3,
@@ -81,8 +81,9 @@ function App() {
   const [stage, setStage] = useState("STAGE_1");
   const [incidents, setIncidents] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [diagnosis, setDiagnosis] = useState(null);
-  const [diagnosisIncidentId, setDiagnosisIncidentId] = useState(null);
+  const [diagnoses, setDiagnoses] = useState({});
+  const selectedIdRef = useRef(null);
+  const stageRef = useRef(stage);
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState("");
@@ -99,19 +100,19 @@ function App() {
       const data = await res.json();
       setIncidents(data);
       setLastUpdated(new Date());
-      const stageData = data.filter(i => incidentStage(i) === stage);
-      const nextSelectedId = chooseSelectedIncidentId(stageData, selected?.id);
+
+      const currentStage = stageRef.current;
+      const stageData = data.filter(i => incidentStage(i) === currentStage);
+      const currentSelectedId = selectedIdRef.current;
+      const nextSelectedId = chooseSelectedIncidentId(stageData, currentSelectedId);
+
       if (!nextSelectedId) {
+        selectedIdRef.current = null;
         setSelected(null);
-        setDiagnosis(null);
-        setDiagnosisIncidentId(null);
         return;
       }
 
-      if (diagnosisIncidentId && diagnosisIncidentId !== nextSelectedId) {
-        setDiagnosis(null);
-        setDiagnosisIncidentId(null);
-      }
+      selectedIdRef.current = nextSelectedId;
       await loadIncident(nextSelectedId);
     } catch (e) {
       setError(e.message);
@@ -139,14 +140,22 @@ function App() {
     try {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents/${selected.id}/diagnosis`, { method: "POST" });
       if (!res.ok) throw new Error(`Diagnosis API returned HTTP ${res.status}`);
-      setDiagnosis(await res.json());
-      setDiagnosisIncidentId(selected.id);
+      const result = await res.json();
+      setDiagnoses(prev => ({ ...prev, [selected.id]: result }));
     } catch (e) {
       setError(e.message);
     } finally {
       setDiagnosing(false);
     }
   }
+
+  useEffect(() => {
+    selectedIdRef.current = selected?.id ?? null;
+  }, [selected?.id]);
+
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 
   useEffect(() => {
     void loadIncidents(status);
@@ -157,6 +166,7 @@ function App() {
   }, [status, stage]);
 
   const analysis = selected?.analysis || selected?.analysisSnapshot || {};
+  const diagnosis = selected ? diagnoses[selected.id] ?? null : null;
   const impacts = analysis.impacts || [];
   const coverage = analysis.coverage || {};
   const observed = impacts.filter(i => i.state === "OBSERVED").length;
@@ -214,7 +224,7 @@ function App() {
           <div className="incident-list">
             {loading && <div className="empty">Loading incidents…</div>}
             {!loading && !visibleIncidents.length && <div className="empty">No {status.toLowerCase()} {stageMeta.label.toLowerCase()} incidents.</div>}
-            {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>loadIncident(i.id)}>
+            {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>{selectedIdRef.current=i.id;void loadIncident(i.id)}}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
               {incidentScenario(i) && <span className="scenario-label">{incidentScenario(i)}</span>}
@@ -285,7 +295,7 @@ function App() {
               <div className="panel-head"><div><span className="eyebrow">ADVISORY LAYER</span><h2>AI diagnosis</h2><p>AI explains sanitized deterministic evidence. It does not calculate blast radius.</p></div>
                 <button className="primary" onClick={runDiagnosis} disabled={diagnosing}>{diagnosing?"Diagnosing…":diagnosis?"Run again":"Generate diagnosis"} <Bot size={16}/></button>
               </div>
-              {diagnosis && diagnosisIncidentId === selected.id ? <Diagnosis data={diagnosis}/> : <div className="ai-placeholder"><Bot size={28}/><span>Generate an evidence-bounded explanation and recommended next steps.</span></div>}
+              {diagnosis ? <Diagnosis data={diagnosis}/> : <div className="ai-placeholder"><Bot size={28}/><span>Generate an evidence-bounded explanation and recommended next steps.</span></div>}
             </section>
           </>}
         </div>

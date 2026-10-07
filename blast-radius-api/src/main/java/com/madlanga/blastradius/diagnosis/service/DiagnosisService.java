@@ -7,8 +7,11 @@ import com.madlanga.blastradius.diagnosis.provider.DiagnosisProvider;
 
 import com.madlanga.blastradius.incident.model.IncidentAnalysis;
 import java.util.ArrayList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class DiagnosisService {
+    private static final Logger log = LoggerFactory.getLogger(DiagnosisService.class);
     private final DiagnosisProvider primary;
     private final DiagnosisProvider fallback;
     private final DiagnosisRequestMapper contextMapper;
@@ -30,6 +33,13 @@ public final class DiagnosisService {
         try {
             return primary.diagnose(context);
         } catch (RuntimeException e) {
+            log.warn(
+                    "AI diagnosis provider failed; returning deterministic fallback. application={} environment={} origin={} reason={}",
+                    context.applicationId(),
+                    context.environment(),
+                    context.origin() == null ? "unknown" : context.origin().component(),
+                    safeReason(e),
+                    e);
             var fallbackDiagnosis = fallback.diagnose(context);
             var limitations = new ArrayList<>(fallbackDiagnosis.limitations());
             limitations.add("AI provider unavailable: " + safeReason(e));

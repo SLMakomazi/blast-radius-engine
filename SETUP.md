@@ -32,7 +32,7 @@ cd blast-radius-engine
 cp -n .env.example .env
 ```
 
-Never commit secrets. Gemini is optional. If required locally, set `GEMINI_ENABLED=true` and provide `GEMINI_API_KEY`.
+Never commit secrets. Gemini is optional. If required locally, set `GEMINI_ENABLED=true` and provide `GEMINI_API_KEY`. The default advisory model chain is `gemini-3.5-flash-lite` followed by `gemini-3.5-flash`.
 
 ## 3. Build and start
 
@@ -279,7 +279,9 @@ Both must use the same canonical component identities. The deterministic engine 
 
 **Stage 2 misses TRACE:** inspect service Java-agent output, OpenTelemetry Collector and Tempo ingestion/search.
 
-**AI fails:** deterministic incident analysis should continue. Gemini is optional.
+**AI fails:** deterministic incident analysis should continue. Gemini is optional. Check `GEMINI_ENABLED`, `GEMINI_API_KEY`, `GEMINI_MODEL` and `GEMINI_FALLBACK_MODELS`. The default model chain is `gemini-3.5-flash-lite` -> `gemini-3.5-flash`; model unavailability, timeout and retryable provider failures can move diagnosis to the configured fallback model, while the deterministic provider remains the final application fallback.
+
+**Dashboard selection changes during refresh:** the dashboard should preserve an explicitly selected incident during its five-second polling cycle. Generated diagnoses are cached per incident for the current browser session.
 
 **Dashboard is empty:** query the incident API first; a healthy system can legitimately have no ACTIVE incident.
 

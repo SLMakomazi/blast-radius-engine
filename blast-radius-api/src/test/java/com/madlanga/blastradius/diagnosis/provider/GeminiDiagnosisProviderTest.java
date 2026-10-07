@@ -63,6 +63,52 @@ class GeminiDiagnosisProviderTest {
     }
 
     @Test
+    void reportsSafeGeminiErrorMessageForNonRetryableFailure() throws Exception {
+        AtomicInteger calls = startServer(400, 400,
+                "{\"error\":{\"message\":\"API key not valid. Please pass a valid API key.\"}}");
+
+        IllegalStateException error = assertThrows(
+                IllegalStateException.class,
+                () -> adapter("test-key").diagnose(context()));
+
+        assertEquals(1, calls.get());
+        assertEquals(
+                "Gemini request failed with HTTP 400 for model gemini-test: API key not valid. Please pass a valid API key.",
+                error.getMessage());
+    }
+
+    @Test
+    void fallsBackToNextModelAfter404() throws Exception {
+        AtomicInteger primaryCalls = new AtomicInteger();
+        AtomicInteger fallbackCalls = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1beta/models/gemini-primary:generateContent", exchange -> {
+            primaryCalls.incrementAndGet();
+            respond(exchange, 404, "{\\\"error\\\":{\\\"message\\\":\\\"model unavailable\\\"}}");
+        });
+        server.createContext("/v1beta/models/gemini-fallback:generateContent", exchange -> {
+            fallbackCalls.incrementAndGet();
+            respond(exchange, 200, validResponse());
+        });
+        server.start();
+
+        GeminiProperties properties = new GeminiProperties(
+                true,
+                "test-key",
+                "gemini-primary",
+                List.of("gemini-fallback"),
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                2);
+
+        DiagnosisResponse result =
+                new GeminiDiagnosisProvider(properties, JsonMapper.builder().build()).diagnose(context());
+
+        assertEquals(1, primaryCalls.get());
+        assertEquals(1, fallbackCalls.get());
+        assertEquals("gemini-fallback", result.model());
+    }
+
+    @Test
     void rejectsEmptyGeminiContent() throws Exception {
         AtomicInteger calls = startServer(200, 200, "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"\"}]}}]}");
 
@@ -98,7 +144,9 @@ class GeminiDiagnosisProviderTest {
         server.createContext("/v1beta/models/gemini-test:generateContent", exchange -> {
             int call = calls.incrementAndGet();
             int status = call == 1 ? firstStatus : laterStatus;
-            respond(exchange, status, status == 200 ? successBody : "{\"error\":\"temporarily unavailable\"}");
+            respond(exchange, status, status == 503
+                    ? "{\"error\":{\"message\":\"temporarily unavailable\"}}"
+                    : successBody);
         });
         server.start();
         return calls;
