@@ -2,14 +2,12 @@ package com.madlanga.blastradius.diagnosis.infrastructure;
 
 import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
 import com.madlanga.blastradius.diagnosis.application.AiDiagnosisService;
-import com.madlanga.blastradius.diagnosis.infrastructure.DeterministicDiagnosisAdapter;
 import com.madlanga.blastradius.diagnosis.application.DiagnosisContextFactory;
 import com.madlanga.blastradius.diagnosis.application.StoredAnalysisDiagnosisContextMapper;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Qualifier;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
@@ -41,8 +39,8 @@ public class AiDiagnosisConfiguration {
 
     @Bean
     AiDiagnosisService aiDiagnosisService(
-            @Qualifier("aiDiagnosisPort") AiDiagnosisPort aiDiagnosisPort,
-            @Qualifier("deterministicDiagnosisAdapter") DeterministicDiagnosisAdapter fallback,
+            AiDiagnosisPort aiDiagnosisPort,
+            DeterministicDiagnosisAdapter fallback,
             DiagnosisContextFactory contextFactory) {
         return new AiDiagnosisService(aiDiagnosisPort, fallback, contextFactory);
     }
