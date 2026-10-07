@@ -349,7 +349,7 @@ public class LokiLogAdapter {
     // Loki response DTOs ------------------------------------------------------
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class LokiResponse {
+    static class LokiResponse {
     
         @JsonProperty("status")
         String status;
@@ -382,7 +382,7 @@ public class LokiLogAdapter {
     
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class LokiLogLine {
+    static class LokiLogLine {
     
         /** Severity/level as emitted by the agent, e.g. "INFO", "ERROR", "WARN". */
         @JsonProperty("severityText")
