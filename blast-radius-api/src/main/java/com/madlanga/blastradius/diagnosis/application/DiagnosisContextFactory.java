@@ -3,7 +3,6 @@ package com.madlanga.blastradius.diagnosis.application;
 import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
 import com.madlanga.blastradius.incident.domain.EvidenceSignal;
 import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
-import java.util.ArrayList;
 
 public final class DiagnosisContextFactory {
 
@@ -21,14 +20,6 @@ public final class DiagnosisContextFactory {
                         impact.evidence().stream().map(this::evidence).toList()))
                 .toList();
 
-        var experiment = analysis.experimentAssessment() == null ? null
-                : new DiagnosisContext.Experiment(
-                        analysis.experimentAssessment().experimentId(),
-                        analysis.experimentAssessment().containment().name(),
-                        new ArrayList<>(analysis.experimentAssessment().expectedImpact()),
-                        new ArrayList<>(analysis.experimentAssessment().observedExpectedImpact()),
-                        new ArrayList<>(analysis.experimentAssessment().expectedButUnobserved()),
-                        new ArrayList<>(analysis.experimentAssessment().unexpectedImpact()));
 
         return new DiagnosisContext(
                 analysis.applicationId(),
@@ -45,7 +36,6 @@ public final class DiagnosisContextFactory {
                 new DiagnosisContext.Severity(severity.level().name(), severity.score(), severity.reasons()),
                 impacts,
                 analysis.timeline().stream().map(this::evidence).toList(),
-                experiment,
                 analysis.warnings());
     }
 
