@@ -86,7 +86,7 @@ public class IncidentLifecycleMonitor {
     private String detectAndPersist(Instant from, Instant to) {
         try {
             IncidentAnalysis analysis = analysisService.analyze(
-                    applicationId, environment, from, to, null, null);
+                    applicationId, environment, from, to, null);
 
             lifecycleService.persistLifecycle(analysis).ifPresent(incident ->
                     log.info(
@@ -120,7 +120,7 @@ public class IncidentLifecycleMonitor {
     private void evaluateRecovery(PersistedIncident incident, Instant from, Instant to) {
         try {
             IncidentAnalysis analysis = analysisService.analyze(
-                    applicationId, environment, from, to, incident.originComponent(), null);
+                    applicationId, environment, from, to, incident.originComponent());
 
             if (!analysis.coverage().isFullyCovered()) {
                 healthyWindows.remove(incident.id());
