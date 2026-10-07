@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Core sanitization service — applies {@link RedactionRule} policies to raw attribute
@@ -38,6 +40,58 @@ import java.util.Objects;
 @Component
 public class TelemetrySanitizer {
 
+
+    private static final String REDACTED = "[REDACTED]";
+    private static final String REDACTED_ID_NUMBER = "[ID_NUMBER]";
+
+    private static final Set<String> PASSWORD_KEYS = Set.of(
+            "password", "passwd", "pass", "pwd", "userpassword",
+            "db.password", "database.password", "jdbc.password");
+    private static final Set<String> API_KEY_KEYS = Set.of(
+            "api_key", "apikey", "api-key", "x-api-key", "x_api_key",
+            "dd-api-key", "datadog-api-key", "client_secret", "client-secret",
+            "clientsecret", "app_secret", "app-secret", "appsecret");
+    private static final Set<String> TOKEN_KEYS = Set.of(
+            "token", "access_token", "accesstoken", "access-token",
+            "refresh_token", "refreshtoken", "id_token", "idtoken",
+            "bearer_token", "bearer-token", "auth_token", "auth-token", "authtoken");
+    private static final Set<String> SECRET_KEYS = Set.of(
+            "secret", "app_secret", "app-secret", "private_key", "private-key",
+            "signing_key", "signing-key", "encryption_key", "encryption-key",
+            "aws_secret_access_key", "aws-secret-access-key");
+    private static final Set<String> SESSION_KEYS = Set.of(
+            "cookie", "set-cookie", "set_cookie", "session", "session_id",
+            "sessionid", "session-id", "jsessionid", "phpsessid");
+    private static final Set<String> ID_NUMBER_KEYS = Set.of(
+            "id_number", "id-number", "idnumber", "sa_id", "sa-id", "said",
+            "national_id", "national-id", "nationalid",
+            "south_african_id", "south-african-id");
+    private static final Pattern SA_ID_PATTERN = Pattern.compile("^\\d{13}$");
+
+    private static List<RedactionRule> builtInRules() {
+        return List.of(
+                rule("authorization", key -> "authorization".equalsIgnoreCase(key), (key, value) -> REDACTED),
+                rule("password", key -> PASSWORD_KEYS.contains(key.toLowerCase()), (key, value) -> REDACTED),
+                rule("api-key", key -> API_KEY_KEYS.contains(key.toLowerCase()), (key, value) -> REDACTED),
+                rule("token", key -> TOKEN_KEYS.contains(key.toLowerCase()), (key, value) -> REDACTED),
+                rule("secret", key -> SECRET_KEYS.contains(key.toLowerCase()), (key, value) -> REDACTED),
+                rule("session", key -> SESSION_KEYS.contains(key.toLowerCase()), (key, value) -> REDACTED),
+                rule("sa-id", key -> ID_NUMBER_KEYS.contains(key.toLowerCase()),
+                        (key, value) -> value != null && SA_ID_PATTERN.matcher(value).matches()
+                                ? REDACTED_ID_NUMBER : REDACTED));
+    }
+
+    private static RedactionRule rule(
+            String name,
+            java.util.function.Predicate<String> matches,
+            java.util.function.BiFunction<String, String, String> redactor) {
+        return new RedactionRule() {
+            @Override public String name() { return name; }
+            @Override public boolean appliesTo(String key) { return matches.test(key); }
+            @Override public String redact(String key, String value) { return redactor.apply(key, value); }
+        };
+    }
+
     private final List<RedactionRule> rules;
 
     /**
@@ -45,7 +99,7 @@ public class TelemetrySanitizer {
      * Additional rules can be injected via the other constructor.
      */
     public TelemetrySanitizer() {
-        this.rules = List.copyOf(BuiltInRedactionRules.all());
+        this.rules = List.copyOf(builtInRules());
     }
 
     /**
@@ -128,7 +182,7 @@ public class TelemetrySanitizer {
         }
         // Redact Authorization: Bearer <value> patterns in free-text messages
         return BEARER_PATTERN.matcher(message)
-                .replaceAll("Authorization: " + RedactionPlaceholders.REDACTED_AUTH);
+                .replaceAll("Authorization: " + REDACTED);
     }
 
     /**
@@ -154,8 +208,8 @@ public class TelemetrySanitizer {
      * Pattern to detect "Authorization: Bearer ..." in free-text messages.
      * Only the Authorization header value is replaced; surrounding text is kept.
      */
-    private static final java.util.regex.Pattern BEARER_PATTERN =
-            java.util.regex.Pattern.compile(
+    private static final Pattern BEARER_PATTERN =
+            Pattern.compile(
                     "(?i)Authorization\\s*:\\s*(?:Bearer\\s+)?[^\\s,;]+",
-                    java.util.regex.Pattern.CASE_INSENSITIVE);
+                    Pattern.CASE_INSENSITIVE);
 }
