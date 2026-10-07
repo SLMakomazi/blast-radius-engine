@@ -88,8 +88,8 @@ Open the [dashboard](http://localhost:5173). Follow [SETUP.md](SETUP.md) for rea
 
 | Validation stage | Purpose | Required result |
 |---|---|---:|
-| Stage 1 — Hard Failure / Blast Radius Detection | Healthy baseline, outages, correct propagation, lifecycle and partial observability | 6/6 |
-| Stage 2 — Degraded-But-Running Detection | HTTP errors, intermittent failures, latency and database connectivity | 4/4 |
+| Hard Failure / Blast Radius Detection | Healthy baseline, outages, correct propagation, lifecycle and partial observability | 6/6 |
+| Degraded-But-Running Detection | HTTP errors, intermittent failures, latency and database connectivity | 4/4 |
 | Total | Complete runtime acceptance | 10/10 |
 
 These are targets for a fresh run, not a claim that every subsequent change has passed E2E. Frontend visualization tests run independently with `node --test frontend/src/incident-visuals.test.js`.
