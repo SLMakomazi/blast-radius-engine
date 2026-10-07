@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.incident.api;
 
-import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
 import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
 import com.madlanga.blastradius.topology.domain.DependencyTopology;
@@ -16,7 +16,13 @@ import com.madlanga.blastradius.incident.api.dto.ErrorResponse;
 import java.time.temporal.ChronoUnit;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/blast-radius")
@@ -25,11 +31,6 @@ public class BlastRadiusController {
     private final DependencyTopologyProvider topologyProvider;
     private final IncidentLifecycleService lifecycleService;
 
-    public BlastRadiusController(IncidentAnalysisService service, DependencyTopologyProvider topologyProvider) {
-        this(service, topologyProvider, null);
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired
     public BlastRadiusController(IncidentAnalysisService service, DependencyTopologyProvider topologyProvider,
             IncidentLifecycleService lifecycleService) {
         this.service = service;
@@ -86,7 +87,7 @@ public class BlastRadiusController {
             throw new ApiRequestException("INVALID_TIME_WINDOW", "from must be before to");
         }
         String resolvedOriginHint = trimToNull(originHint);
-        if (persistLifecycle && lifecycleService != null) {
+        if (persistLifecycle) {
             return lifecycleService.analyzeAndPersist(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
                     resolvedOriginHint);
         }
