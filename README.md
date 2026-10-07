@@ -64,7 +64,7 @@ Monitored application
 
 The main Spring Boot service uses capability-first DDD packages:
 
-- **incident** — incident analysis, severity, containment, API contracts and JDBC persistence.
+- **incident** — incident analysis, severity, API contracts and JDBC persistence.
 - **topology** — components, dependency edges, graph traversal, trace-discovered topology and retained topology.
 - **telemetry** — provider-neutral evidence plus Loki, Prometheus, Tempo and Actuator adapters.
 - **diagnosis** — deterministic/AI diagnosis context and optional Gemini integration.
