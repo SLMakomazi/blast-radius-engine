@@ -52,14 +52,13 @@ The production-shaped Spring Boot engine. It is organized by capability first an
 
 **Application**
 - `IncidentAnalysisService.java` — central orchestration use case. It obtains topology and telemetry through ports, runs deterministic graph/origin/severity logic, builds evidence/coverage and returns the incident analysis consumed by lifecycle/API/diagnosis.
-- `application/port/FailureExperimentProvider.java` — boundary for optional controlled-failure metadata used by containment assessment.
 - `application/port/IncidentRepository.java` — persistence contract used by incident/lifecycle code; JDBC is hidden behind this interface.
 
 **Domain**
 - `ComponentImpact.java` — impact of the incident on one component, including observed/theoretical classification data.
 - `ConfidenceLevel.java` — bounded confidence classification used for origin assessment.
 - `EvidenceSignal.java` — domain representation of an evidence signal attached to the incident.
-- `IncidentAnalysis.java` — aggregate analysis result joining origin, impacts, evidence, coverage/severity and optional containment assessment.
+- `IncidentAnalysis.java` — aggregate analysis result joining origin, impacts, evidence, coverage and deterministic severity.
 - `IncidentSeverity.java` — deterministic severity result.
 - `IncidentSeverityCalculator.java` — pure business rule that converts incident evidence/impact into deterministic severity.
 - `IncidentStatus.java` — persisted lifecycle state such as ACTIVE/RESOLVED.
@@ -68,14 +67,8 @@ The production-shaped Spring Boot engine. It is organized by capability first an
 - `PersistedIncident.java` — domain representation stored/retrieved through `IncidentRepository`.
 - `SeverityLevel.java` — named severity levels used with the numeric score.
 
-**Containment**
-- `containment/ContainmentStatus.java` — result classification for whether a controlled failure remained inside its expected boundary.
-- `containment/ExperimentAssessment.java` — domain result of comparing an observed incident with expected controlled-failure scope.
-- `containment/FailureExperiment.java` — controlled-failure metadata; this is validation/containment context, not the core telemetry source.
-- `containment/FailureExperimentAssessmentService.java` — pure containment rule comparing expected and observed impact.
 
 **Infrastructure**
-- `infrastructure/containment/LocalFailureExperimentProvider.java` — local implementation that supplies controlled-failure metadata to the incident port.
 - `infrastructure/persistence/JdbcIncidentRepository.java` — JDBC implementation of `IncidentRepository`; reads/writes the diagnostic PostgreSQL database.
 
 ### lifecycle
@@ -168,9 +161,8 @@ The production-shaped Spring Boot engine. It is organized by capability first an
 - `diagnosis/application/StoredAnalysisDiagnosisContextMapperTest.java` — verifies diagnosis context reconstruction from persistence.
 - `diagnosis/infrastructure/GeminiDiagnosisAdapterTest.java` — tests provider request/response/failure behavior.
 - `incident/api/BlastRadiusControllerTest.java` — verifies HTTP analysis/diagnosis contract and error mapping.
-- `incident/application/IncidentAnalysisServiceTest.java` — tests orchestration across topology, telemetry, deterministic rules and containment.
+- `incident/application/IncidentAnalysisServiceTest.java` — tests orchestration across topology, telemetry and deterministic rules.
 - `incident/domain/IncidentSeverityCalculatorTest.java` — verifies deterministic severity rules.
-- `incident/domain/containment/FailureExperimentAssessmentServiceTest.java` — verifies containment assessment.
 - `lifecycle/application/IncidentLifecycleServiceTest.java` — verifies ACTIVE reuse and recovery transitions.
 - `shared/sanitization/TelemetrySanitizerTest.java` — verifies sensitive telemetry is redacted.
 - `telemetry/domain/EvidenceProvenanceTest.java`, `HealthEvidenceTest.java`, `LogEvidenceTest.java`, `MetricEvidenceTest.java`, `SpanEvidenceTest.java`, `TelemetryBundleTest.java`, `TelemetryQueryTest.java` — verify provider-neutral evidence validation and behavior.
