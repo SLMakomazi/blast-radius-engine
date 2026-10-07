@@ -1,6 +1,9 @@
 package com.madlanga.blastradius.telemetry.provider.health;
 
 import com.madlanga.blastradius.telemetry.config.TelemetryConfig.ActuatorHealthProperties;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Collections;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -270,4 +273,24 @@ public class ActuatorHealthAdapter {
         public CoverageStatus getCoverage() { return coverage; }
         public List<String> getWarnings() { return warnings; }
     }
+
+    // Actuator response DTO ---------------------------------------------------
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class ActuatorHealthResponse {
+    
+        @JsonProperty("status")
+        String status;
+    
+        /** Top-level components; may be absent when show-details is "never". */
+        @JsonProperty("components")
+        Map<String, ComponentHealth> components = Collections.emptyMap();
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class ComponentHealth {
+            @JsonProperty("status")
+            String status;
+        }
+    }
+    
 }
