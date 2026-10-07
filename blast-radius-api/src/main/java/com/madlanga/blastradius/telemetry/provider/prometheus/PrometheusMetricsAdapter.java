@@ -299,7 +299,7 @@ public class PrometheusMetricsAdapter {
     // Prometheus response DTO -------------------------------------------------
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class PrometheusResponse {
+    static class PrometheusResponse {
     
         @JsonProperty("status")
         String status;
