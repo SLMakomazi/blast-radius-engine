@@ -3,9 +3,9 @@ package com.madlanga.blastradius.diagnosis.provider;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.madlanga.blastradius.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.diagnosis.DiagnosisContext;
-import com.madlanga.blastradius.diagnosis.GeminiProperties;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisResponse;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
+import com.madlanga.blastradius.diagnosis.config.GeminiProperties;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -30,7 +30,7 @@ class GeminiDiagnosisProviderTest {
     void mapsSuccessfulGeminiResponse() throws Exception {
         AtomicInteger calls = startServer(200, 200, validResponse());
 
-        AiDiagnosis result = adapter("test-key").diagnose(context());
+        DiagnosisResponse result = adapter("test-key").diagnose(context());
 
         assertEquals(1, calls.get());
         assertEquals("gemini", result.provider());
@@ -44,7 +44,7 @@ class GeminiDiagnosisProviderTest {
     void retriesExactlyOnceAfter503AndThenSucceeds() throws Exception {
         AtomicInteger calls = startServer(503, 200, validResponse());
 
-        AiDiagnosis result = adapter("test-key").diagnose(context());
+        DiagnosisResponse result = adapter("test-key").diagnose(context());
 
         assertEquals(2, calls.get());
         assertEquals("gemini", result.provider());
@@ -119,15 +119,15 @@ class GeminiDiagnosisProviderTest {
         return "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"" + escaped + "\"}]}}]}";
     }
 
-    private DiagnosisContext context() {
-        return new DiagnosisContext(
+    private DiagnosisRequest context() {
+        return new DiagnosisRequest(
                 "document-platform",
                 "local",
                 Instant.parse("2026-10-03T09:40:00Z"),
                 Instant.parse("2026-10-03T09:45:17Z"),
-                new DiagnosisContext.Origin("postgres", "HIGH", 40),
-                new DiagnosisContext.Coverage("AVAILABLE", "AVAILABLE", "AVAILABLE", "AVAILABLE", true),
-                new DiagnosisContext.Severity("HIGH", 50, List.of("3 dependent components observed")),
+                new DiagnosisRequest.Origin("postgres", "HIGH", 40),
+                new DiagnosisRequest.Coverage("AVAILABLE", "AVAILABLE", "AVAILABLE", "AVAILABLE", true),
+                new DiagnosisRequest.Severity("HIGH", 50, List.of("3 dependent components observed")),
                 List.of(),
                 List.of(),
                 List.of());
