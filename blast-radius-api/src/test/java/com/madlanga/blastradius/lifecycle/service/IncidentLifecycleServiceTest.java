@@ -70,6 +70,27 @@ class IncidentLifecycleServiceTest {
         verify(repository, never()).save(any());
     }
 
+
+    @Test
+    void degradationEvidenceDoesNotCreateOutageIncident() {
+        Instant from = Instant.parse("2026-10-03T05:20:00Z");
+        Instant to = Instant.parse("2026-10-03T05:21:00Z");
+        EvidenceSignal latency = new EvidenceSignal(
+                Instant.parse("2026-10-03T05:20:12Z"), "document-service", "METRIC",
+                "HTTP mean latency 3.000s across 10 requests", "metric-1");
+        OriginAssessment origin = new OriginAssessment(
+                "document-service", OriginAssessment.Confidence.HIGH, 80, List.of(latency));
+        IncidentSeverity severity = new IncidentSeverity(IncidentSeverity.Level.HIGH, 50, List.of());
+        IncidentAnalysis analysis = new IncidentAnalysis(
+                "document-platform", "local", from, to, origin, null,
+                List.of(new ComponentImpact("document-service", ComponentImpact.State.ORIGIN, 0,
+                        List.of("document-service"), List.of(latency))),
+                List.of(latency), severity, List.of());
+
+        assertThat(service.persistLifecycle(analysis)).isEmpty();
+        verify(repository, never()).save(any());
+    }
+
     @Test
     void explicitResolutionPreservesPeakSeverityAndIncidentHistory() {
         PersistedIncident active = activeIncident();
@@ -101,7 +122,7 @@ class IncidentLifecycleServiceTest {
         Instant from = Instant.parse("2026-10-03T05:20:00Z");
         Instant to = Instant.parse("2026-10-03T05:21:00Z");
         EvidenceSignal signal = new EvidenceSignal(
-                Instant.parse("2026-10-03T05:20:12Z"), "postgres", "TRACE", "dependency error", "span-1");
+                Instant.parse("2026-10-03T05:20:12Z"), "postgres", "TRACE", "dependency error inferred from topology for failed connection observed by document-service", "span-1");
         List<EvidenceSignal> evidence = failure ? List.of(signal) : List.of();
         OriginAssessment origin = new OriginAssessment("postgres",
                 failure ? OriginAssessment.Confidence.HIGH : OriginAssessment.Confidence.LOW, failure ? 80 : 0, evidence);
