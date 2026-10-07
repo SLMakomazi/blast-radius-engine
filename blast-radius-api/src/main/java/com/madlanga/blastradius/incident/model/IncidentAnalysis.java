@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.incident.model;
 
-import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
+import com.madlanga.blastradius.telemetry.model.TelemetryCoverage;
 import java.time.Instant;
 import java.util.List;
 
