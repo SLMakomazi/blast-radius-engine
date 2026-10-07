@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.topology.infrastructure;
 
 import com.madlanga.blastradius.topology.infrastructure.persistence.FileTopologyStore;
-import com.madlanga.blastradius.telemetry.domain.*;
+import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.topology.domain.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
