@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
 import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
 import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,39 +28,42 @@ class BlastRadiusControllerTest {
     @Mock
     private DependencyTopologyProvider topologyProvider;
 
+    @Mock
+    private IncidentLifecycleService lifecycleService;
+
     @Test
     void postAnalysisDelegatesExplicitRequestWindow() {
-        var controller = new BlastRadiusController(service, topologyProvider);
+        var controller = new BlastRadiusController(service, topologyProvider, lifecycleService);
         Instant from = Instant.parse("2026-10-03T05:20:12Z");
         Instant to = Instant.parse("2026-10-03T05:20:54Z");
         IncidentAnalysis expected = analysis(from, to);
-        when(service.analyze("document-platform", "local", from, to, null))
+        when(lifecycleService.analyzeAndPersist("document-platform", "local", from, to, null))
                 .thenReturn(expected);
 
         IncidentAnalysis result = controller.analyze(new AnalyzeIncidentRequest(
                 "document-platform", "local", from, to, null));
 
         assertThat(result).isSameAs(expected);
-        verify(service).analyze("document-platform", "local", from, to, null);
+        verify(lifecycleService).analyzeAndPersist("document-platform", "local", from, to, null);
     }
 
     @Test
     void postAnalysisDefaultsEnvironmentAndWindow() {
-        var controller = new BlastRadiusController(service, topologyProvider);
+        var controller = new BlastRadiusController(service, topologyProvider, lifecycleService);
         IncidentAnalysis expected = analysis(Instant.parse("2026-10-03T05:00:00Z"),
                 Instant.parse("2026-10-03T05:15:00Z"));
-        when(service.analyze(eq("document-platform"), eq("local"), any(Instant.class), any(Instant.class),
+        when(lifecycleService.analyzeAndPersist(eq("document-platform"), eq("local"), any(Instant.class), any(Instant.class),
                 eq("postgres"))).thenReturn(expected);
 
         controller.analyze(new AnalyzeIncidentRequest(" document-platform ", " ", null, null, " postgres "));
 
-        verify(service).analyze(eq("document-platform"), eq("local"), any(Instant.class), any(Instant.class),
+        verify(lifecycleService).analyzeAndPersist(eq("document-platform"), eq("local"), any(Instant.class), any(Instant.class),
                 eq("postgres"));
     }
 
     @Test
     void postAnalysisRejectsMissingApplicationId() {
-        var controller = new BlastRadiusController(service, topologyProvider);
+        var controller = new BlastRadiusController(service, topologyProvider, lifecycleService);
 
         Throwable failure = org.assertj.core.api.Assertions.catchThrowable(() ->
                 controller.analyze(new AnalyzeIncidentRequest(" ", "local", null, null, null)));
@@ -70,7 +74,7 @@ class BlastRadiusControllerTest {
 
     @Test
     void postAnalysisRejectsInvalidWindow() {
-        var controller = new BlastRadiusController(service, topologyProvider);
+        var controller = new BlastRadiusController(service, topologyProvider, lifecycleService);
         Instant at = Instant.parse("2026-10-03T05:20:12Z");
 
         Throwable failure = org.assertj.core.api.Assertions.catchThrowable(() ->
@@ -83,7 +87,7 @@ class BlastRadiusControllerTest {
 
     @Test
     void illegalArgumentHandlerClassifiesKnownDomainFailures() {
-        var controller = new BlastRadiusController(service, topologyProvider);
+        var controller = new BlastRadiusController(service, topologyProvider, lifecycleService);
 
         assertThat(controller.invalidAnalysisRequest(
                 new IllegalArgumentException("originHint is not present in discovered topology: missing")).getBody().code())
@@ -92,7 +96,7 @@ class BlastRadiusControllerTest {
 
     @Test
     void illegalStateHandlerDistinguishesMissingEvidence() {
-        var controller = new BlastRadiusController(service, topologyProvider);
+        var controller = new BlastRadiusController(service, topologyProvider, lifecycleService);
 
         assertThat(controller.analysisUnavailable(
                 new IllegalStateException("No failure evidence found in the requested window; provide originHint for theoretical analysis."))
