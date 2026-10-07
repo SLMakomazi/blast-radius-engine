@@ -53,6 +53,14 @@ blast-radius:
     recovery-lookback: 20s
     healthy-windows-required: 3
   telemetry:
+    database-health:
+      service: postgres
+      url: ${MONITORED_POSTGRES_URL:jdbc:postgresql://postgres:5432/synthetic_lab?connectTimeout=2&socketTimeout=3}
+      username: ${MONITORED_POSTGRES_USER:synthetic_lab}
+      password: ${MONITORED_POSTGRES_PASSWORD:}
+      timeout: 3s
+      provider-id: local-postgres
+
     loki:
       base-url: ${LOKI_BASE_URL:http://loki:3100}
       limit: 500
