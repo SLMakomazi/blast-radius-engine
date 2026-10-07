@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.incident.service;
 
+import com.madlanga.blastradius.topology.service.TraceTopologyService;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.incident.model.*;
@@ -288,7 +290,7 @@ class IncidentAnalysisServiceTest {
                 .health(List.of(health("api",HealthState.DOWN,FROM.minusSeconds(1))))
                 .metrics(List.of(metric("old-1","api",1,FROM.minusSeconds(30)), metric("old-2","api",5,FROM.minusSeconds(1))))
                 .build();
-        var topology = new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
+        var topology = new TraceTopologyService(null)
                 .discover("test","local",healthy.getSpans());
         var service = new IncidentAnalysisService(q -> supplied, (a,e) -> topology);
         var result = service.analyze("test","local",FROM,TO,"database");
@@ -300,7 +302,7 @@ class IncidentAnalysisServiceTest {
 
     @Test
     void serverFailureAloneDoesNotAccuseRetainedDependency() {
-        var topology = new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
+        var topology = new TraceTopologyService(null)
                 .discover("test","local",List.of(span("old","api","database",SpanStatus.OK,FROM.minusSeconds(5),Map.of())));
         var serverError = SpanEvidence.builder().id("server").traceId("trace").spanId("server").service("api")
                 .environment("local").startTime(FROM.plusSeconds(1)).kind(SpanKind.SERVER).status(SpanStatus.ERROR)
@@ -319,7 +321,7 @@ class IncidentAnalysisServiceTest {
                     .applicationId(app).environment(env).from(FROM.minusSeconds(3600)).to(FROM).build()).getSpans());
             spans.addAll(provider.getTelemetry(TelemetryQuery.builder()
                     .applicationId(app).environment(env).from(FROM).to(TO).build()).getSpans());
-            return new com.madlanga.blastradius.topology.infrastructure.TraceDiscoveredTopologyProvider(null)
+            return new TraceTopologyService(null)
                     .discover(app, env, spans);
         });
     }
