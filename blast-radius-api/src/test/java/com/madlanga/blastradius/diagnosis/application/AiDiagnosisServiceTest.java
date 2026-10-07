@@ -1,12 +1,11 @@
-package com.madlanga.blastradius.diagnosis.application;
+package com.madlanga.blastradius.diagnosis;
 
-import com.madlanga.blastradius.diagnosis.infrastructure.DeterministicDiagnosisAdapter;
+import com.madlanga.blastradius.diagnosis.provider.DeterministicDiagnosisProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
 import com.madlanga.blastradius.incident.domain.*;
-import com.madlanga.blastradius.diagnosis.application.port.AiDiagnosisPort;
+
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -14,17 +13,17 @@ import org.junit.jupiter.api.Test;
 class AiDiagnosisServiceTest {
     @Test
     void returnsPrimaryAiDiagnosisWhenProviderSucceeds() {
-        AiDiagnosisPort primary = context -> new AiDiagnosis("gemini", "test", "summary", "cause",
+        AiDiagnosisProvider primary = context -> new AiDiagnosis("gemini", "test", "summary", "cause",
                 List.of("now"), List.of("later"), List.of("strategy"), List.of());
-        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisAdapter(), new DiagnosisContextFactory());
+        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisProvider(), new DiagnosisContextMapper(tools.jackson.databind.json.JsonMapper.builder().build(), new com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer()));
 
         assertThat(service.diagnose(analysis()).provider()).isEqualTo("gemini");
     }
 
     @Test
     void isolatesProviderFailureAndReturnsDeterministicFallback() {
-        AiDiagnosisPort primary = context -> { throw new IllegalStateException("provider down"); };
-        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisAdapter(), new DiagnosisContextFactory());
+        AiDiagnosisProvider primary = context -> { throw new IllegalStateException("provider down"); };
+        var service = new AiDiagnosisService(primary, new DeterministicDiagnosisProvider(), new DiagnosisContextMapper(tools.jackson.databind.json.JsonMapper.builder().build(), new com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer()));
 
         var result = service.diagnose(analysis());
 
