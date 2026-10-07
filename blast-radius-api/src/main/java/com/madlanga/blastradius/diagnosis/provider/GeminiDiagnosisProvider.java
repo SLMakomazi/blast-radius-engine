@@ -88,8 +88,7 @@ public final class GeminiDiagnosisProvider implements DiagnosisProvider {
                 }
 
                 if (!RETRYABLE_STATUS_CODES.contains(response.statusCode())) {
-                    throw new IllegalStateException(
-                            "Gemini request failed with HTTP " + response.statusCode() + " for model " + model);
+                    throw requestFailure(response, model);
                 }
 
                 // One bounded retry of the current model before moving to the next configured model.
@@ -98,11 +97,9 @@ public final class GeminiDiagnosisProvider implements DiagnosisProvider {
                     return parseDiagnosis(response.body(), model);
                 }
                 if (!RETRYABLE_STATUS_CODES.contains(response.statusCode())) {
-                    throw new IllegalStateException(
-                            "Gemini request failed with HTTP " + response.statusCode() + " for model " + model);
+                    throw requestFailure(response, model);
                 }
-                lastTransientFailure = new IllegalStateException(
-                        "Gemini request failed with HTTP " + response.statusCode() + " for model " + model);
+                lastTransientFailure = requestFailure(response, model);
             }
 
             throw new IllegalStateException(
@@ -115,6 +112,25 @@ public final class GeminiDiagnosisProvider implements DiagnosisProvider {
             throw e;
         } catch (Exception e) {
             throw new IllegalStateException("Gemini diagnosis failed", e);
+        }
+    }
+
+    private IllegalStateException requestFailure(HttpResponse<String> response, String model) {
+        String detail = safeErrorDetail(response.body());
+        String message = "Gemini request failed with HTTP " + response.statusCode() + " for model " + model;
+        if (!detail.isBlank()) message += ": " + detail;
+        return new IllegalStateException(message);
+    }
+
+    private String safeErrorDetail(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) return "";
+        try {
+            JsonNode root = jsonMapper.readTree(responseBody);
+            String message = root.path("error").path("message").asText();
+            if (message == null || message.isBlank()) return "";
+            return message.length() > 300 ? message.substring(0, 300) + "..." : message;
+        } catch (Exception ignored) {
+            return "";
         }
     }
 
