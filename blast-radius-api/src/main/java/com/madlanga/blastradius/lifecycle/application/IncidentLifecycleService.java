@@ -1,9 +1,9 @@
 package com.madlanga.blastradius.lifecycle.application;
 
-import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 
-import com.madlanga.blastradius.incident.domain.*;
-import com.madlanga.blastradius.incident.application.port.IncidentRepository;
+import com.madlanga.blastradius.incident.model.*;
+import com.madlanga.blastradius.incident.repository.IncidentRepository;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.Optional;
@@ -47,7 +47,7 @@ public class IncidentLifecycleService {
         if (active.isPresent()) {
             PersistedIncident existing = active.get();
             return Optional.of(repository.save(new PersistedIncident(
-                    existing.id(), existing.applicationId(), existing.environment(), IncidentStatus.ACTIVE,
+                    existing.id(), existing.applicationId(), existing.environment(), PersistedIncident.Status.ACTIVE,
                     existing.startedAt(), null, existing.originComponent(), analysis.origin().confidence(),
                     analysis.severity().level(), analysis.severity().score(), analysis.from(), analysis.to(),
                     snapshot, existing.createdAt(), now)));
@@ -58,7 +58,7 @@ public class IncidentLifecycleService {
                 .min(Comparator.naturalOrder())
                 .orElse(analysis.from());
         return Optional.of(repository.save(new PersistedIncident(
-                UUID.randomUUID(), analysis.applicationId(), analysis.environment(), IncidentStatus.ACTIVE,
+                UUID.randomUUID(), analysis.applicationId(), analysis.environment(), PersistedIncident.Status.ACTIVE,
                 startedAt, null, analysis.origin().component(), analysis.origin().confidence(),
                 analysis.severity().level(), analysis.severity().score(), analysis.from(), analysis.to(),
                 snapshot, now, now)));
@@ -67,7 +67,7 @@ public class IncidentLifecycleService {
     public Optional<PersistedIncident> resolve(UUID incidentId, Instant resolvedAt) {
         PersistedIncident existing = repository.findById(incidentId)
                 .orElseThrow(() -> new IllegalArgumentException("incident not found: " + incidentId));
-        if (existing.status() == IncidentStatus.RESOLVED) {
+        if (existing.status() == PersistedIncident.Status.RESOLVED) {
             return Optional.of(existing);
         }
 
@@ -78,7 +78,7 @@ public class IncidentLifecycleService {
 
         Instant now = Instant.now();
         return Optional.of(repository.save(new PersistedIncident(
-                existing.id(), existing.applicationId(), existing.environment(), IncidentStatus.RESOLVED,
+                existing.id(), existing.applicationId(), existing.environment(), PersistedIncident.Status.RESOLVED,
                 existing.startedAt(), resolutionTime, existing.originComponent(), existing.originConfidence(),
                 existing.severityLevel(), existing.severityScore(), existing.analysisFrom(), existing.analysisTo(),
                 existing.analysisSnapshot(), existing.createdAt(), now)));
@@ -87,7 +87,7 @@ public class IncidentLifecycleService {
     private boolean hasFailureEvidence(IncidentAnalysis analysis) {
         if (!analysis.origin().evidence().isEmpty()) return true;
         return analysis.impacts().stream()
-                .anyMatch(impact -> impact.state() == ObservedState.OBSERVED || impact.state() == ObservedState.UNEXPECTED);
+                .anyMatch(impact -> impact.state() == ComponentImpact.State.OBSERVED || impact.state() == ComponentImpact.State.UNEXPECTED);
     }
 
     private String snapshot(IncidentAnalysis analysis) {
