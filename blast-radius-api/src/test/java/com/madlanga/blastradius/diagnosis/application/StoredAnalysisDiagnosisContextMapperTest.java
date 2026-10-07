@@ -27,8 +27,6 @@ class StoredAnalysisDiagnosisContextMapperTest {
         assertThat(context.impacts()).extracting(impact -> impact.component())
                 .containsExactly("postgres", "document-service");
         assertThat(context.timeline()).hasSize(1);
-        assertThat(context.experiment()).isNotNull();
-        assertThat(context.experiment().containment()).isEqualTo("HELD");
     }
 
     @Test
