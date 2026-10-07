@@ -74,9 +74,9 @@ The diagnosis capability is packaged by feature. Its core types live directly un
 
 ### shared
 
-- `config/OpenApiConfiguration.java` — OpenAPI metadata/configuration for the REST service.
-- `sanitization/BuiltInRedactionRules.java` — standard sensitive-data patterns to remove before persistence/display/AI use.
-- `sanitization/RedactionPlaceholders.java` — stable replacement values used when redaction occurs.
+- `config/OpenApiConfig.java` — OpenAPI metadata/configuration for the REST service.
+- `sanitization/TelemetrySanitizer.java` — standard sensitive-data patterns to remove before persistence/display/AI use.
+- `sanitization/TelemetrySanitizer.java` — stable replacement values used when redaction occurs.
 - `sanitization/RedactionRule.java` — one redaction rule abstraction.
 - `sanitization/TelemetrySanitizer.java` — applies redaction rules to telemetry before evidence leaves the trusted collection boundary.
 
