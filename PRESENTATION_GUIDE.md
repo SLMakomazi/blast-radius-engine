@@ -127,11 +127,11 @@ Open `frontend/src/main.jsx`.
 
 ## 14. Explain AI's boundary
 
-**Open:** `diagnosis/application/AiDiagnosisService.java` and `diagnosis/application/port/AiDiagnosisPort.java`.
+**Open:** `diagnosis/AiDiagnosisService.java` and `diagnosis/AiDiagnosisProvider.java`.
 
 **Say:** “AI starts only after deterministic analysis. It receives a bounded diagnosis context and returns advice.”
 
-Open `diagnosis/infrastructure/GeminiDiagnosisAdapter.java`.
+Open `diagnosis/provider/GeminiDiagnosisProvider.java`.
 
 **Say:** “Gemini is one infrastructure adapter. If the provider changes, the core blast-radius model does not need to change.”
 
@@ -171,6 +171,6 @@ Return to:
 
 **Open:** `ARCHITECTURE.md`
 
-**Say:** “The repository is capability-first DDD: incident, topology, telemetry, diagnosis, lifecycle and shared. The important design rule is that infrastructure can change while deterministic domain rules remain stable.”
+**Say:** “The repository is capability-first: incident, topology, telemetry, diagnosis, lifecycle and shared. Each capability uses only as much internal layering as its complexity needs. The important design rule is that infrastructure can change while deterministic domain rules remain stable.”
 
 **Final line:** “The proof is 10 scenarios: six hard-failure scenarios and four degraded-but-running scenarios. Topology tells us what could be affected, runtime telemetry tells us what was actually affected, and AI only explains the sanitized deterministic result.”
