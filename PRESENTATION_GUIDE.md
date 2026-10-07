@@ -47,21 +47,21 @@ Then briefly open:
 
 ## 6. Explain the provider boundary
 
-**Open:** `blast-radius-api/.../telemetry/application/port/TelemetryProvider.java`
+**Open:** `blast-radius-api/.../telemetry/provider/TelemetryProvider.java`
 
 **Say:** “The domain does not know about Loki, Tempo or Prometheus. It asks this provider-neutral port for evidence. That is important because an enterprise deployment can replace the local adapters without rewriting blast-radius logic.”
 
-Then open `telemetry/infrastructure/LocalTelemetryProvider.java`.
+Then open `telemetry/provider/LocalTelemetryProvider.java`.
 
 **Say:** “This local implementation combines logs, metrics, traces and health into one normalized telemetry bundle.”
 
 ## 7. Show each telemetry adapter
 
 Open briefly:
-- `telemetry/infrastructure/loki/LokiLogAdapter.java`
-- `telemetry/infrastructure/prometheus/PrometheusMetricsAdapter.java`
-- `telemetry/infrastructure/tempo/TempoTraceAdapter.java`
-- `telemetry/infrastructure/health/ActuatorHealthAdapter.java`
+- `telemetry/provider/loki/LokiLogAdapter.java`
+- `telemetry/provider/prometheus/PrometheusMetricsAdapter.java`
+- `telemetry/provider/tempo/TempoTraceAdapter.java`
+- `telemetry/provider/health/ActuatorHealthAdapter.java`
 
 **Say:** “Each adapter speaks to one technical source and converts vendor-specific responses into our own domain evidence. After this boundary, the rest of the engine works with normalized evidence rather than vendor payloads.”
 
@@ -163,7 +163,7 @@ Then open `mock-services/document-service/.../fault/FaultInjectionService.java`.
 
 Return to:
 - `topology/application/port/DependencyTopologyProvider.java`
-- `telemetry/application/port/TelemetryProvider.java`
+- `telemetry/provider/TelemetryProvider.java`
 
 **Say:** “To connect another system, we need its canonical dependency topology and its telemetry mapped into these two boundaries. The local Loki/Prometheus/Tempo setup proves the engine; enterprise adapters can supply the same contracts from the approved Momentum/MadlangaAI sources.”
 
