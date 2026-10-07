@@ -66,9 +66,9 @@ function App() {
   const [evidenceComponent, setEvidenceComponent] = useState(null);
   const [evidenceFamily, setEvidenceFamily] = useState("ALL");
 
-  async function loadIncidents(nextStatus = status) {
-    setLoading(true);
-    setError("");
+  async function loadIncidents(nextStatus = status, { background = false } = {}) {
+    if (!background) setLoading(true);
+    if (!background) setError("");
     try {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents?status=${nextStatus}`);
       if (!res.ok) throw new Error(`Incident API returned HTTP ${res.status}`);
@@ -77,8 +77,20 @@ function App() {
       setLastUpdated(new Date());
 
       const currentSelectedId = selectedIdRef.current;
-      const nextSelectedId = chooseSelectedIncidentId(data, currentSelectedId);
 
+      // Background polling is deliberately list-only. It must not replace the
+      // user's selection, reset map hover/focus, or touch an existing diagnosis.
+      if (background) {
+        // If the selected ACTIVE incident disappeared from the ACTIVE list, it
+        // may just have resolved. Refresh that same incident once so its detail
+        // can transition to RESOLVED without selecting another incident.
+        if (currentSelectedId && nextStatus === "ACTIVE" && !data.some(i => i.id === currentSelectedId)) {
+          await loadIncident(currentSelectedId, { background: true });
+        }
+        return;
+      }
+
+      const nextSelectedId = chooseSelectedIncidentId(data, currentSelectedId);
       if (!nextSelectedId) {
         selectedIdRef.current = null;
         setSelected(null);
@@ -88,21 +100,21 @@ function App() {
       selectedIdRef.current = nextSelectedId;
       await loadIncident(nextSelectedId);
     } catch (e) {
-      setError(e.message);
+      if (!background) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }
 
-  async function loadIncident(id) {
-    setError("");
+  async function loadIncident(id, { background = false } = {}) {
+    if (!background) setError("");
     try {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents/${id}`);
       if (!res.ok) throw new Error(`Incident detail returned HTTP ${res.status}`);
       const next = await res.json();
       setSelected(prev => prev?.id === next.id && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
     } catch (e) {
-      setError(e.message);
+      if (!background) setError(e.message);
     }
   }
 
@@ -130,7 +142,7 @@ function App() {
   useEffect(() => {
     void loadIncidents(status);
     const timer = window.setInterval(() => {
-      void loadIncidents(status);
+      void loadIncidents(status, { background: true });
     }, 5000);
     return () => window.clearInterval(timer);
   }, [status]);
@@ -173,7 +185,7 @@ function App() {
     <main>
       <header>
         <div><span className="eyebrow">MADLANGAAI</span><h1>Blast Radius Analysis</h1><p>Understand the likely origin, observed impact, potential impact and supporting telemetry.</p></div>
-        <div className="live-status"><span className={error ? "live-dot stale" : "live-dot"}></span><span>{error ? "Updates interrupted" : "Polling every 5s"}{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
+        <div className="live-status"><span className={error ? "live-dot stale" : "live-dot"}></span><span>{error ? "Updates interrupted" : "Live incident monitoring"}</span></div>
       </header>
 
       {error && <div className="error"><AlertTriangle size={18}/>{error}</div>}
