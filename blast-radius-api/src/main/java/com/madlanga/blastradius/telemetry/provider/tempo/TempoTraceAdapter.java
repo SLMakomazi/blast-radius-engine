@@ -1,6 +1,9 @@
 package com.madlanga.blastradius.telemetry.provider.tempo;
 
 import com.madlanga.blastradius.telemetry.config.TelemetryConfig.TempoProperties;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Collections;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -438,4 +441,152 @@ public class TempoTraceAdapter {
         public CoverageStatus getCoverage() { return coverage; }
         public List<String> getWarnings() { return warnings; }
     }
+
+    // Tempo response DTOs -----------------------------------------------------
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class TempoResponse {
+    
+        @JsonProperty("batches")
+        List<Batch> batches = Collections.emptyList();
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Batch {
+            @JsonProperty("resource")
+            Resource resource;
+    
+            @JsonProperty("scopeSpans")
+            List<ScopeSpans> scopeSpans = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Resource {
+            @JsonProperty("attributes")
+            List<KeyValue> attributes = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class ScopeSpans {
+            @JsonProperty("spans")
+            List<Span> spans = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Span {
+            @JsonProperty("traceId")
+            String traceId;
+    
+            @JsonProperty("spanId")
+            String spanId;
+    
+            @JsonProperty("parentSpanId")
+            String parentSpanId;
+    
+            @JsonProperty("name")
+            String name;
+    
+            @JsonProperty("kind")
+            String kind;
+    
+            @JsonProperty("startTimeUnixNano")
+            String startTimeUnixNano;
+    
+            @JsonProperty("endTimeUnixNano")
+            String endTimeUnixNano;
+    
+            @JsonProperty("status")
+            SpanStatusDto status;
+    
+            @JsonProperty("attributes")
+            List<KeyValue> attributes = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class SpanStatusDto {
+            /**
+             * Tempo OTLP/JSON may serialize status codes either numerically
+             * (0/1/2) or symbolically (STATUS_CODE_UNSET/OK/ERROR).
+             */
+            @JsonProperty("code")
+            String code;
+    
+            @JsonProperty("message")
+            String message;
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class KeyValue {
+            @JsonProperty("key")
+            String key;
+    
+            @JsonProperty("value")
+            AnyValue value;
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class AnyValue {
+            @JsonProperty("stringValue")
+            String stringValue;
+    
+            @JsonProperty("intValue")
+            String intValue;
+    
+            @JsonProperty("boolValue")
+            Boolean boolValue;
+    
+            String asString() {
+                if (stringValue != null) return stringValue;
+                if (intValue != null) return intValue;
+                if (boolValue != null) return boolValue.toString();
+                return "";
+            }
+        }
+    }
+    
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class TempoSearchResponse {
+    
+        @JsonProperty("traces")
+        List<TraceSummary> traces = Collections.emptyList();
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class TraceSummary {
+            @JsonProperty("traceID")
+            String traceId;
+    
+            @JsonProperty("rootServiceName")
+            String rootServiceName;
+    
+            @JsonProperty("rootTraceName")
+            String rootTraceName;
+    
+            @JsonProperty("startTimeUnixNano")
+            String startTimeUnixNano;
+    
+            @JsonProperty("durationMs")
+            long durationMs;
+    
+            @JsonProperty("spanSet")
+            SpanSet spanSet;
+    
+            boolean isFailed() {
+                return spanSet != null && spanSet.spans != null && spanSet.spans.stream()
+                        .anyMatch(span -> span != null && "error".equalsIgnoreCase(span.status));
+            }
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class SpanSet {
+            @JsonProperty("spans")
+            List<SpanSummary> spans = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class SpanSummary {
+            @JsonProperty("status")
+            String status;
+        }
+    }
+    
 }
