@@ -1,9 +1,9 @@
 package com.madlanga.blastradius.diagnosis.provider;
 
-import com.madlanga.blastradius.diagnosis.AiDiagnosis;
-import com.madlanga.blastradius.diagnosis.AiDiagnosisProvider;
-import com.madlanga.blastradius.diagnosis.DiagnosisContext;
-import com.madlanga.blastradius.diagnosis.GeminiProperties;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisResponse;
+import com.madlanga.blastradius.diagnosis.provider.DiagnosisProvider;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
+import com.madlanga.blastradius.diagnosis.config.GeminiProperties;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -17,7 +17,7 @@ import java.util.Set;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-public final class GeminiDiagnosisProvider implements AiDiagnosisProvider {
+public final class GeminiDiagnosisProvider implements DiagnosisProvider {
     private static final Set<Integer> RETRYABLE_STATUS_CODES =
             Set.of(408, 429, 500, 502, 503, 504);
 
@@ -38,7 +38,7 @@ public final class GeminiDiagnosisProvider implements AiDiagnosisProvider {
     }
 
     @Override
-    public AiDiagnosis diagnose(DiagnosisContext context) {
+    public DiagnosisResponse diagnose(DiagnosisRequest context) {
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             throw new IllegalStateException("Gemini API key is not configured");
         }
@@ -70,7 +70,7 @@ public final class GeminiDiagnosisProvider implements AiDiagnosisProvider {
                       strategicActions: string[]
                       limitations: string[]
 
-                    DiagnosisContext:
+                    DiagnosisRequest:
                     """ + contextJson;
 
             Map<String, Object> body = Map.of(
@@ -128,7 +128,7 @@ public final class GeminiDiagnosisProvider implements AiDiagnosisProvider {
                 .build();
     }
 
-    private AiDiagnosis parseDiagnosis(String responseBody, String model) throws Exception {
+    private DiagnosisResponse parseDiagnosis(String responseBody, String model) throws Exception {
         JsonNode root = jsonMapper.readTree(responseBody);
         JsonNode text = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
         if (text.isMissingNode() || text.asText().isBlank()) {
@@ -136,7 +136,7 @@ public final class GeminiDiagnosisProvider implements AiDiagnosisProvider {
         }
 
         JsonNode diagnosis = jsonMapper.readTree(text.asText());
-        return new AiDiagnosis(
+        return new DiagnosisResponse(
                 "gemini",
                 model,
                 requiredText(diagnosis, "summary"),
