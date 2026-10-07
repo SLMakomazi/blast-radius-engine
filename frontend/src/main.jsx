@@ -61,9 +61,11 @@ function incidentStage(incident) {
   // Hard outages can also produce secondary timeout/5xx symptoms.
   // Those downstream symptoms must not reclassify an availability failure.
   const hardFailure = signals.some(signal =>
-    signal.includes("health down")
-    || signal.includes("health out_of_service")
+    signal.includes("liveness health down")
+    || signal.includes("liveness health out_of_service")
+    || signal.includes("liveness unreachable")
     || signal.includes("dependency error observed by")
+    || signal.includes("dependency error inferred from topology")
   );
 
   if (hardFailure) return "STAGE_1";
