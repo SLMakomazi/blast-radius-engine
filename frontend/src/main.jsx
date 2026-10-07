@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Activity, AlertTriangle, Bot, CheckCircle2, ChevronRight, Clock3,
-  Database, GitBranch, Server, Waves
+  Activity, AlertTriangle, Bot, CheckCircle2, Clock3,
+  Database, GitBranch, Waves, Search
 } from "lucide-react";
 import "./styles.css";
+import { ServiceMap, EvidenceCharts, SignalExplanation } from "./ServiceMap.jsx";
+import { analysisOf, matchesIncident } from "./incident-visuals.js";
 
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -27,7 +29,7 @@ function evidenceRowKey(e) {
 }
 
 function incidentSignals(incident) {
-  const analysis = incident?.analysis || incident?.analysisSnapshot || {};
+  const analysis = analysisOf(incident);
   return (analysis.timeline || []).map(e => String(e.signal || "").toLowerCase());
 }
 
@@ -77,6 +79,8 @@ function incidentStage(incident) {
 }
 
 function App() {
+  const [search, setSearch] = useState("");
+  const [evidenceSearch, setEvidenceSearch] = useState("");
   const [status, setStatus] = useState("ACTIVE");
   const [stage, setStage] = useState("STAGE_1");
   const [incidents, setIncidents] = useState([]);
@@ -165,12 +169,13 @@ function App() {
     return () => window.clearInterval(timer);
   }, [status, stage]);
 
-  const analysis = selected?.analysis || selected?.analysisSnapshot || {};
+  const analysis = analysisOf(selected);
   const diagnosis = selected ? diagnoses[selected.id] ?? null : null;
   const impacts = analysis.impacts || [];
   const coverage = analysis.coverage || {};
   const observed = impacts.filter(i => i.state === "OBSERVED").length;
   const maxDepth = impacts.reduce((m, i) => Math.max(m, i.distance ?? 0), 0);
+  useEffect(() => { setEvidenceComponent(null); setEvidenceFamily("ALL"); setEvidenceSearch(""); }, [selected?.id]);
   const originCount = impacts.filter(i => i.state === "ORIGIN").length;
   const involved = originCount + observed;
   const impactPercent = impacts.length ? Math.round((involved / impacts.length) * 100) : 0;
@@ -179,6 +184,7 @@ function App() {
   const evidenceRows = timeline.filter(e =>
     (!evidenceComponent || e.component === evidenceComponent)
     && (evidenceFamily === "ALL" || e.family === evidenceFamily)
+    && `${e.component} ${e.signal} ${e.family}`.toLowerCase().includes(evidenceSearch.trim().toLowerCase())
   );
   const evidenceCounts = ["LOG","METRIC","TRACE","HEALTH"].reduce((a,f) => ({...a,[f]: timeline.filter(e => e.family === f).length}), {});
   const stageMetaById = {
@@ -186,7 +192,11 @@ function App() {
     STAGE_2: { label: "Stage 2", title: "Degradation Analysis", description: "Degraded-but-running services: HTTP 500s, intermittent errors, latency, connectivity and resource pressure." },
   };
   const stageMeta = stageMetaById[stage] || stageMetaById.STAGE_1;
-  const visibleIncidents = incidents.filter(i => incidentStage(i) === stage);
+  const visibleIncidents = incidents.filter(i => incidentStage(i) === stage && matchesIncident(i, search));
+  const inspectEvidence = (component = null, family = "ALL") => {
+    setEvidenceComponent(component); setEvidenceFamily(family); setEvidenceSearch("");
+    document.getElementById("evidence-explorer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return <div className="app">
     <aside className="sidebar">
@@ -196,8 +206,8 @@ function App() {
         <button className={stage==="STAGE_1"?"nav-active":""} onClick={()=>setStage("STAGE_1")}><AlertTriangle size={18}/><span><strong>Stage 1</strong><small>Hard failures</small></span></button>
         <button className={stage==="STAGE_2"?"nav-active":""} onClick={()=>setStage("STAGE_2")}><Activity size={18}/><span><strong>Stage 2</strong><small>Degradation</small></span></button>
         <div className="nav-label">ENGINE</div>
-        <button><GitBranch size={18}/> Topology</button>
-        <button><Bot size={18}/> AI diagnosis</button>
+        <button onClick={() => document.getElementById("service-map")?.scrollIntoView({ behavior: "smooth" })} disabled={!selected}><GitBranch size={18}/> Service map</button>
+        <button onClick={() => document.getElementById("ai-diagnosis")?.scrollIntoView({ behavior: "smooth" })} disabled={!selected}><Bot size={18}/> AI diagnosis</button>
       </nav>
       <div className="principle"><span>CORE PRINCIPLE</span><p>Topology calculates potential impact. Telemetry proves observed impact. AI explains sanitized evidence.</p></div>
     </aside>
@@ -205,7 +215,7 @@ function App() {
     <main>
       <header>
         <div><span className="eyebrow">MADLANGAAI / {stageMeta.label.toUpperCase()}</span><h1>{stageMeta.title}</h1><p>{stageMeta.description}</p></div>
-        <div className="live-status"><span className="live-dot"></span><span>Live · auto-updates every 5s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
+        <div className="live-status"><span className={error ? "live-dot stale" : "live-dot"}></span><span>{error ? "Updates interrupted" : "Polling every 5s"}{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}</span></div>
       </header>
 
       {error && <div className="error"><AlertTriangle size={18}/>{error}</div>}
@@ -221,9 +231,10 @@ function App() {
           <div className="panel-head"><div><span className="eyebrow">INCIDENTS</span><h2>History</h2></div><div className="segmented">
             {["ACTIVE","RESOLVED"].map(s => <button key={s} className={status===s?"selected":""} onClick={()=>setStatus(s)}>{s}</button>)}
           </div></div>
+          <label className="visual-search incident-search"><Search size={16}/><input aria-label="Search incidents" placeholder="Search service, symptom, ID…" value={search} onChange={e => setSearch(e.target.value)}/></label>
           <div className="incident-list">
-            {loading && <div className="empty">Loading incidents…</div>}
-            {!loading && !visibleIncidents.length && <div className="empty">No {status.toLowerCase()} {stageMeta.label.toLowerCase()} incidents.</div>}
+            {loading && !incidents.length && <div className="empty">Loading incidents…</div>}
+            {!loading && !visibleIncidents.length && <div className="empty">{search ? "No incidents match your search." : `No ${status.toLowerCase()} ${stageMeta.label.toLowerCase()} incidents.`}</div>}
             {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>{selectedIdRef.current=i.id;void loadIncident(i.id)}}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
@@ -248,20 +259,8 @@ function App() {
               <Kpi icon={<Waves/>} label="Impact scope" value={impactScope} meta={`${involved} / ${impacts.length} components involved`}/>
             </section>
 
-            <section className="panel topology">
-              <div className="panel-head"><div><span className="eyebrow">PROPAGATION</span><h2>Impact path</h2></div><span className="legend"><i></i> observed evidence</span></div>
-              <div className="topology-flow">
-                {impacts.slice().sort((a,b)=>(a.distance??0)-(b.distance??0)).map((impact, idx) => <React.Fragment key={impact.component}>
-                  {idx>0 && <ChevronRight className="arrow"/>}
-                  <button className={"node "+statusClass(impact.state)} onClick={()=>{setEvidenceComponent(impact.component);setEvidenceFamily("ALL");}} title={`Inspect ${impact.component} evidence`}>
-                    {impact.component==="postgres"?<Database/>:<Server/>}
-                    <strong>{impact.component}</strong>
-                    <span>{impact.state}</span>
-                    <small>{impact.distance === 0 ? "Origin" : `Distance ${impact.distance}`}</small>
-                  </button>
-                </React.Fragment>)}
-              </div>
-            </section>
+            <ServiceMap key={selected.id} incident={selected} onEvidence={component => inspectEvidence(component)}/>
+            <EvidenceCharts incident={selected} onFamily={family => inspectEvidence(null, family)}/>
 
             <div className="two-col">
               <section className="panel">
@@ -281,17 +280,18 @@ function App() {
               </section>
             </div>
 
-            <section className="panel evidence-explorer">
+            <section className="panel evidence-explorer" id="evidence-explorer">
               <div className="panel-head"><div><span className="eyebrow">EVIDENCE EXPLORER</span><h2>{evidenceComponent || "All components"}</h2><p>Sanitized incident evidence captured from logs, metrics, traces and health telemetry.</p></div><span className="evidence-total">{evidenceRows.length} events</span></div>
+              <label className="visual-search evidence-search"><Search size={16}/><input aria-label="Search evidence" placeholder="Search evidence by service or symptom…" value={evidenceSearch} onChange={e => setEvidenceSearch(e.target.value)}/></label>
               <div className="evidence-tabs">{["ALL","LOG","METRIC","TRACE","HEALTH"].map(f=><button key={f} className={evidenceFamily===f?"selected":""} onClick={()=>setEvidenceFamily(f)}>{f==="ALL"?"All":f[0]+f.slice(1).toLowerCase()}</button>)}{evidenceComponent && <button onClick={()=>setEvidenceComponent(null)}>All components</button>}</div>
               <div className="evidence-list">
-                {!evidenceRows.length && <div className="empty">No {evidenceFamily==="ALL"?"":evidenceFamily.toLowerCase()+" "}evidence events captured in this incident snapshot.</div>}
-                {evidenceRows.slice(0,100).map(e=><div className="evidence-row" key={evidenceRowKey(e)}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><p>{e.signal}</p><code>{e.evidenceId}</code></div>)}
+                {!evidenceRows.length && <div className="empty">No evidence matches these filters in this incident snapshot.</div>}
+                {evidenceRows.slice(0,100).map(e=><div className="evidence-row" key={evidenceRowKey(e)}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><div className="plain-evidence"><SignalExplanation signal={e.signal}/></div><code>{e.evidenceId}</code></div>)}
               </div>
               {evidenceRows.length>100 && <div className="evidence-more">Showing first 100 of {evidenceRows.length} events.</div>}
             </section>
 
-            <section className="panel ai-panel">
+            <section className="panel ai-panel" id="ai-diagnosis">
               <div className="panel-head"><div><span className="eyebrow">ADVISORY LAYER</span><h2>AI diagnosis</h2><p>AI explains sanitized deterministic evidence. It does not calculate blast radius.</p></div>
                 <button className="primary" onClick={runDiagnosis} disabled={diagnosing}>{diagnosing?"Diagnosing…":diagnosis?"Run again":"Generate diagnosis"} <Bot size={16}/></button>
               </div>

@@ -23,3 +23,7 @@ __pycache__/
 
 # Local retained topology (Compose uses a named volume)
 **/data/topology/
+
+# Frontend dependencies and generated build
+frontend/node_modules/
+frontend/dist/
