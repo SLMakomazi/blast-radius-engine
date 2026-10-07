@@ -33,7 +33,7 @@ public class IncidentAnalysisService {
 
         Map<String,List<EvidenceSignal>> signals = correlate(telemetry, topology);
         OriginAssessment origin = assessOrigin(originHint, topology, signals);
-        GraphAnalysisResult theoretical = graphEngine.calculate(topology, origin.component());
+        BlastRadiusResult theoretical = graphEngine.calculate(topology, origin.component());
 
         Map<String,TheoreticalImpact> theoreticalById = new LinkedHashMap<>();
         theoretical.getImpacts().forEach(i -> theoreticalById.put(i.getComponent().getId(), i));
