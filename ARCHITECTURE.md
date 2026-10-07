@@ -26,20 +26,20 @@ The production-shaped Spring Boot engine. It is organized by capability first an
 
 The diagnosis capability is packaged by feature. Its core types live directly under `diagnosis/`, while external provider implementations live under `diagnosis/provider/`.
 
-- `AiDiagnosis.java` — provider-neutral diagnosis result returned to the application/API.
-- `DiagnosisContext.java` — bounded, provider-neutral input model sent to diagnosis providers.
-- `AiDiagnosisProvider.java` — provider contract used by the diagnosis service.
-- `AiDiagnosisService.java` — orchestrates advisory diagnosis and deterministic fallback without calculating blast radius.
-- `DiagnosisContextMapper.java` — builds diagnosis context from either a fresh `IncidentAnalysis` or a persisted sanitized incident snapshot.
+- `DiagnosisResponse.java` — provider-neutral diagnosis result returned to the application/API.
+- `DiagnosisRequest.java` — bounded, provider-neutral input model sent to diagnosis providers.
+- `DiagnosisProvider.java` — provider contract used by the diagnosis service.
+- `DiagnosisService.java` — orchestrates advisory diagnosis and deterministic fallback without calculating blast radius.
+- `DiagnosisRequestMapper.java` — builds diagnosis context from either a fresh `IncidentAnalysis` or a persisted sanitized incident snapshot.
 - `GeminiProperties.java` — binds Gemini-specific configuration.
-- `DiagnosisConfiguration.java` — Spring wiring for the mapper, providers and diagnosis service.
+- `DiagnosisConfig.java` — Spring wiring for the mapper, providers and diagnosis service.
 - `provider/DeterministicDiagnosisProvider.java` — local deterministic fallback used when external AI is disabled or unavailable.
 - `provider/GeminiDiagnosisProvider.java` — Gemini HTTP integration, bounded retry/fallback-model handling and response mapping.
 
 ### incident
 
 **API**
-- `BlastRadiusController.java` — HTTP entry point for analysis/diagnosis operations; delegates to application services rather than performing graph/telemetry logic itself.
+- `IncidentController.java` — HTTP entry point for analysis/diagnosis operations; delegates to application services rather than performing graph/telemetry logic itself.
 - `IncidentHistoryController.java` — HTTP access to persisted ACTIVE/RESOLVED incident history and resolution operations.
 - `api/dto/AnalyzeIncidentRequest.java` — request contract for explicit incident analysis.
 - `api/dto/ErrorResponse.java` — stable HTTP error payload.
@@ -52,16 +52,16 @@ The diagnosis capability is packaged by feature. Its core types live directly un
 
 **Domain**
 - `ComponentImpact.java` — impact of the incident on one component, including observed/theoretical classification data.
-- `ConfidenceLevel.java` — bounded confidence classification used for origin assessment.
+- `OriginAssessment.Confidence.java` — bounded confidence classification used for origin assessment.
 - `EvidenceSignal.java` — domain representation of an evidence signal attached to the incident.
 - `IncidentAnalysis.java` — aggregate analysis result joining origin, impacts, evidence, coverage and deterministic severity.
 - `IncidentSeverity.java` — deterministic severity result.
-- `IncidentSeverityCalculator.java` — pure business rule that converts incident evidence/impact into deterministic severity.
-- `IncidentStatus.java` — persisted lifecycle state such as ACTIVE/RESOLVED.
-- `ObservedState.java` — identifies whether component impact was observed or only theoretical.
+- `IncidentSeverityService.java` — pure business rule that converts incident evidence/impact into deterministic severity.
+- `PersistedIncident.Status.java` — persisted lifecycle state such as ACTIVE/RESOLVED.
+- `ComponentImpact.State.java` — identifies whether component impact was observed or only theoretical.
 - `OriginAssessment.java` — likely origin plus confidence/evidence.
 - `PersistedIncident.java` — domain representation stored/retrieved through `IncidentRepository`.
-- `SeverityLevel.java` — named severity levels used with the numeric score.
+- `IncidentSeverity.Level.java` — named severity levels used with the numeric score.
 
 
 **Infrastructure**
@@ -152,13 +152,13 @@ The diagnosis capability is packaged by feature. Its core types live directly un
 
 - `ArchitectureBoundaryTest.java` — guards capability/layer boundaries so future code cannot casually reintroduce global service/adapter architecture.
 - `BlastRadiusApplicationTests.java` — Spring application/context smoke tests.
-- `diagnosis/AiDiagnosisServiceTest.java` — verifies diagnosis orchestration and fallback behavior.
-- `diagnosis/DiagnosisContextMapperTest.java` — verifies mapping from live incident analysis to diagnosis context.
-- `diagnosis/DiagnosisContextMapperStoredJsonTest.java` — verifies persisted snapshot reconstruction and re-sanitization.
+- `diagnosis/DiagnosisServiceTest.java` — verifies diagnosis orchestration and fallback behavior.
+- `diagnosis/DiagnosisRequestMapperTest.java` — verifies mapping from live incident analysis to diagnosis context.
+- `diagnosis/DiagnosisRequestMapperStoredJsonTest.java` — verifies persisted snapshot reconstruction and re-sanitization.
 - `diagnosis/provider/GeminiDiagnosisProviderTest.java` — tests Gemini request/response/retry/failure behavior.
-- `incident/api/BlastRadiusControllerTest.java` — verifies HTTP analysis/diagnosis contract and error mapping.
-- `incident/application/IncidentAnalysisServiceTest.java` — tests orchestration across topology, telemetry and deterministic rules.
-- `incident/domain/IncidentSeverityCalculatorTest.java` — verifies deterministic severity rules.
+- `incident/controller/IncidentControllerTest.java` — verifies HTTP analysis/diagnosis contract and error mapping.
+- `incident/service/IncidentAnalysisServiceTest.java` — tests orchestration across topology, telemetry and deterministic rules.
+- `incident/model/IncidentSeverityServiceTest.java` — verifies deterministic severity rules.
 - `lifecycle/application/IncidentLifecycleServiceTest.java` — verifies ACTIVE reuse and recovery transitions.
 - `shared/sanitization/TelemetrySanitizerTest.java` — verifies sensitive telemetry is redacted.
 - `telemetry/domain/EvidenceProvenanceTest.java`, `HealthEvidenceTest.java`, `LogEvidenceTest.java`, `MetricEvidenceTest.java`, `SpanEvidenceTest.java`, `TelemetryBundleTest.java`, `TelemetryQueryTest.java` — verify provider-neutral evidence validation and behavior.
@@ -309,15 +309,15 @@ Tempo spans
 
 IncidentAnalysisService
    -> DeterministicGraphEngine
-   -> IncidentSeverityCalculator
+   -> IncidentSeverityService
    -> IncidentAnalysis
    -> IncidentLifecycleService
    -> JdbcIncidentRepository -> blast-radius-db
    -> IncidentHistoryController -> frontend/src/main.jsx
 
 Persisted/fresh IncidentAnalysis
-   -> DiagnosisContextMapper
-   -> AiDiagnosisService -> AiDiagnosisProvider
+   -> DiagnosisRequestMapper
+   -> DiagnosisService -> DiagnosisProvider
    -> DeterministicDiagnosisProvider or GeminiDiagnosisProvider
 ```
 
