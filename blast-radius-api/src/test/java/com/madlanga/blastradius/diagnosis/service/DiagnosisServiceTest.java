@@ -3,13 +3,13 @@ package com.madlanga.blastradius.diagnosis.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.madlanga.blastradius.diagnosis.provider.DeterministicDiagnosisProvider;
-import com.madlanga.blastradius.incident.domain.ComponentImpact;
-import com.madlanga.blastradius.incident.domain.ConfidenceLevel;
-import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
-import com.madlanga.blastradius.incident.domain.IncidentSeverity;
-import com.madlanga.blastradius.incident.domain.ObservedState;
-import com.madlanga.blastradius.incident.domain.OriginAssessment;
-import com.madlanga.blastradius.incident.domain.SeverityLevel;
+import com.madlanga.blastradius.incident.model.ComponentImpact;
+import com.madlanga.blastradius.incident.model.OriginAssessment.Confidence;
+import com.madlanga.blastradius.incident.model.IncidentAnalysis;
+import com.madlanga.blastradius.incident.model.IncidentSeverity;
+import com.madlanga.blastradius.incident.model.ComponentImpact.State;
+import com.madlanga.blastradius.incident.model.OriginAssessment;
+import com.madlanga.blastradius.incident.model.IncidentSeverity.Level;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
 import java.time.Instant;
@@ -42,9 +42,9 @@ class DiagnosisServiceTest {
         return new IncidentAnalysis(
                 "document-platform", "local",
                 Instant.parse("2026-10-03T08:21:00Z"), Instant.parse("2026-10-03T08:22:00Z"),
-                new OriginAssessment("postgres", ConfidenceLevel.LOW, 0, List.of()),
+                new OriginAssessment("postgres", OriginAssessment.Confidence.LOW, 0, List.of()),
                 TelemetryCoverage.allAvailable(),
-                List.of(new ComponentImpact("postgres", ObservedState.ORIGIN, 0, List.of("postgres"), List.of())),
-                List.of(), new IncidentSeverity(SeverityLevel.HIGH, 50, List.of()), List.of());
+                List.of(new ComponentImpact("postgres", ComponentImpact.State.ORIGIN, 0, List.of("postgres"), List.of())),
+                List.of(), new IncidentSeverity(IncidentSeverity.Level.HIGH, 50, List.of()), List.of());
     }
 }
