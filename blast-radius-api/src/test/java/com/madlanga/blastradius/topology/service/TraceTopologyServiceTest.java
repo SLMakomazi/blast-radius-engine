@@ -8,7 +8,7 @@ import com.madlanga.blastradius.telemetry.model.SpanEvidence;
 import com.madlanga.blastradius.telemetry.model.SpanStatus;
 import com.madlanga.blastradius.topology.model.ComponentType;
 import com.madlanga.blastradius.topology.model.DependencyTopology;
-import com.madlanga.blastradius.topology.model.DeterministicGraphEngine;
+import com.madlanga.blastradius.topology.service.BlastRadiusGraphService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,7 +43,7 @@ class TraceTopologyServiceTest {
         assertThat(topology.getNode("postgres").getType()).isEqualTo(ComponentType.DATABASE);
         assertThat(topology.getNode("postgres").getTechnology()).isEqualTo("POSTGRESQL");
 
-        assertThat(new DeterministicGraphEngine().calculate(topology, "postgres").getImpacts())
+        assertThat(new BlastRadiusGraphService().calculate(topology, "postgres").getImpacts())
                 .extracting(i -> i.getComponent().getId())
                 .containsExactly("document-service", "customer-service", "payment-service");
     }
