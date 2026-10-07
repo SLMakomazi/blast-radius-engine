@@ -7,7 +7,7 @@ import com.madlanga.blastradius.topology.domain.ComponentNode;
 import com.madlanga.blastradius.topology.domain.ComponentType;
 import com.madlanga.blastradius.topology.domain.DependencyEdge;
 import com.madlanga.blastradius.topology.domain.DependencyTopology;
-import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.provider.DependencyTopologyProvider;
 import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
 import java.time.Clock;
 import java.time.Duration;
