@@ -47,3 +47,10 @@ test('supports stored JSON snapshots and deduplicates evidence', () => {
   const e=event('db','liveness health DOWN');
   assert.equal(nodeView({component:'db',state:'ORIGIN',evidence:[e]},{...incident,analysis:{timeline:[e]}}).evidence.length,1);
 });
+
+test('origin label differs from downstream observed impact', () => {
+  const a=nodeView({component:'db',state:'ORIGIN',evidence:[event('db','dependency error','TRACE')]},incident);
+  const b=nodeView({component:'api',state:'OBSERVED',evidence:[event('api','application error HTTP 500','LOG')]},incident);
+  assert.equal(a.label,'Likely origin');
+  assert.equal(b.label,'Observed impact');
+});
