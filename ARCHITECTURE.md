@@ -37,7 +37,7 @@ Each entry has a brief responsibility and links to direct collaborators or the b
 | [LICENSE](LICENSE) | Defines the repository’s licensing terms for people using or distributing its source. It has no runtime service call. |
 | [PRESENTATION.md](PRESENTATION.md) | Provides a short manager-facing story followed by one speaking note for every repository file. Connects to [README.md](README.md), [ARCHITECTURE.md](ARCHITECTURE.md). |
 | [README.md](README.md) | Introduces the system, integration boundaries, topology, dashboard and the two-stage validation model. Connects to [SETUP.md](SETUP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [PRESENTATION.md](PRESENTATION.md). |
-| [SETUP.md](SETUP.md) | Guides the next operator through configuration, startup, readiness, testing and the visual demonstration. Connects to [docker-compose.yml](docker-compose.yml), [run-phase11-e2e.py](scripts/run-phase11-e2e.py), [run-stage2-e2e.py](scripts/run-stage2-e2e.py). |
+| [SETUP.md](SETUP.md) | Guides the next operator through configuration, startup, readiness, testing and the visual demonstration. Connects to [docker-compose.yml](docker-compose.yml), [run-phase11-e2e.py](scripts/run-phase11-e2e.py), [run-degradation-e2e.py](scripts/run-degradation-e2e.py). |
 
 ### `blast-radius-api/`
 
@@ -690,8 +690,8 @@ These runners validate the two formal stages against the running lab without wea
 
 | File | What it does and where it connects |
 |---|---|
-| [run-phase11-e2e.py](scripts/run-phase11-e2e.py) | Runs six Stage 1 cases against the live lab, stopping and restoring services while checking detection, propagation and guarded recovery. Connects to [docker-compose.yml](docker-compose.yml). |
-| [run-stage2-e2e.py](scripts/run-stage2-e2e.py) | Runs four Stage 2 degradation cases using lab fault controls while asserting real evidence and same-incident recovery. Connects to [FaultInjectionController.java](mock-services/document-service/src/main/java/com/madlanga/lab/document/controller/FaultInjectionController.java). |
+| [run-phase11-e2e.py](scripts/run-phase11-e2e.py) | Runs six hard-failure cases against the live lab, stopping and restoring services while checking detection, propagation and guarded recovery. Connects to [docker-compose.yml](docker-compose.yml). |
+| [run-degradation-e2e.py](scripts/run-degradation-e2e.py) | Runs four degradation cases using lab fault controls while asserting real evidence and same-incident recovery. Connects to [FaultInjectionController.java](mock-services/document-service/src/main/java/com/madlanga/lab/document/controller/FaultInjectionController.java). |
 
 ### `traffic-generator/`
 
