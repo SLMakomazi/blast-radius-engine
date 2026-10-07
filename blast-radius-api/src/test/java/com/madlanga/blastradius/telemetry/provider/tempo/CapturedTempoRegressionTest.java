@@ -2,11 +2,11 @@ package com.madlanga.blastradius.telemetry.provider.tempo;
 
 import com.madlanga.blastradius.telemetry.config.TelemetryConfig;
 
-import com.madlanga.blastradius.topology.infrastructure.persistence.FileTopologyStore;
-import com.madlanga.blastradius.topology.infrastructure.RetainedTopologyProvider;
+import com.madlanga.blastradius.topology.repository.FileTopologyRepository;
+import com.madlanga.blastradius.topology.service.TopologyService;
 import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.incident.model.*;
-import com.madlanga.blastradius.topology.domain.*;
+import com.madlanga.blastradius.topology.model.*;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 import org.junit.jupiter.api.Test;
@@ -44,8 +44,8 @@ class CapturedTempoRegressionTest {
     private List<SpanEvidence> healthy() throws Exception {
         return load("healthy-database", FROM.minus(Duration.ofHours(3)), FROM).getSpans();
     }
-    private RetainedTopologyProvider provider() {
-        return new RetainedTopologyProvider(new FileTopologyStore(directory), q -> List.of(),
+    private TopologyService provider() {
+        return new TopologyService(new FileTopologyRepository(directory), q -> List.of(),
                 Clock.fixed(TO, ZoneOffset.UTC), Duration.ofDays(7), Duration.ofMinutes(5));
     }
 
