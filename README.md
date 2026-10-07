@@ -4,13 +4,15 @@ MadlangaAI Blast Radius Engine is a deterministic incident-analysis service for 
 
 > **Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized evidence.**
 
-## Current validation status
+## Validation status
 
-The refactored API currently passes:
+Last recorded full validation before the latest frontend/Gemini changes:
 
 - Maven: **189 tests, 0 failures, 0 errors, 0 skipped**
 - Stage 1 / Phase 11 E2E: **6/6 scenarios passed**
 - Stage 2 target: **4/4 degraded-but-running scenarios**
+
+The latest manual Gemini connectivity checks verified `gemini-3.5-flash-lite` as the primary model and `gemini-3.5-flash` as the fallback model. A fresh full Maven/E2E rerun is not claimed here.
 
 The latest Stage 1 run validated the healthy baseline, PostgreSQL outage, document-service outage, customer-service outage, payment-service outage and partial-observability protection. Incidents reused the same UUID through ACTIVE -> RESOLVED recovery.
 
@@ -73,7 +75,7 @@ Tempo spans --> topology discovery/retention --> DependencyTopology
               optional AI diagnosis
 ```
 
-AI does **not** calculate blast radius, choose the origin, classify observed impact, score severity or control incident lifecycle. Gemini is an optional advisory provider after deterministic analysis.
+AI does **not** calculate blast radius, choose the origin, classify observed impact, score severity or control incident lifecycle. Gemini is an optional advisory provider after deterministic analysis. The local defaults use `gemini-3.5-flash-lite` first and `gemini-3.5-flash` as the model fallback; if the Gemini provider still cannot return a diagnosis, the application returns the deterministic diagnosis.
 
 ## Current Spring Boot package structure
 
@@ -146,6 +148,10 @@ Telemetry answers: **What was actually affected during this incident?**
 Provider-specific response models and configuration details remain inside their adapters/configuration instead of leaking into incident analysis.
 
 Missing telemetry is not treated as healthy evidence. Partial coverage can block automatic recovery.
+
+## Dashboard behavior
+
+The dashboard refreshes incident data every five seconds without overriding an incident that the operator explicitly selected. AI diagnoses are cached by incident for the current browser session, so polling or switching between incidents does not move a diagnosis to the newest incident or unnecessarily clear an already generated result.
 
 ## Incident lifecycle
 
