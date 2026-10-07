@@ -1,6 +1,9 @@
 package com.madlanga.blastradius.telemetry.provider.prometheus;
 
 import com.madlanga.blastradius.telemetry.config.TelemetryConfig.PrometheusProperties;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Collections;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -292,4 +295,49 @@ public class PrometheusMetricsAdapter {
         public CoverageStatus getCoverage() { return coverage; }
         public List<String> getWarnings() { return warnings; }
     }
+
+    // Prometheus response DTO -------------------------------------------------
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class PrometheusResponse {
+    
+        @JsonProperty("status")
+        String status;
+    
+        @JsonProperty("data")
+        Data data;
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Data {
+            @JsonProperty("resultType")
+            String resultType;
+    
+            @JsonProperty("result")
+            List<Series> result = Collections.emptyList();
+        }
+    
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        static class Series {
+            /**
+             * Label set for this time series.
+             * E.g. {"service":"document-service","status":"503","uri":"/api/documents",
+             *        "__name__":"http_server_requests_seconds_count"}
+             */
+            @JsonProperty("metric")
+            Map<String, String> metric = Collections.emptyMap();
+    
+            /**
+             * For {@code query_range}: array of [unix-timestamp-float, value-string] pairs.
+             * For {@code query} (instant): single [unix-timestamp-float, value-string] pair
+             * returned as {@code value} — handled separately.
+             */
+            @JsonProperty("values")
+            List<List<Object>> values = Collections.emptyList();
+    
+            /** Instant query result — single [timestamp, value] pair. */
+            @JsonProperty("value")
+            List<Object> value = Collections.emptyList();
+        }
+    }
+    
 }
