@@ -37,7 +37,7 @@ public final class DiagnosisService {
                     "AI diagnosis provider failed; returning deterministic fallback. application={} environment={} origin={} reason={}",
                     context.applicationId(),
                     context.environment(),
-                    context.origin() == null ? "unknown" : context.origin().componentId(),
+                    context.origin() == null ? "unknown" : context.origin().component(),
                     safeReason(e),
                     e);
             var fallbackDiagnosis = fallback.diagnose(context);
