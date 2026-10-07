@@ -277,7 +277,7 @@ public class ActuatorHealthAdapter {
     // Actuator response DTO ---------------------------------------------------
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class ActuatorHealthResponse {
+    static class ActuatorHealthResponse {
     
         @JsonProperty("status")
         String status;
