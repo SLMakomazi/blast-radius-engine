@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.telemetry.provider.loki;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig;
+
 import tools.jackson.databind.json.JsonMapper;
 import com.madlanga.blastradius.telemetry.model.CoverageStatus;
 import com.madlanga.blastradius.telemetry.model.LogEvidence;
@@ -47,7 +49,7 @@ class LokiLogAdapterTest {
 
     @BeforeEach
     void setUp() {
-        LokiProperties props = new LokiProperties();
+        TelemetryConfig.LokiProperties props = new TelemetryConfig.LokiProperties();
         TelemetrySanitizer sanitizer = new TelemetrySanitizer();
 
         when(restClientBuilder.baseUrl(anyString())).thenReturn(restClientBuilder);
@@ -73,7 +75,7 @@ class LokiLogAdapterTest {
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doThrow(new ResourceAccessException("Connection refused"))
-                .when(responseSpec).body(LokiResponse.class);
+                .when(responseSpec).body(LokiLogAdapter.LokiResponse.class);
 
         LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
 
@@ -88,7 +90,7 @@ class LokiLogAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(null).when(responseSpec).body(LokiResponse.class);
+        doReturn(null).when(responseSpec).body(LokiLogAdapter.LokiResponse.class);
 
         LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
 
@@ -98,11 +100,11 @@ class LokiLogAdapterTest {
     @Test
     void mapsStreamToNormalizedLogEvidence() {
         // Build a synthetic Loki response fixture in memory
-        LokiResponse response = new LokiResponse();
+        LokiLogAdapter.LokiResponse response = new LokiLogAdapter.LokiResponse();
         response.status = "success";
-        response.data = new LokiResponse.Data();
+        response.data = new LokiLogAdapter.LokiResponse.Data();
 
-        LokiResponse.Stream stream = new LokiResponse.Stream();
+        LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
         stream.stream = java.util.Map.of(
                 "service_name", "document-service",
                 "deployment_environment_name", "local");
@@ -120,7 +122,7 @@ class LokiLogAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(LokiResponse.class);
+        doReturn(response).when(responseSpec).body(LokiLogAdapter.LokiResponse.class);
 
         LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
 
@@ -139,10 +141,10 @@ class LokiLogAdapterTest {
 
     @Test
     void preservesCorrelationId() {
-        LokiResponse response = new LokiResponse();
+        LokiLogAdapter.LokiResponse response = new LokiLogAdapter.LokiResponse();
         response.status = "success";
-        response.data = new LokiResponse.Data();
-        LokiResponse.Stream stream = new LokiResponse.Stream();
+        response.data = new LokiLogAdapter.LokiResponse.Data();
+        LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
         stream.stream = java.util.Map.of("service_name", "payment-service");
         long nanos = FROM.getEpochSecond() * 1_000_000_000L;
         String json = "{\"severityText\":\"INFO\",\"body\":\"ok\",\"correlation_id\":\"my-correlation-id\"}";
@@ -152,7 +154,7 @@ class LokiLogAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(LokiResponse.class);
+        doReturn(response).when(responseSpec).body(LokiLogAdapter.LokiResponse.class);
 
         LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
 
@@ -163,11 +165,11 @@ class LokiLogAdapterTest {
 
     @Test
     void mapsOtelStructuredMetadataFromRealLokiShape() {
-        LokiResponse response = new LokiResponse();
+        LokiLogAdapter.LokiResponse response = new LokiLogAdapter.LokiResponse();
         response.status = "success";
-        response.data = new LokiResponse.Data();
+        response.data = new LokiLogAdapter.LokiResponse.Data();
 
-        LokiResponse.Stream stream = new LokiResponse.Stream();
+        LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
         stream.stream = java.util.Map.of(
                 "service_name", "payment-service",
                 "deployment_environment_name", "local",
@@ -185,7 +187,7 @@ class LokiLogAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(LokiResponse.class);
+        doReturn(response).when(responseSpec).body(LokiLogAdapter.LokiResponse.class);
 
         LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
 
@@ -203,10 +205,10 @@ class LokiLogAdapterTest {
 
     @Test
     void sanitizesAuthorizationInLogAttributes() {
-        LokiResponse response = new LokiResponse();
+        LokiLogAdapter.LokiResponse response = new LokiLogAdapter.LokiResponse();
         response.status = "success";
-        response.data = new LokiResponse.Data();
-        LokiResponse.Stream stream = new LokiResponse.Stream();
+        response.data = new LokiLogAdapter.LokiResponse.Data();
+        LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
         stream.stream = java.util.Map.of("service_name", "payment-service");
         long nanos = FROM.getEpochSecond() * 1_000_000_000L;
         // The authorization key should be redacted even if it slips through structured attributes
@@ -218,7 +220,7 @@ class LokiLogAdapterTest {
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(ArgumentMatchers.<java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI>>any());
         doReturn(responseSpec).when(uriSpec).retrieve();
-        doReturn(response).when(responseSpec).body(LokiResponse.class);
+        doReturn(response).when(responseSpec).body(LokiLogAdapter.LokiResponse.class);
 
         LokiLogAdapter.LogAdapterResult result = adapter.fetchLogs(query());
 
