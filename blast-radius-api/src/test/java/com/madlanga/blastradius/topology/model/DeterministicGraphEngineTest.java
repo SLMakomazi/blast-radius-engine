@@ -8,14 +8,14 @@ import com.madlanga.blastradius.topology.model.ComponentType;
 import com.madlanga.blastradius.topology.model.DependencyEdge;
 import com.madlanga.blastradius.topology.model.DependencyTopology;
 import com.madlanga.blastradius.topology.model.GraphAnalysisResult;
-import com.madlanga.blastradius.topology.model.ImpactClassification;
+import com.madlanga.blastradius.topology.model.TheoreticalImpact.Classification;
 import com.madlanga.blastradius.topology.model.TheoreticalImpact;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class DeterministicGraphEngineTest {
+class BlastRadiusGraphServiceTest {
 
-    private final DeterministicGraphEngine engine = new DeterministicGraphEngine();
+    private final BlastRadiusGraphService engine = new BlastRadiusGraphService();
 
     @Test
     void reverseTraversesCanonicalChainWithMinimumDistanceAndPath() {
@@ -28,9 +28,9 @@ class DeterministicGraphEngineTest {
         assertThat(result.getOrigin().getId()).isEqualTo("postgres");
         assertThat(result.getImpacts()).extracting(i -> i.getComponent().getId())
                 .containsExactly("document", "customer", "payment");
-        assertImpact(result, "document", 1, ImpactClassification.DIRECT, "postgres", "document");
-        assertImpact(result, "customer", 2, ImpactClassification.INDIRECT, "postgres", "document", "customer");
-        assertImpact(result, "payment", 3, ImpactClassification.INDIRECT, "postgres", "document", "customer", "payment");
+        assertImpact(result, "document", 1, TheoreticalImpact.Classification.DIRECT, "postgres", "document");
+        assertImpact(result, "customer", 2, TheoreticalImpact.Classification.INDIRECT, "postgres", "document", "customer");
+        assertImpact(result, "payment", 3, TheoreticalImpact.Classification.INDIRECT, "postgres", "document", "customer", "payment");
     }
 
     @Test
@@ -57,7 +57,7 @@ class DeterministicGraphEngineTest {
 
         GraphAnalysisResult result = engine.calculate(topology, "db");
 
-        assertImpact(result, "api", 2, ImpactClassification.INDIRECT, "db", "left", "api");
+        assertImpact(result, "api", 2, TheoreticalImpact.Classification.INDIRECT, "db", "left", "api");
     }
 
     @Test
@@ -69,8 +69,8 @@ class DeterministicGraphEngineTest {
         GraphAnalysisResult result = engine.calculate(topology, "c");
 
         assertThat(result.getImpacts()).hasSize(2);
-        assertImpact(result, "b", 1, ImpactClassification.DIRECT, "c", "b");
-        assertImpact(result, "a", 2, ImpactClassification.INDIRECT, "c", "b", "a");
+        assertImpact(result, "b", 1, TheoreticalImpact.Classification.DIRECT, "c", "b");
+        assertImpact(result, "a", 2, TheoreticalImpact.Classification.INDIRECT, "c", "b", "a");
         assertThat(result.getImpacts()).noneMatch(i -> i.getComponent().getId().equals("c"));
     }
 
@@ -147,7 +147,7 @@ class DeterministicGraphEngineTest {
     }
 
     private void assertImpact(GraphAnalysisResult result, String id, int distance,
-                              ImpactClassification classification, String... path) {
+                              TheoreticalImpact.Classification classification, String... path) {
         TheoreticalImpact impact = result.getImpacts().stream()
                 .filter(candidate -> candidate.getComponent().getId().equals(id))
                 .findFirst()
