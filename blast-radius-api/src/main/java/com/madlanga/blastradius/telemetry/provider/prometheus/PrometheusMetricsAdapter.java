@@ -1,5 +1,6 @@
 package com.madlanga.blastradius.telemetry.provider.prometheus;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig.PrometheusProperties;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
