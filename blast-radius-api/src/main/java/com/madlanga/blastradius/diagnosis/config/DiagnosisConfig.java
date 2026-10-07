@@ -18,7 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class DiagnosisConfig {
 
     @Bean
-    DiagnosisRequestMapper diagnosisContextMapper(JsonMapper jsonMapper, TelemetrySanitizer sanitizer) {
+    DiagnosisRequestMapper diagnosisRequestMapper(JsonMapper jsonMapper, TelemetrySanitizer sanitizer) {
         return new DiagnosisRequestMapper(jsonMapper, sanitizer);
     }
 
