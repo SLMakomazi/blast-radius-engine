@@ -1,5 +1,6 @@
 package com.madlanga.blastradius.telemetry.provider.health;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig.ActuatorHealthProperties;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
