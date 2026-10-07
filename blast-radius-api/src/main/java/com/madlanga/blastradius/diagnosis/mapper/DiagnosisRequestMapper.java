@@ -1,7 +1,7 @@
 package com.madlanga.blastradius.diagnosis.mapper;
 
-import com.madlanga.blastradius.incident.domain.EvidenceSignal;
-import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
+import com.madlanga.blastradius.incident.model.EvidenceSignal;
+import com.madlanga.blastradius.incident.model.IncidentAnalysis;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
 import java.time.Instant;
 import java.util.ArrayList;
