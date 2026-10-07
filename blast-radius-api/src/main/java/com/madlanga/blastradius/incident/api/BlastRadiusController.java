@@ -59,8 +59,8 @@ public class BlastRadiusController {
     }
 
     /**
-     * Phase 8 analysis contract. The request body is transport-only; deterministic
-     * analysis remains unchanged in IncidentAnalysisService.
+     * Request-body analysis contract. The request DTO remains transport-only;
+     * deterministic analysis stays in IncidentAnalysisService.
      */
     @Operation(summary = "Analyze incident blast radius", description = "Correlates topology and available telemetry to calculate deterministic theoretical and observed impact. AI does not determine blast radius.")
     @ApiResponses({
