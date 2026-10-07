@@ -445,7 +445,7 @@ public class TempoTraceAdapter {
     // Tempo response DTOs -----------------------------------------------------
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class TempoResponse {
+    static class TempoResponse {
     
         @JsonProperty("batches")
         List<Batch> batches = Collections.emptyList();
@@ -545,7 +545,7 @@ public class TempoTraceAdapter {
     
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class TempoSearchResponse {
+    static class TempoSearchResponse {
     
         @JsonProperty("traces")
         List<TraceSummary> traces = Collections.emptyList();
