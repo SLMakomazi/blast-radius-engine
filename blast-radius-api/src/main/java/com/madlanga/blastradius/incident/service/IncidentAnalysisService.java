@@ -1,10 +1,10 @@
 package com.madlanga.blastradius.incident.service;
 
 import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
-import com.madlanga.blastradius.telemetry.domain.*;
+import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.incident.model.*;
 import com.madlanga.blastradius.topology.domain.*;
-import com.madlanga.blastradius.telemetry.application.port.TelemetryProvider;
+import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.stereotype.Service;
