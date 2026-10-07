@@ -70,7 +70,7 @@ The diagnosis capability is packaged by feature. Its core types live directly un
 ### lifecycle
 
 - `application/IncidentLifecycleService.java` — creates/updates one ACTIVE incident from analysis and applies recovery rules without duplicating the incident.
-- `infrastructure/IncidentLifecycleMonitor.java` — Spring scheduled entry point. It periodically invokes analysis/lifecycle logic for the configured local application/environment and drives proactive detection/recovery.
+- `infrastructure/IncidentLifecycleScheduler.java` — Spring scheduled entry point. It periodically invokes analysis/lifecycle logic for the configured local application/environment and drives proactive detection/recovery.
 
 ### shared
 
