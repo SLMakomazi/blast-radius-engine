@@ -7,10 +7,10 @@ import com.madlanga.blastradius.incident.domain.IncidentStatus;
 import com.madlanga.blastradius.incident.domain.PersistedIncident;
 import com.madlanga.blastradius.incident.application.port.IncidentRepository;
 import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
-import com.madlanga.blastradius.diagnosis.application.AiDiagnosisService;
-import com.madlanga.blastradius.diagnosis.domain.AiDiagnosis;
-import com.madlanga.blastradius.diagnosis.domain.DiagnosisContext;
-import com.madlanga.blastradius.diagnosis.application.StoredAnalysisDiagnosisContextMapper;
+import com.madlanga.blastradius.diagnosis.AiDiagnosisService;
+import com.madlanga.blastradius.diagnosis.AiDiagnosis;
+import com.madlanga.blastradius.diagnosis.DiagnosisContext;
+import com.madlanga.blastradius.diagnosis.DiagnosisContextMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import java.time.Instant;
 import java.util.List;
@@ -28,11 +28,11 @@ public class IncidentHistoryController {
     private final JsonMapper jsonMapper;
     private final IncidentLifecycleService lifecycleService;
     private final AiDiagnosisService aiDiagnosisService;
-    private final StoredAnalysisDiagnosisContextMapper diagnosisContextMapper;
+    private final DiagnosisContextMapper diagnosisContextMapper;
 
     public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
             IncidentLifecycleService lifecycleService, AiDiagnosisService aiDiagnosisService,
-            StoredAnalysisDiagnosisContextMapper diagnosisContextMapper) {
+            DiagnosisContextMapper diagnosisContextMapper) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
         this.lifecycleService = lifecycleService;
@@ -75,7 +75,7 @@ public class IncidentHistoryController {
             return ResponseEntity.status(404).body(new ErrorResponse("INCIDENT_NOT_FOUND", "incident not found: " + id));
         }
         try {
-            DiagnosisContext context = diagnosisContextMapper.fromJson(incident.get().analysisSnapshot());
+            DiagnosisContext context = diagnosisContextMapper.fromStoredJson(incident.get().analysisSnapshot());
             AiDiagnosis diagnosis = aiDiagnosisService.diagnose(context);
             return ResponseEntity.ok(diagnosis);
         } catch (Exception e) {
