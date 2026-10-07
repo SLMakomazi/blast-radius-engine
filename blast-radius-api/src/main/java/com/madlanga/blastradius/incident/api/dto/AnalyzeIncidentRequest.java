@@ -18,7 +18,5 @@ public record AnalyzeIncidentRequest(
         @Schema(description = "Analysis-window end. Defaults to the current time.", example = "2026-10-03T05:20:54Z")
         Instant to,
         @Schema(description = "Optional suspected failure origin for theoretical analysis.", example = "postgres")
-        String originHint,
-        @Schema(description = "Optional controlled failure experiment identifier.", example = "postgres-outage-local")
-        String experimentId) {
+        String originHint) {
 }
