@@ -1,10 +1,10 @@
 package com.madlanga.blastradius.lifecycle.infrastructure;
 
-import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 import com.madlanga.blastradius.lifecycle.application.IncidentLifecycleService;
-import com.madlanga.blastradius.incident.domain.IncidentAnalysis;
-import com.madlanga.blastradius.incident.domain.PersistedIncident;
-import com.madlanga.blastradius.incident.application.port.IncidentRepository;
+import com.madlanga.blastradius.incident.model.IncidentAnalysis;
+import com.madlanga.blastradius.incident.model.PersistedIncident;
+import com.madlanga.blastradius.incident.repository.IncidentRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
