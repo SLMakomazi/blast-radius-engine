@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.incident.service;
 
-import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.provider.DependencyTopologyProvider;
 import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.incident.model.*;
 import com.madlanga.blastradius.topology.domain.*;
