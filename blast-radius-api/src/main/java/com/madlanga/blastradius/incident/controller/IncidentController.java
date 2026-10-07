@@ -3,7 +3,7 @@ package com.madlanga.blastradius.incident.controller;
 import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 import com.madlanga.blastradius.incident.model.IncidentAnalysis;
 import com.madlanga.blastradius.lifecycle.service.IncidentLifecycleService;
-import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.provider.DependencyTopologyProvider;
 import com.madlanga.blastradius.topology.domain.DependencyTopology;
 import java.time.Instant;
 import io.swagger.v3.oas.annotations.Operation;
