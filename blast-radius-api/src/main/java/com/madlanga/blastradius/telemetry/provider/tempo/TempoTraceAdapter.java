@@ -1,5 +1,6 @@
 package com.madlanga.blastradius.telemetry.provider.tempo;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig.TempoProperties;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
