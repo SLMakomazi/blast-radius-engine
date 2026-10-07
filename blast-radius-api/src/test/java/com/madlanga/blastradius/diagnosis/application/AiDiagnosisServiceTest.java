@@ -39,6 +39,6 @@ class AiDiagnosisServiceTest {
                 new OriginAssessment("postgres", ConfidenceLevel.LOW, 0, List.of()),
                 TelemetryCoverage.allAvailable(),
                 List.of(new ComponentImpact("postgres", ObservedState.ORIGIN, 0, List.of("postgres"), List.of())),
-                List.of(), new IncidentSeverity(SeverityLevel.HIGH, 50, List.of()), null, List.of());
+                List.of(), new IncidentSeverity(SeverityLevel.HIGH, 50, List.of()), List.of());
     }
 }
