@@ -1,4 +1,4 @@
-package com.madlanga.blastradius.diagnosis.application;
+package com.madlanga.blastradius.diagnosis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class DiagnosisContextFactoryTest {
+class DiagnosisContextMapperTest {
     @Test
     void mapsOnlyDeterministicAnalysisIntoDiagnosisContext() {
         var evidence = new EvidenceSignal(Instant.parse("2026-10-03T08:21:28Z"), "postgres", "HEALTH", "health DOWN", "h1");
@@ -21,7 +21,7 @@ class DiagnosisContextFactoryTest {
                 new IncidentSeverity(SeverityLevel.HIGH, 50, List.of("observed propagation")),
                 List.of());
 
-        var result = new DiagnosisContextFactory().from(analysis);
+        var result = new DiagnosisContextMapper(tools.jackson.databind.json.JsonMapper.builder().build(), new com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer()).from(analysis);
 
         assertThat(result.origin().component()).isEqualTo("postgres");
         assertThat(result.severity().score()).isEqualTo(50);
