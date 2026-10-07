@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 public class IncidentAnalysisService {
     private final TelemetryProvider telemetryProvider;
     private final DependencyTopologyProvider topologyProvider;
-    private final DeterministicGraphEngine graphEngine = new DeterministicGraphEngine();
+    private final BlastRadiusGraphService graphEngine = new BlastRadiusGraphService();
     private final IncidentSeverityService severityCalculator = new IncidentSeverityService();
     public IncidentAnalysisService(TelemetryProvider telemetryProvider, DependencyTopologyProvider topologyProvider) {
         this.telemetryProvider = telemetryProvider;
