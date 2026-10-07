@@ -81,17 +81,17 @@ Open `topology/domain/DeterministicGraphEngine.java`.
 
 ## 9. Show the central analysis
 
-**Open:** `incident/application/IncidentAnalysisService.java`
+**Open:** `incident/service/IncidentAnalysisService.java`
 
 **Say:** “This is the main orchestration point. It brings topology and telemetry together, assesses the likely origin, compares theoretical impact with observed evidence, calculates propagation and builds the final incident analysis.”
 
-Open `incident/domain/IncidentSeverityCalculator.java`.
+Open `incident/model/IncidentSeverityService.java`.
 
 **Say:** “Severity is also deterministic. We calculate it from the incident evidence and impact instead of asking an LLM to guess a severity.”
 
 ## 10. Explain theoretical vs observed impact
 
-**Open:** `incident/domain/ComponentImpact.java` and `incident/domain/ObservedState.java`.
+**Open:** `incident/model/ComponentImpact.java` and `incident/model/ComponentImpact.State.java`.
 
 **Say:** “A component can be inside the theoretical blast radius without actually showing failure evidence. This separation prevents us from claiming every reachable dependency definitely failed.”
 
@@ -107,7 +107,7 @@ Open `lifecycle/application/IncidentLifecycleService.java`.
 
 ## 12. Show persistence
 
-**Open:** `incident/application/port/IncidentRepository.java`, then `incident/infrastructure/persistence/JdbcIncidentRepository.java`.
+**Open:** `incident/repository/IncidentRepository.java`, then `incident/repository/JdbcIncidentRepository.java`.
 
 **Say:** “Application code depends on the repository contract. JDBC is the local implementation that stores the incident in the separate Blast Radius database.”
 
@@ -117,7 +117,7 @@ Open `blast-radius-api/src/main/resources/db/migration/V1__create_incidents.sql`
 
 ## 13. Show the API and dashboard
 
-**Open:** `incident/api/IncidentHistoryController.java`.
+**Open:** `incident/controller/IncidentHistoryController.java`.
 
 **Say:** “The frontend reads persisted incident state through this API. The UI does not calculate blast radius; it presents the engine's result.”
 
@@ -127,7 +127,7 @@ Open `frontend/src/main.jsx`.
 
 ## 14. Explain AI's boundary
 
-**Open:** `diagnosis/AiDiagnosisService.java` and `diagnosis/AiDiagnosisProvider.java`.
+**Open:** `diagnosis/service/DiagnosisService.java` and `diagnosis/provider/DiagnosisProvider.java`.
 
 **Say:** “AI starts only after deterministic analysis. It receives a bounded diagnosis context and returns advice.”
 
