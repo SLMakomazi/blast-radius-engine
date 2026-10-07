@@ -7,7 +7,7 @@ import com.madlanga.blastradius.topology.model.ComponentNode;
 import com.madlanga.blastradius.topology.model.ComponentType;
 import com.madlanga.blastradius.topology.model.DependencyEdge;
 import com.madlanga.blastradius.topology.model.DependencyTopology;
-import com.madlanga.blastradius.topology.model.GraphAnalysisResult;
+import com.madlanga.blastradius.topology.model.BlastRadiusResult;
 import com.madlanga.blastradius.topology.model.TheoreticalImpact.Classification;
 import com.madlanga.blastradius.topology.model.TheoreticalImpact;
 import java.util.List;
@@ -23,7 +23,7 @@ class BlastRadiusGraphServiceTest {
                 List.of(node("payment"), node("customer"), node("document"), database("postgres")),
                 List.of(edge("payment", "customer"), edge("customer", "document"), edge("document", "postgres")));
 
-        GraphAnalysisResult result = engine.calculate(topology, "postgres");
+        BlastRadiusResult result = engine.calculate(topology, "postgres");
 
         assertThat(result.getOrigin().getId()).isEqualTo("postgres");
         assertThat(result.getImpacts()).extracting(i -> i.getComponent().getId())
@@ -39,7 +39,7 @@ class BlastRadiusGraphServiceTest {
                 List.of(node("alpha"), node("beta"), database("db")),
                 List.of(edge("beta", "db"), edge("alpha", "db")));
 
-        GraphAnalysisResult result = engine.calculate(topology, "db");
+        BlastRadiusResult result = engine.calculate(topology, "db");
 
         assertThat(result.getImpacts()).extracting(i -> i.getComponent().getId())
                 .containsExactly("alpha", "beta");
@@ -55,7 +55,7 @@ class BlastRadiusGraphServiceTest {
                         edge("right", "db"),
                         edge("left", "db")));
 
-        GraphAnalysisResult result = engine.calculate(topology, "db");
+        BlastRadiusResult result = engine.calculate(topology, "db");
 
         assertImpact(result, "api", 2, TheoreticalImpact.Classification.INDIRECT, "db", "left", "api");
     }
@@ -66,7 +66,7 @@ class BlastRadiusGraphServiceTest {
                 List.of(node("a"), node("b"), node("c")),
                 List.of(edge("a", "b"), edge("b", "c"), edge("c", "a")));
 
-        GraphAnalysisResult result = engine.calculate(topology, "c");
+        BlastRadiusResult result = engine.calculate(topology, "c");
 
         assertThat(result.getImpacts()).hasSize(2);
         assertImpact(result, "b", 1, TheoreticalImpact.Classification.DIRECT, "c", "b");
@@ -80,7 +80,7 @@ class BlastRadiusGraphServiceTest {
                 List.of(node("api"), database("db"), node("unrelated")),
                 List.of(edge("api", "db")));
 
-        GraphAnalysisResult result = engine.calculate(topology, "db");
+        BlastRadiusResult result = engine.calculate(topology, "db");
 
         assertThat(result.getImpacts()).extracting(i -> i.getComponent().getId())
                 .containsExactly("api");
@@ -146,7 +146,7 @@ class BlastRadiusGraphServiceTest {
         assertThat(node.getTechnology()).isEqualTo("MONGODB");
     }
 
-    private void assertImpact(GraphAnalysisResult result, String id, int distance,
+    private void assertImpact(BlastRadiusResult result, String id, int distance,
                               TheoreticalImpact.Classification classification, String... path) {
         TheoreticalImpact impact = result.getImpacts().stream()
                 .filter(candidate -> candidate.getComponent().getId().equals(id))
