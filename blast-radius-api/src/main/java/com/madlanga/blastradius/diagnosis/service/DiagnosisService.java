@@ -1,5 +1,10 @@
 package com.madlanga.blastradius.diagnosis.service;
 
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisRequest;
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisResponse;
+import com.madlanga.blastradius.diagnosis.mapper.DiagnosisRequestMapper;
+import com.madlanga.blastradius.diagnosis.provider.DiagnosisProvider;
+
 import com.madlanga.blastradius.incident.model.IncidentAnalysis;
 import java.util.ArrayList;
 
