@@ -11,7 +11,7 @@ test('only hard liveness failure is red; readiness and HTTP 500 stay degraded', 
   assert.equal(nodeView({component:'db',state:'ORIGIN',evidence:[event('db','liveness health DOWN')]},incident).tone,'failed');
   assert.equal(nodeView({component:'api',state:'OBSERVED',evidence:[event('api','readiness health DOWN')]},incident).tone,'degraded');
   assert.equal(nodeView({component:'api',state:'OBSERVED',evidence:[event('api','aggregate health DOWN')]},incident).tone,'degraded');
-  assert.equal(nodeView({component:'api',state:'OBSERVED',evidence:[event('api','stage2 application error HTTP 500','LOG')]},incident).tone,'degraded');
+  assert.equal(nodeView({component:'api',state:'OBSERVED',evidence:[event('api','application error HTTP 500','LOG')]},incident).tone,'degraded');
 });
 test('resolved incidents remain historical rather than asserting current health', () => {
   const view=nodeView({component:'db',state:'ORIGIN',evidence:[event('db','liveness health DOWN')]},{...incident,status:'RESOLVED'});
