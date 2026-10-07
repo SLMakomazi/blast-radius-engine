@@ -3,10 +3,10 @@ package com.madlanga.blastradius.telemetry.infrastructure.tempo;
 import com.madlanga.blastradius.topology.infrastructure.persistence.FileTopologyStore;
 import com.madlanga.blastradius.topology.infrastructure.RetainedTopologyProvider;
 import com.madlanga.blastradius.telemetry.domain.*;
-import com.madlanga.blastradius.incident.domain.*;
+import com.madlanga.blastradius.incident.model.*;
 import com.madlanga.blastradius.topology.domain.*;
 import com.madlanga.blastradius.shared.sanitization.TelemetrySanitizer;
-import com.madlanga.blastradius.incident.application.IncidentAnalysisService;
+import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.http.MediaType;
@@ -75,8 +75,8 @@ class CapturedTempoRegressionTest {
         assertThat(result.origin().component()).isEqualTo("postgres");
         assertThat(result.impacts()).extracting(ComponentImpact::distance).containsExactly(0,1,2,3);
         assertThat(result.impacts().getLast().path()).containsExactly("postgres","document-service","customer-service","payment-service");
-        assertThat(result.impacts()).extracting(ComponentImpact::state).containsExactly(ObservedState.ORIGIN,
-                ObservedState.OBSERVED,ObservedState.OBSERVED,ObservedState.OBSERVED);
+        assertThat(result.impacts()).extracting(ComponentImpact::state).containsExactly(ComponentImpact.State.ORIGIN,
+                ComponentImpact.State.OBSERVED,ComponentImpact.State.OBSERVED,ComponentImpact.State.OBSERVED);
         assertThat(result.timeline()).allSatisfy(s -> assertThat(s.timestamp()).isBetween(FROM, TO));
         assertThat(result.timeline()).noneMatch(s -> originalHealthy.stream().anyMatch(h -> h.getId().equals(s.evidenceId())));
     }
