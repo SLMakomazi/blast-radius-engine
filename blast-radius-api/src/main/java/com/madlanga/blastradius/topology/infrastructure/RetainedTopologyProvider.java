@@ -1,6 +1,6 @@
 package com.madlanga.blastradius.topology.infrastructure;
 
-import com.madlanga.blastradius.telemetry.domain.*;
+import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.topology.domain.*;
 import com.madlanga.blastradius.topology.domain.RetainedTopology.*;
 import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
