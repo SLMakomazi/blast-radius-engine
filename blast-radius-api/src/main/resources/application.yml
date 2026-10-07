@@ -31,9 +31,9 @@ management:
       show-details: never
 
 # ---------------------------------------------------------------------------
-# Phase 4 — Telemetry provider adapter configuration
-# All values target the local Docker/Podman lab topology.
-# Override via environment variables or a profile-specific application-*.yml.
+# Runtime topology, lifecycle, telemetry and advisory AI configuration.
+# Defaults target the local Docker/Podman validation lab and can be overridden
+# through environment variables or profile-specific application-*.yml files.
 # ---------------------------------------------------------------------------
 blast-radius:
   topology:

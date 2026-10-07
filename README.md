@@ -1,18 +1,20 @@
 # MadlangaAI Blast Radius Engine
 
-MadlangaAI Blast Radius Engine is a deterministic incident-analysis service for **MadlangaAI Phase 4**. It connects application dependency topology with runtime telemetry so that a failure can be traced from its likely origin to the services that may be affected.
+MadlangaAI Blast Radius Engine is a deterministic incident-analysis service for **MadlangaAI Phase 4**. It combines dependency topology with runtime telemetry to identify a likely failure origin, calculate what could be affected, prove what was actually affected, score severity, persist the incident and track recovery.
 
 > **Topology calculates potential impact. Runtime telemetry proves observed impact. AI explains sanitized evidence.**
 
-## What the system does
+## Current validation status
 
-The engine continuously evaluates recent logs, metrics, distributed traces and health information. It identifies a likely origin, calculates the theoretical dependency blast radius, distinguishes theoretical impact from impact actually observed at runtime, calculates deterministic severity, persists the incident, tracks recovery and optionally produces an AI explanation.
+The refactored API currently passes:
 
-AI does **not** decide the blast radius. The deterministic Java domain owns origin assessment, graph traversal, observed impact, propagation, severity and incident state. Gemini is an optional advisory layer that receives sanitized evidence after deterministic analysis.
+- Maven: **189 tests, 0 failures, 0 errors, 0 skipped**
+- Stage 1 / Phase 11 E2E: **6/6 scenarios passed**
+- Stage 2 target: **4/4 degraded-but-running scenarios**
+
+The latest Stage 1 run validated the healthy baseline, PostgreSQL outage, document-service outage, customer-service outage, payment-service outage and partial-observability protection. Incidents reused the same UUID through ACTIVE -> RESOLVED recovery.
 
 ## Local proof environment
-
-The repository includes a synthetic application chain used to prove the engine:
 
 ```text
 traffic-generator
@@ -26,86 +28,155 @@ document-service
 postgres
 ```
 
-The lab also runs the Blast Radius API, a separate diagnostic PostgreSQL database, OpenTelemetry Collector, Loki, Prometheus, Tempo and a React dashboard.
+The lab also runs:
 
-The payment/customer/document services are test applications. Their failures are deliberately controlled so the Blast Radius Engine can be validated without touching a real enterprise application.
+- `blast-radius-api` — Spring Boot analysis/lifecycle API
+- `blast-radius-db` — incident persistence database
+- `frontend` — React/Vite dashboard
+- `otel-collector` — telemetry routing
+- `loki` — logs
+- `prometheus` — metrics
+- `tempo` — traces
 
-## How information reaches Blast Radius
+The synthetic services exist only to generate controlled, realistic runtime failures and degradation.
+
+## How analysis works
 
 ```text
-Monitored application
-        |
-        +---- logs ------> Loki -----------+
-        +---- metrics ---> Prometheus -----+
-        +---- traces ----> Tempo ----------+--> TelemetryProvider
-        +---- health ----> Actuator -------+          |
-                                                     v
-                                               normalized evidence
-                                                     |
-                                              TelemetrySanitizer
-                                                     |
-                 +-----------------------------------+------------------+
-                 |                                                      |
-                 v                                                      v
-        dependency topology                                    runtime evidence
-                 |                                                      |
-                 +-------------------> deterministic analysis <---------+
-                                         |
-                         origin / impact / propagation / severity
-                                         |
-                                  incident persistence
-                                         |
-                                REST API + dashboard
-                                         |
-                              optional AI diagnosis
+logs ------> Loki -----------+
+metrics ---> Prometheus -----+
+traces ----> Tempo ----------+--> LocalTelemetryProvider --> normalized evidence
+health ----> Actuator -------+                                |
+                                                               v
+Tempo spans --> topology discovery/retention --> DependencyTopology
+                                                               |
+                         +-------------------------------------+
+                         v
+                 IncidentAnalysisService
+                         |
+             +-----------+------------+
+             |                        |
+      BlastRadiusGraphService   IncidentSeverityService
+             |                        |
+             +-----------+------------+
+                         v
+                  IncidentAnalysis
+                         |
+                IncidentLifecycleService
+                         |
+                JdbcIncidentRepository
+                         |
+                 blast-radius-db
+                         |
+                  REST + dashboard
+                         |
+              optional AI diagnosis
 ```
 
-## Capability-first architecture
+AI does **not** calculate blast radius, choose the origin, classify observed impact, score severity or control incident lifecycle. Gemini is an optional advisory provider after deterministic analysis.
 
-The main Spring Boot service uses capability-first DDD packages:
+## Current Spring Boot package structure
 
-- **incident** — incident analysis, severity, containment, API contracts and JDBC persistence.
-- **topology** — components, dependency edges, graph traversal, trace-discovered topology and retained topology.
-- **telemetry** — provider-neutral evidence plus Loki, Prometheus, Tempo and Actuator adapters.
-- **diagnosis** — deterministic/AI diagnosis context and optional Gemini integration.
-- **lifecycle** — scheduled detection, incident updates and guarded recovery.
-- **shared** — OpenAPI configuration and telemetry sanitization/redaction.
+The API uses straightforward feature-first Spring packages. It does **not** use `api/application/domain/infrastructure/port` layering.
 
-Dependency direction is kept simple: **API -> application -> domain**. Infrastructure implements ports required by the capabilities.
+```text
+com.madlanga.blastradius/
+├── diagnosis/
+│   ├── config/
+│   ├── dto/
+│   ├── mapper/
+│   ├── provider/
+│   └── service/
+├── incident/
+│   ├── controller/
+│   ├── dto/
+│   ├── model/
+│   ├── repository/
+│   └── service/
+├── lifecycle/
+│   ├── scheduler/
+│   └── service/
+├── shared/
+├── telemetry/
+│   ├── config/
+│   ├── model/
+│   └── provider/
+│       ├── health/
+│       ├── loki/
+│       ├── prometheus/
+│       └── tempo/
+└── topology/
+    ├── config/
+    ├── model/
+    ├── provider/
+    ├── repository/
+    └── service/
+```
 
-## Topology vs telemetry
+Folders are created only when the feature needs them.
+
+## Topology
 
 Topology answers: **If this component fails, what could be affected?**
 
+Important classes:
+
+- `topology/provider/DependencyTopologyProvider.java` — topology boundary used by incident analysis.
+- `topology/provider/RuntimeSpanProvider.java` — runtime-span source used for topology learning.
+- `topology/service/TraceTopologyService.java` — converts normalized spans into dependency topology.
+- `topology/service/TopologyService.java` — learns, retains, reloads and expires topology knowledge.
+- `topology/service/BlastRadiusGraphService.java` — deterministic reverse graph traversal from an origin to affected dependents.
+- `topology/repository/TopologyRepository.java` — retained-topology persistence contract.
+- `topology/repository/FileTopologyRepository.java` — local file-backed implementation.
+- `topology/model/BlastRadiusResult.java` and `TheoreticalImpact.java` — deterministic graph result.
+
+Dependency edges are stored as **dependent -> dependency**. Blast-radius propagation walks the reverse direction: **failed dependency -> affected dependents**.
+
+## Telemetry
+
 Telemetry answers: **What was actually affected during this incident?**
 
-The engine deliberately keeps those answers separate. A downstream dependency may be theoretically reachable without showing runtime failure evidence.
+`TelemetryProvider` returns normalized logs, metrics, traces, health and coverage. `LocalTelemetryProvider` combines:
 
-Local topology can be retained to disk and can also be discovered from Tempo spans. Enterprise integration can replace the local adapters by implementing the topology and telemetry ports without rewriting the deterministic domain.
+- `LokiLogAdapter`
+- `PrometheusMetricsAdapter`
+- `TempoTraceAdapter`
+- `ActuatorHealthAdapter`
+
+Provider-specific response models and configuration details remain inside their adapters/configuration instead of leaking into incident analysis.
+
+Missing telemetry is not treated as healthy evidence. Partial coverage can block automatic recovery.
 
 ## Incident lifecycle
 
-A scheduled monitor evaluates the configured application/environment. Failure evidence creates or updates one ACTIVE incident. Repeated evaluations reuse the same incident rather than creating duplicates. Recovery is guarded by consecutive healthy windows and sufficient telemetry coverage before the incident is automatically resolved.
+`IncidentAnalysisService` correlates telemetry with topology, assesses the likely origin, runs `BlastRadiusGraphService`, distinguishes theoretical/observed/unexpected impact and invokes `IncidentSeverityService`.
+
+`IncidentLifecycleScheduler` periodically evaluates the configured application/environment. `IncidentLifecycleService` creates or updates one ACTIVE incident and requires sufficient healthy evidence/coverage before resolving it. Persistence is through `IncidentRepository` and `JdbcIncidentRepository`.
 
 ## Validation model
 
-The active validation model has two stages only:
-
-| Stage | Purpose | Expected |
+| Stage | Purpose | Target |
 |---|---|---:|
-| Stage 1 | Hard failure / blast-radius detection | 6/6 |
-| Stage 2 | Degraded-but-running detection | 4/4 |
-| **Total** | | **10/10** |
+| Stage 1 / Phase 11 | hard failures, lifecycle and partial observability | 6/6 |
+| Stage 2 | degraded-but-running detection | 4/4 |
+| **E2E total** | | **10/10** |
 
-Stage 1 covers the healthy baseline, PostgreSQL and service outages, dependency direction, stable incident identity, recovery and partial-observability protection.
+Run:
 
-Stage 2 keeps the document service running while injecting HTTP 500, intermittent 500, latency and database-connectivity degradation. The injected condition is synthetic, but the resulting logs, metrics and traces are real runtime telemetry produced by the running lab.
+```bash
+mvn -f blast-radius-api/pom.xml clean test
+python3 scripts/run-phase11-e2e.py
+python3 scripts/run-stage2-e2e.py --scenario all
+```
 
 ## Main endpoints
 
 - Dashboard: `http://localhost:5173`
 - Blast Radius API: `http://localhost:8080`
 - API health: `http://localhost:8080/actuator/health`
+- payment-service: `http://localhost:8081`
+- customer-service: `http://localhost:8082`
+- document-service: `http://localhost:8083`
 - Prometheus: `http://localhost:9090`
 - Tempo: `http://localhost:3200`
 - Loki: `http://localhost:3100`
@@ -121,19 +192,10 @@ docker compose config --quiet
 docker compose build
 docker compose up -d
 docker compose ps
+curl -s http://127.0.0.1:8080/actuator/health
 ```
 
-For a complete handover, use **SETUP.md**.
-
-## Testing
-
-```bash
-mvn -f blast-radius-api/pom.xml clean verify
-python3 scripts/run-phase11-e2e.py
-python3 scripts/run-stage2-e2e.py --scenario all
-```
-
-Expected acceptance result: **10/10**.
+See **SETUP.md** for the complete handover procedure.
 
 ## Repository areas
 
@@ -141,32 +203,31 @@ Expected acceptance result: **10/10**.
 blast-radius-api/    Spring Boot blast-radius engine and REST API
 frontend/            React/Vite incident dashboard
 mock-services/       Synthetic payment/customer/document application
-traffic-generator/   Continuous requests through the synthetic chain
-infrastructure/      OpenTelemetry, Loki, Prometheus and Tempo configuration
-scripts/             Topology/bootstrap/verification/E2E utilities
-fixtures/            Synthetic request data
+traffic-generator/   Continuous synthetic request traffic
+infrastructure/      OpenTelemetry/Loki/Prometheus/Tempo configuration
+scripts/             Stage 1 and Stage 2 E2E runners
+fixtures/            Synthetic fixture data
 ```
 
-For a file-by-file map, read **ARCHITECTURE.md**. For a manager-facing walkthrough showing what to say and which files to open, read **PRESENTATION_GUIDE.md**.
+See **ARCHITECTURE.md** for the current code map.
 
-## Connecting a real system
+## Connecting another system
 
-A real application needs two main integration boundaries:
+A monitored system needs two main boundaries:
 
 1. `DependencyTopologyProvider` supplies canonical components and directed dependencies.
-2. `TelemetryProvider` supplies normalized logs, metrics, traces and health for those component identities.
+2. `TelemetryProvider` supplies normalized logs, metrics, traces and health.
 
-The current local adapters prove this contract with Tempo/Loki/Prometheus/Actuator. Final MadlangaAI/enterprise adapters can be added behind the same ports.
+The local lab proves those contracts using Tempo, Loki, Prometheus and Actuator. Enterprise integrations can implement the same boundaries without changing deterministic incident logic.
 
 ## Security and operating principles
 
-Telemetry is sanitized before persistence/display/AI use. Missing telemetry is not treated as healthy evidence. Secrets stay outside Git. AI remains advisory. The engine does not autonomously modify production infrastructure.
+Telemetry is sanitized before persistence/display/AI use. Secrets stay outside Git. AI is advisory. Missing evidence is not interpreted as health. The engine does not autonomously modify production infrastructure.
 
 ## Documentation
 
-This repository intentionally keeps only four Markdown documents:
+The repository intentionally keeps three Markdown documents:
 
-- **README.md** — what the system is and how the pieces fit together.
-- **SETUP.md** — handover/setup/run/test instructions.
-- **ARCHITECTURE.md** — folder and file-by-file repository map.
-- **PRESENTATION_GUIDE.md** — short presentation walkthrough for managers.
+- **README.md** — system overview and current structure.
+- **SETUP.md** — clone/build/run/test/handover instructions.
+- **ARCHITECTURE.md** — current package and code map.

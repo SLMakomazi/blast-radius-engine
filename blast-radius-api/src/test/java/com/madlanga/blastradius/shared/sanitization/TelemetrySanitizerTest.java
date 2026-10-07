@@ -33,7 +33,7 @@ class TelemetrySanitizerTest {
         Map<String, String> attrs = new LinkedHashMap<>();
         attrs.put("Authorization", "Bearer synthetic-test-value-not-a-real-token");
         Map<String, String> result = sanitizer.sanitizeAttributes(attrs);
-        assertEquals(RedactionPlaceholders.REDACTED_AUTH, result.get("Authorization"));
+        assertEquals("[REDACTED]", result.get("Authorization"));
     }
 
     @Test
@@ -41,7 +41,7 @@ class TelemetrySanitizerTest {
         Map<String, String> attrs = new LinkedHashMap<>();
         attrs.put("authorization", "Basic dXNlcjpwYXNz");
         Map<String, String> result = sanitizer.sanitizeAttributes(attrs);
-        assertEquals(RedactionPlaceholders.REDACTED_AUTH, result.get("authorization"));
+        assertEquals("[REDACTED]", result.get("authorization"));
     }
 
     @Test
@@ -52,7 +52,7 @@ class TelemetrySanitizerTest {
         assertFalse(safe.contains("Bearer synthetic-test-value-not-real"),
                 "Bearer value should have been redacted from message");
         assertTrue(safe.contains("Authorization"), "Key name should be preserved");
-        assertTrue(safe.contains(RedactionPlaceholders.REDACTED_AUTH));
+        assertTrue(safe.contains("[REDACTED]"));
     }
 
     // -------------------------------------------------------------------------
@@ -62,19 +62,19 @@ class TelemetrySanitizerTest {
     @Test
     void redactsPasswordField() {
         String result = sanitizer.sanitizeValue("password", "synthetic-password-for-testing");
-        assertEquals(RedactionPlaceholders.REDACTED_PASSWORD, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
     void redactsPasswdField() {
         String result = sanitizer.sanitizeValue("passwd", "synthetic-value");
-        assertEquals(RedactionPlaceholders.REDACTED_PASSWORD, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
     void redactsDatabasePasswordField() {
         String result = sanitizer.sanitizeValue("db.password", "synthetic-db-pass");
-        assertEquals(RedactionPlaceholders.REDACTED_PASSWORD, result);
+        assertEquals("[REDACTED]", result);
     }
 
     // -------------------------------------------------------------------------
@@ -84,20 +84,20 @@ class TelemetrySanitizerTest {
     @Test
     void redactsApiKeyField() {
         String result = sanitizer.sanitizeValue("api_key", "synthetic-api-key-12345");
-        assertEquals(RedactionPlaceholders.REDACTED_API_KEY, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
     void redactsXApiKeyHeader() {
         Map<String, String> attrs = Map.of("x-api-key", "synthetic-key-value");
         Map<String, String> result = sanitizer.sanitizeAttributes(attrs);
-        assertEquals(RedactionPlaceholders.REDACTED_API_KEY, result.get("x-api-key"));
+        assertEquals("[REDACTED]", result.get("x-api-key"));
     }
 
     @Test
     void redactsClientSecretField() {
         String result = sanitizer.sanitizeValue("client_secret", "synthetic-client-secret");
-        assertEquals(RedactionPlaceholders.REDACTED_API_KEY, result);
+        assertEquals("[REDACTED]", result);
     }
 
     // -------------------------------------------------------------------------
@@ -107,19 +107,19 @@ class TelemetrySanitizerTest {
     @Test
     void redactsAccessTokenField() {
         String result = sanitizer.sanitizeValue("access_token", "synthetic-access-token-abc");
-        assertEquals(RedactionPlaceholders.REDACTED_TOKEN, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
     void redactsRefreshTokenField() {
         String result = sanitizer.sanitizeValue("refresh_token", "synthetic-refresh-token");
-        assertEquals(RedactionPlaceholders.REDACTED_TOKEN, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
     void redactsBearerTokenField() {
         String result = sanitizer.sanitizeValue("bearer_token", "synthetic-bearer");
-        assertEquals(RedactionPlaceholders.REDACTED_TOKEN, result);
+        assertEquals("[REDACTED]", result);
     }
 
     // -------------------------------------------------------------------------
@@ -129,13 +129,13 @@ class TelemetrySanitizerTest {
     @Test
     void redactsCookieField() {
         String result = sanitizer.sanitizeValue("cookie", "JSESSIONID=synthetic-session-value");
-        assertEquals(RedactionPlaceholders.REDACTED_SESSION, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
     void redactsSessionIdField() {
         String result = sanitizer.sanitizeValue("session_id", "synthetic-session-id");
-        assertEquals(RedactionPlaceholders.REDACTED_SESSION, result);
+        assertEquals("[REDACTED]", result);
     }
 
     // -------------------------------------------------------------------------
@@ -197,9 +197,9 @@ class TelemetrySanitizerTest {
         assertEquals("POST", result.get("http.request.method"));
         assertEquals("/api/documents", result.get("http.route"));
         assertEquals("201", result.get("http.response.status_code"));
-        assertEquals(RedactionPlaceholders.REDACTED_AUTH, result.get("authorization"));
+        assertEquals("[REDACTED]", result.get("authorization"));
         assertEquals("ConnectionException", result.get("error.type"));
-        assertEquals(RedactionPlaceholders.REDACTED_PASSWORD, result.get("password"));
+        assertEquals("[REDACTED]", result.get("password"));
     }
 
     @Test
@@ -225,14 +225,14 @@ class TelemetrySanitizerTest {
     void redactsSaIdNumberFieldWith13DigitValue() {
         // Synthetic 13-digit number — not a real ID, just validates the structural pattern
         String result = sanitizer.sanitizeValue("id_number", "0000000000000");
-        assertEquals(RedactionPlaceholders.REDACTED_ID_NUMBER, result);
+        assertEquals("[ID_NUMBER]", result);
     }
 
     @Test
     void redactsSaIdFieldWithNonMatchingValueStillRedacts() {
         // Even if the value doesn't match the 13-digit pattern, named ID fields are still redacted
         String result = sanitizer.sanitizeValue("national_id", "short");
-        assertEquals(RedactionPlaceholders.REDACTED, result);
+        assertEquals("[REDACTED]", result);
     }
 
     @Test
