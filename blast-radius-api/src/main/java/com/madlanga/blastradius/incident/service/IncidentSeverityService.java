@@ -26,7 +26,7 @@ public final class IncidentSeverityService {
             reasons.add("failure evidence is confirmed on the origin component");
         }
 
-        long observed = impacts.stream().filter(i -> i.state() == ObservedState.OBSERVED).count();
+        long observed = impacts.stream().filter(i -> i.state() == ComponentImpact.State.OBSERVED).count();
         if (observed > 0) {
             int points = (int) Math.min(30, observed * 10);
             score += points;
@@ -34,7 +34,7 @@ public final class IncidentSeverityService {
         }
 
         int observedDepth = impacts.stream()
-                .filter(i -> i.state() == ObservedState.OBSERVED)
+                .filter(i -> i.state() == ComponentImpact.State.OBSERVED)
                 .filter(i -> i.distance() != null)
                 .mapToInt(ComponentImpact::distance)
                 .max()
@@ -47,7 +47,7 @@ public final class IncidentSeverityService {
             reasons.add("failure propagated at least 2 dependency hops");
         }
 
-        long unexpected = impacts.stream().filter(i -> i.state() == ObservedState.UNEXPECTED).count();
+        long unexpected = impacts.stream().filter(i -> i.state() == ComponentImpact.State.UNEXPECTED).count();
         if (unexpected > 0) {
             int points = (int) Math.min(40, unexpected * 20);
             score += points;
@@ -75,9 +75,9 @@ public final class IncidentSeverityService {
         }
 
         score = Math.min(100, score);
-        SeverityLevel level = score >= 70 ? SeverityLevel.CRITICAL
-                : score >= 40 ? SeverityLevel.HIGH
-                : score >= 20 ? SeverityLevel.MEDIUM : SeverityLevel.LOW;
+        IncidentSeverity.Level level = score >= 70 ? IncidentSeverity.Level.CRITICAL
+                : score >= 40 ? IncidentSeverity.Level.HIGH
+                : score >= 20 ? IncidentSeverity.Level.MEDIUM : IncidentSeverity.Level.LOW;
         if (reasons.isEmpty()) reasons.add("no configured severity escalation factor was observed");
         return new IncidentSeverity(level, score, reasons);
     }
