@@ -1,6 +1,7 @@
 package com.madlanga.blastradius.telemetry.provider;
 
 import com.madlanga.blastradius.telemetry.provider.health.ActuatorHealthAdapter;
+import com.madlanga.blastradius.telemetry.provider.health.DatabaseHealthAdapter;
 import com.madlanga.blastradius.telemetry.provider.loki.LokiLogAdapter;
 import com.madlanga.blastradius.telemetry.provider.prometheus.PrometheusMetricsAdapter;
 import com.madlanga.blastradius.telemetry.provider.tempo.TempoTraceAdapter;
@@ -40,6 +41,9 @@ class LocalTelemetryProviderTest {
     @Mock
     private ActuatorHealthAdapter healthAdapter;
 
+    @Mock
+    private DatabaseHealthAdapter databaseHealthAdapter;
+
     private LocalTelemetryProvider provider;
 
     private static final Instant FROM = Instant.parse("2026-10-01T10:30:00Z");
@@ -48,7 +52,13 @@ class LocalTelemetryProviderTest {
     @BeforeEach
     void setUp() {
         provider = new LocalTelemetryProvider(lokiAdapter, prometheusAdapter,
-                tempoAdapter, healthAdapter);
+                tempoAdapter, healthAdapter, databaseHealthAdapter);
+    }
+
+    private HealthEvidence sampleDatabaseHealth(HealthState state) {
+        return HealthEvidence.builder().id("db-health-1").timestamp(FROM)
+                .service("postgres").endpoint("database/availability")
+                .state(state).provenance(prov(EvidenceFamily.HEALTH)).build();
     }
 
     private TelemetryQuery query() {
@@ -109,13 +119,15 @@ class LocalTelemetryProviderTest {
                 new ActuatorHealthAdapter.HealthAdapterResult(List.of(sampleHealth(HealthState.UP)),
                         CoverageStatus.AVAILABLE, List.of()));
 
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+
         TelemetryBundle bundle = provider.getTelemetry(query());
 
         assertTrue(bundle.isFullyCovered());
         assertEquals(1, bundle.getLogs().size());
         assertEquals(1, bundle.getMetrics().size());
         assertEquals(1, bundle.getSpans().size());
-        assertEquals(1, bundle.getHealth().size());
+        assertEquals(2, bundle.getHealth().size());
         assertFalse(bundle.hasWarnings());
     }
 
@@ -136,6 +148,8 @@ class LocalTelemetryProviderTest {
                 new ActuatorHealthAdapter.HealthAdapterResult(
                         List.of(sampleHealth(HealthState.UP)),
                         CoverageStatus.AVAILABLE, List.of()));
+
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
 
         TelemetryBundle bundle = provider.getTelemetry(query());
 
@@ -161,6 +175,8 @@ class LocalTelemetryProviderTest {
                 TempoTraceAdapter.TraceAdapterResult.unavailable("Tempo down"));
         when(healthAdapter.fetchHealth(any())).thenReturn(
                 ActuatorHealthAdapter.HealthAdapterResult.unavailable("Health down"));
+
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
 
         TelemetryBundle bundle = provider.getTelemetry(query());
 
@@ -198,6 +214,8 @@ class LocalTelemetryProviderTest {
                         List.of(sampleHealth(HealthState.DOWN)),
                         CoverageStatus.AVAILABLE, List.of()));
 
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+
         TelemetryBundle bundle = provider.getTelemetry(query());
 
         // The composite must NOT propagate the Loki exception
@@ -225,6 +243,8 @@ class LocalTelemetryProviderTest {
         when(healthAdapter.fetchHealth(any())).thenReturn(
                 ActuatorHealthAdapter.HealthAdapterResult.unavailable("no health"));
 
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+
         TelemetryBundle bundle = provider.getTelemetry(query());
 
         // The coverage object explicitly marks everything as UNAVAILABLE
@@ -246,6 +266,8 @@ class LocalTelemetryProviderTest {
                 TempoTraceAdapter.TraceAdapterResult.unavailable("traces unavailable"));
         when(healthAdapter.fetchHealth(any())).thenReturn(
                 ActuatorHealthAdapter.HealthAdapterResult.unavailable("health unavailable"));
+
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
 
         TelemetryBundle bundle = provider.getTelemetry(query());
 
