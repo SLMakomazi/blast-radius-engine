@@ -87,7 +87,7 @@ public class IncidentAnalysisService {
     private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry, DependencyTopology topology) {
         Map<String,List<EvidenceSignal>> result = new LinkedHashMap<>();
         for (LogEvidence log : telemetry.getLogs()) {
-            if (isErrorLevel(log.getLevel()) || isStage2DegradationLog(log)) add(result, log.getService(),
+            if (isErrorLevel(log.getLevel()) || isDegradationLog(log)) add(result, log.getService(),
                     new EvidenceSignal(log.getTimestamp(), log.getService(), "LOG",
                             logSignal(log), log.getId()));
         }
@@ -196,20 +196,20 @@ public class IncidentAnalysisService {
     private Instant earliest(List<EvidenceSignal> evidence) { return evidence.stream().map(EvidenceSignal::timestamp).min(Instant::compareTo).orElse(Instant.MAX); }
     private void add(Map<String,List<EvidenceSignal>> map,String service,EvidenceSignal signal) { if(hasText(service)&&!"unknown".equalsIgnoreCase(service)) map.computeIfAbsent(service,k->new ArrayList<>()).add(signal); }
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
-    private boolean isStage2DegradationLog(LogEvidence log) {
+    private boolean isDegradationLog(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
         return message.contains("synthetic_latency");
     }
     private String logSignal(LogEvidence log) {
         String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
         if (message.contains("synthetic_application_failure") && message.contains("intermittent_500"))
-            return "stage2 intermittent HTTP 500";
+            return "intermittent HTTP 500";
         if (message.contains("synthetic_application_failure") || message.contains("synthetic local application failure"))
-            return "stage2 application error HTTP 500";
+            return "application error HTTP 500";
         if (message.contains("synthetic_dependency_failure"))
-            return "stage2 database connectivity failure";
+            return "database connectivity failure";
         if (message.contains("synthetic_latency"))
-            return "stage2 latency degradation";
+            return "latency degradation";
         return log.getLevel() + " log";
     }
     private void correlateMetricDeltas(List<MetricEvidence> metrics, Map<String,List<EvidenceSignal>> result) {
