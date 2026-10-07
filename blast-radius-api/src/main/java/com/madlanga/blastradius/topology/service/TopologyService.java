@@ -3,9 +3,9 @@ package com.madlanga.blastradius.topology.service;
 import com.madlanga.blastradius.telemetry.model.*;
 import com.madlanga.blastradius.topology.domain.*;
 import com.madlanga.blastradius.topology.domain.RetainedTopology.*;
-import com.madlanga.blastradius.topology.application.port.DependencyTopologyProvider;
-import com.madlanga.blastradius.topology.application.port.RuntimeSpanProvider;
-import com.madlanga.blastradius.topology.application.port.TopologyRepository;
+import com.madlanga.blastradius.topology.provider.DependencyTopologyProvider;
+import com.madlanga.blastradius.topology.provider.RuntimeSpanProvider;
+import com.madlanga.blastradius.topology.repository.TopologyRepository;
 import java.time.*;
 import java.util.*;
 
