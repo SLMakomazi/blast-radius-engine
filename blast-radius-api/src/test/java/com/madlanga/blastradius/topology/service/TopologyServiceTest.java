@@ -2,7 +2,7 @@ package com.madlanga.blastradius.topology.service;
 
 import com.madlanga.blastradius.topology.repository.FileTopologyRepository;
 import com.madlanga.blastradius.telemetry.model.*;
-import com.madlanga.blastradius.topology.domain.*;
+import com.madlanga.blastradius.topology.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
@@ -47,7 +47,7 @@ class TopologyServiceTest {
         assertThat(topology.getEdges()).hasSize(3).doesNotHaveDuplicates();
         assertThat(topology.getNodes()).hasSize(3);
         assertThat(topology.getNode("catalog-db").getTechnology()).isEqualTo("MONGODB");
-        assertThat(new com.madlanga.blastradius.topology.domain.DeterministicGraphEngine().calculate(topology,"catalog-db").getImpacts())
+        assertThat(new com.madlanga.blastradius.topology.model.DeterministicGraphEngine().calculate(topology,"catalog-db").getImpacts())
                 .hasSize(2);
     }
     @Test void expiresEdgesEvenWhenOwnerIsAliveAndRereadingOldSpansDoesNotRenewThem() {
