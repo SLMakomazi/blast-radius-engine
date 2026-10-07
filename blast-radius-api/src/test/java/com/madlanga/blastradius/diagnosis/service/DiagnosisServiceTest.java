@@ -1,5 +1,9 @@
 package com.madlanga.blastradius.diagnosis.service;
 
+import com.madlanga.blastradius.diagnosis.dto.DiagnosisResponse;
+import com.madlanga.blastradius.diagnosis.mapper.DiagnosisRequestMapper;
+import com.madlanga.blastradius.diagnosis.provider.DiagnosisProvider;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.madlanga.blastradius.diagnosis.provider.DeterministicDiagnosisProvider;
