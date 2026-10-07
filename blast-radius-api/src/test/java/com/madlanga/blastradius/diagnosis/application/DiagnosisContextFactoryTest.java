@@ -19,7 +19,7 @@ class DiagnosisContextFactoryTest {
                 List.of(new ComponentImpact("postgres", ObservedState.ORIGIN, 0, List.of("postgres"), List.of(evidence))),
                 List.of(evidence),
                 new IncidentSeverity(SeverityLevel.HIGH, 50, List.of("observed propagation")),
-                null, List.of());
+                List.of());
 
         var result = new DiagnosisContextFactory().from(analysis);
 
