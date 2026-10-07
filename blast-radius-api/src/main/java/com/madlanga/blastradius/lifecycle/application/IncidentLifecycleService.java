@@ -24,8 +24,8 @@ public class IncidentLifecycleService {
     }
 
     public IncidentAnalysis analyzeAndPersist(String applicationId, String environment, Instant from, Instant to,
-            String originHint, String experimentId) {
-        IncidentAnalysis analysis = analysisService.analyze(applicationId, environment, from, to, originHint, experimentId);
+            String originHint) {
+        IncidentAnalysis analysis = analysisService.analyze(applicationId, environment, from, to, originHint);
         persistLifecycle(analysis);
         return analysis;
     }
