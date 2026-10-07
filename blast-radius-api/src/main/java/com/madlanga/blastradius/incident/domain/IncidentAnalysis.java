@@ -1,7 +1,6 @@
 package com.madlanga.blastradius.incident.domain;
 
 import com.madlanga.blastradius.telemetry.domain.TelemetryCoverage;
-import com.madlanga.blastradius.incident.domain.containment.ExperimentAssessment;
 import java.time.Instant;
 import java.util.List;
 
@@ -15,7 +14,6 @@ public record IncidentAnalysis(
         List<ComponentImpact> impacts,
         List<EvidenceSignal> timeline,
         IncidentSeverity severity,
-        ExperimentAssessment experimentAssessment,
         List<String> warnings) {
     public IncidentAnalysis {
         impacts = List.copyOf(impacts);
