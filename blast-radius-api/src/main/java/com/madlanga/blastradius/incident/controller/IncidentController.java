@@ -27,13 +27,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/blast-radius")
 public class IncidentController {
-    private final IncidentAnalysisService service;
+    private final IncidentAnalysisService analysisService;
     private final DependencyTopologyProvider topologyProvider;
     private final IncidentLifecycleService lifecycleService;
 
-    public IncidentController(IncidentAnalysisService service, DependencyTopologyProvider topologyProvider,
+    public IncidentController(IncidentAnalysisService analysisService, DependencyTopologyProvider topologyProvider,
             IncidentLifecycleService lifecycleService) {
-        this.service = service;
+        this.analysisService = analysisService;
         this.topologyProvider = topologyProvider;
         this.lifecycleService = lifecycleService;
     }
@@ -91,7 +91,7 @@ public class IncidentController {
             return lifecycleService.analyzeAndPersist(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
                     resolvedOriginHint);
         }
-        return service.analyze(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
+        return analysisService.analyze(resolvedApplicationId, resolvedEnvironment, resolvedFrom, resolvedTo,
                 resolvedOriginHint);
     }
 
