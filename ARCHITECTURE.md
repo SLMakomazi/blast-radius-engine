@@ -24,21 +24,17 @@ The production-shaped Spring Boot engine. It is organized by capability first an
 
 ### diagnosis
 
-**Application**
-- `AiDiagnosisService.java` — invokes the diagnosis port after deterministic incident analysis; AI remains advisory and does not calculate blast radius.
-- `DiagnosisContextFactory.java` — converts a fresh deterministic incident analysis into the bounded context sent to diagnosis.
-- `StoredAnalysisDiagnosisContextMapper.java` — reconstructs diagnosis context from a persisted incident snapshot so historical incidents can also be explained.
-- `port/AiDiagnosisPort.java` — outbound contract for a diagnosis provider; infrastructure implementations sit behind it.
+The diagnosis capability is packaged by feature. Its core types live directly under `diagnosis/`, while external provider implementations live under `diagnosis/provider/`.
 
-**Domain**
 - `AiDiagnosis.java` — provider-neutral diagnosis result returned to the application/API.
-- `DiagnosisContext.java` — provider-neutral, sanitized input model used by diagnosis adapters.
-
-**Infrastructure**
-- `AiDiagnosisConfiguration.java` — selects/configures the diagnosis adapter from application properties.
-- `DeterministicDiagnosisAdapter.java` — local fallback implementation used when external AI is not selected/available.
-- `GeminiDiagnosisAdapter.java` — calls Gemini and maps its response into `AiDiagnosis`; it consumes `DiagnosisContext` through `AiDiagnosisPort`.
+- `DiagnosisContext.java` — bounded, provider-neutral input model sent to diagnosis providers.
+- `AiDiagnosisProvider.java` — provider contract used by the diagnosis service.
+- `AiDiagnosisService.java` — orchestrates advisory diagnosis and deterministic fallback without calculating blast radius.
+- `DiagnosisContextMapper.java` — builds diagnosis context from either a fresh `IncidentAnalysis` or a persisted sanitized incident snapshot.
 - `GeminiProperties.java` — binds Gemini-specific configuration.
+- `DiagnosisConfiguration.java` — Spring wiring for the mapper, providers and diagnosis service.
+- `provider/DeterministicDiagnosisProvider.java` — local deterministic fallback used when external AI is disabled or unavailable.
+- `provider/GeminiDiagnosisProvider.java` — Gemini HTTP integration, bounded retry/fallback-model handling and response mapping.
 
 ### incident
 
@@ -156,10 +152,10 @@ The production-shaped Spring Boot engine. It is organized by capability first an
 
 - `ArchitectureBoundaryTest.java` — guards capability/layer boundaries so future code cannot casually reintroduce global service/adapter architecture.
 - `BlastRadiusApplicationTests.java` — Spring application/context smoke tests.
-- `diagnosis/application/AiDiagnosisServiceTest.java` — verifies diagnosis orchestration.
-- `diagnosis/application/DiagnosisContextFactoryTest.java` — verifies mapping from analysis to diagnosis context.
-- `diagnosis/application/StoredAnalysisDiagnosisContextMapperTest.java` — verifies diagnosis context reconstruction from persistence.
-- `diagnosis/infrastructure/GeminiDiagnosisAdapterTest.java` — tests provider request/response/failure behavior.
+- `diagnosis/AiDiagnosisServiceTest.java` — verifies diagnosis orchestration and fallback behavior.
+- `diagnosis/DiagnosisContextMapperTest.java` — verifies mapping from live incident analysis to diagnosis context.
+- `diagnosis/DiagnosisContextMapperStoredJsonTest.java` — verifies persisted snapshot reconstruction and re-sanitization.
+- `diagnosis/provider/GeminiDiagnosisProviderTest.java` — tests Gemini request/response/retry/failure behavior.
 - `incident/api/BlastRadiusControllerTest.java` — verifies HTTP analysis/diagnosis contract and error mapping.
 - `incident/application/IncidentAnalysisServiceTest.java` — tests orchestration across topology, telemetry and deterministic rules.
 - `incident/domain/IncidentSeverityCalculatorTest.java` — verifies deterministic severity rules.
