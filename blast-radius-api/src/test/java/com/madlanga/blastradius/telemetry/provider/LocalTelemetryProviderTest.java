@@ -190,7 +190,11 @@ class LocalTelemetryProviderTest {
         assertTrue(bundle.getLogs().isEmpty());
         assertTrue(bundle.getMetrics().isEmpty());
         assertTrue(bundle.getSpans().isEmpty());
-        assertTrue(bundle.getHealth().isEmpty());
+        // Actuator health is unavailable, but the independent database probe
+        // still contributes explicit PostgreSQL availability evidence.
+        assertEquals(1, bundle.getHealth().size());
+        assertEquals("postgres", bundle.getHealth().getFirst().getService());
+        assertEquals(HealthState.UP, bundle.getHealth().getFirst().getState());
         assertTrue(bundle.hasWarnings()); // Caller must see explicit explanation
     }
 
