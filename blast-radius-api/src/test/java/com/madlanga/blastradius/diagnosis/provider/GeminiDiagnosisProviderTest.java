@@ -63,6 +63,21 @@ class GeminiDiagnosisProviderTest {
     }
 
     @Test
+    void reportsSafeGeminiErrorMessageForNonRetryableFailure() throws Exception {
+        AtomicInteger calls = startServer(400, 400,
+                "{\"error\":{\"message\":\"API key not valid. Please pass a valid API key.\"}}");
+
+        IllegalStateException error = assertThrows(
+                IllegalStateException.class,
+                () -> adapter("test-key").diagnose(context()));
+
+        assertEquals(1, calls.get());
+        assertEquals(
+                "Gemini request failed with HTTP 400 for model gemini-test: API key not valid. Please pass a valid API key.",
+                error.getMessage());
+    }
+
+    @Test
     void rejectsEmptyGeminiContent() throws Exception {
         AtomicInteger calls = startServer(200, 200, "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"\"}]}}]}");
 
@@ -98,7 +113,9 @@ class GeminiDiagnosisProviderTest {
         server.createContext("/v1beta/models/gemini-test:generateContent", exchange -> {
             int call = calls.incrementAndGet();
             int status = call == 1 ? firstStatus : laterStatus;
-            respond(exchange, status, status == 200 ? successBody : "{\"error\":\"temporarily unavailable\"}");
+            respond(exchange, status, status == 503
+                    ? "{\"error\":{\"message\":\"temporarily unavailable\"}}"
+                    : successBody);
         });
         server.start();
         return calls;
