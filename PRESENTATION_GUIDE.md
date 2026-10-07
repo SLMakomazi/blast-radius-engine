@@ -97,11 +97,11 @@ Open `incident/model/IncidentSeverityService.java`.
 
 ## 11. Show proactive monitoring
 
-**Open:** `lifecycle/infrastructure/IncidentLifecycleMonitor.java`
+**Open:** `lifecycle/scheduler/IncidentLifecycleScheduler.java`
 
 **Say:** “This scheduler is what makes the engine proactive. It evaluates the configured application/environment repeatedly rather than waiting for somebody to manually report an incident.”
 
-Open `lifecycle/application/IncidentLifecycleService.java`.
+Open `lifecycle/service/IncidentLifecycleService.java`.
 
 **Say:** “This service keeps one incident active while the same problem continues and only resolves it after guarded healthy windows. It avoids creating a new incident every monitoring cycle.”
 
