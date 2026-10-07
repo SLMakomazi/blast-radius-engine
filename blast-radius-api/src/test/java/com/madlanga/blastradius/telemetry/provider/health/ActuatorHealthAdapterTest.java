@@ -1,5 +1,7 @@
 package com.madlanga.blastradius.telemetry.provider.health;
 
+import com.madlanga.blastradius.telemetry.config.TelemetryConfig;
+
 import com.madlanga.blastradius.telemetry.model.CoverageStatus;
 import com.madlanga.blastradius.telemetry.model.HealthEvidence;
 import com.madlanga.blastradius.telemetry.model.HealthState;
@@ -43,7 +45,7 @@ class ActuatorHealthAdapterTest {
 
     @BeforeEach
     void setUp() {
-        ActuatorHealthProperties props = new ActuatorHealthProperties();
+        TelemetryConfig.ActuatorHealthProperties props = new TelemetryConfig.ActuatorHealthProperties();
         // Single component for deterministic testing
         props.setEndpoints(Map.of("document-service", "http://document-service:8083"));
 
@@ -65,14 +67,14 @@ class ActuatorHealthAdapterTest {
 
     @Test
     void mapsUpResponseToUpHealthState() {
-        ActuatorHealthResponse response = new ActuatorHealthResponse();
+        ActuatorHealthAdapter.ActuatorHealthResponse response = new ActuatorHealthAdapter.ActuatorHealthResponse();
         response.status = "UP";
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doReturn(responseSpec).when(responseSpec).onStatus(any(), any());
-        doReturn(response).when(responseSpec).body(ActuatorHealthResponse.class);
+        doReturn(response).when(responseSpec).body(ActuatorHealthAdapter.ActuatorHealthResponse.class);
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(query());
 
@@ -92,7 +94,7 @@ class ActuatorHealthAdapterTest {
         doReturn(responseSpec).when(uriSpec).retrieve();
         doReturn(responseSpec).when(responseSpec).onStatus(any(), any());
         doThrow(new ResourceAccessException("Connection refused"))
-                .when(responseSpec).body(ActuatorHealthResponse.class);
+                .when(responseSpec).body(ActuatorHealthAdapter.ActuatorHealthResponse.class);
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(query());
 
@@ -114,9 +116,9 @@ class ActuatorHealthAdapterTest {
     void downReadinessIsRealEvidence() {
         // A 503 response from /actuator/health/readiness must produce DOWN evidence
         // This is the PostgreSQL-failed scenario
-        ActuatorHealthResponse downResponse = new ActuatorHealthResponse();
+        ActuatorHealthAdapter.ActuatorHealthResponse downResponse = new ActuatorHealthAdapter.ActuatorHealthResponse();
         downResponse.status = "DOWN";
-        ActuatorHealthResponse.ComponentHealth dbHealth = new ActuatorHealthResponse.ComponentHealth();
+        ActuatorHealthAdapter.ActuatorHealthResponse.ComponentHealth dbHealth = new ActuatorHealthAdapter.ActuatorHealthResponse.ComponentHealth();
         dbHealth.status = "DOWN";
         downResponse.components = Map.of("db", dbHealth);
 
@@ -124,7 +126,7 @@ class ActuatorHealthAdapterTest {
         doReturn(uriSpec).when(uriSpec).uri(anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doReturn(responseSpec).when(responseSpec).onStatus(any(), any());
-        doReturn(downResponse).when(responseSpec).body(ActuatorHealthResponse.class);
+        doReturn(downResponse).when(responseSpec).body(ActuatorHealthAdapter.ActuatorHealthResponse.class);
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(query());
 
@@ -135,14 +137,14 @@ class ActuatorHealthAdapterTest {
 
     @Test
     void preservesTimestamp() {
-        ActuatorHealthResponse response = new ActuatorHealthResponse();
+        ActuatorHealthAdapter.ActuatorHealthResponse response = new ActuatorHealthAdapter.ActuatorHealthResponse();
         response.status = "UP";
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doReturn(responseSpec).when(responseSpec).onStatus(any(), any());
-        doReturn(response).when(responseSpec).body(ActuatorHealthResponse.class);
+        doReturn(response).when(responseSpec).body(ActuatorHealthAdapter.ActuatorHealthResponse.class);
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(query());
 
@@ -171,14 +173,14 @@ class ActuatorHealthAdapterTest {
 
     @Test
     void provenanceIdentifiesProvider() {
-        ActuatorHealthResponse response = new ActuatorHealthResponse();
+        ActuatorHealthAdapter.ActuatorHealthResponse response = new ActuatorHealthAdapter.ActuatorHealthResponse();
         response.status = "UP";
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(uriSpec).when(uriSpec).uri(anyString());
         doReturn(responseSpec).when(uriSpec).retrieve();
         doReturn(responseSpec).when(responseSpec).onStatus(any(), any());
-        doReturn(response).when(responseSpec).body(ActuatorHealthResponse.class);
+        doReturn(response).when(responseSpec).body(ActuatorHealthAdapter.ActuatorHealthResponse.class);
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(query());
 
