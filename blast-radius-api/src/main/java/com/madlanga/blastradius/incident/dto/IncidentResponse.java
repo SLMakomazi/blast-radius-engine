@@ -2,21 +2,21 @@ package com.madlanga.blastradius.incident.dto;
 
 import java.time.Instant;
 import java.util.UUID;
-import com.madlanga.blastradius.incident.model.ConfidenceLevel;
-import com.madlanga.blastradius.incident.model.IncidentStatus;
-import com.madlanga.blastradius.incident.model.SeverityLevel;
+import com.madlanga.blastradius.incident.model.OriginAssessment.Confidence;
+import com.madlanga.blastradius.incident.model.PersistedIncident.Status;
+import com.madlanga.blastradius.incident.model.IncidentSeverity.Level;
 import tools.jackson.databind.JsonNode;
 
 public record IncidentResponse(
         UUID id,
         String applicationId,
         String environment,
-        IncidentStatus status,
+        PersistedIncident.Status status,
         Instant startedAt,
         Instant resolvedAt,
         String originComponent,
-        ConfidenceLevel originConfidence,
-        SeverityLevel severityLevel,
+        OriginAssessment.Confidence originConfidence,
+        IncidentSeverity.Level severityLevel,
         int severityScore,
         Instant analysisFrom,
         Instant analysisTo,
