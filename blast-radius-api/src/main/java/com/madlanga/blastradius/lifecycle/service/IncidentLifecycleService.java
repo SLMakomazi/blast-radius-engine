@@ -87,9 +87,22 @@ public class IncidentLifecycleService {
     }
 
     private boolean hasFailureEvidence(IncidentAnalysis analysis) {
-        if (!analysis.origin().evidence().isEmpty()) return true;
-        return analysis.impacts().stream()
-                .anyMatch(impact -> impact.state() == ComponentImpact.State.OBSERVED || impact.state() == ComponentImpact.State.UNEXPECTED);
+        // The incident lifecycle is outage-only. Latency, HTTP 500s, readiness
+        // failures and resource pressure remain telemetry evidence, but they do
+        // not create ACTIVE outage incidents while the service is still alive.
+        return analysis.origin().evidence().stream().anyMatch(this::isOutageEvidence);
+    }
+
+    private boolean isOutageEvidence(EvidenceSignal signal) {
+        String value = signal.signal() == null ? "" : signal.signal().toLowerCase(java.util.Locale.ROOT);
+        return value.startsWith("liveness health down")
+                || value.startsWith("liveness health out_of_service")
+                || value.startsWith("liveness unreachable")
+                // Non-HTTP dependencies such as PostgreSQL do not expose Spring
+                // liveness. A dependency error attributed to that topology node
+                // is the outage evidence available for the dependency itself.
+                || value.startsWith("dependency error observed by")
+                || value.startsWith("dependency error inferred from topology");
     }
 
     private String snapshot(IncidentAnalysis analysis) {
