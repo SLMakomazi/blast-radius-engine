@@ -3,7 +3,7 @@ package com.madlanga.blastradius.topology.service;
 import com.madlanga.blastradius.topology.model.ComponentNode;
 import com.madlanga.blastradius.topology.model.DependencyEdge;
 import com.madlanga.blastradius.topology.model.DependencyTopology;
-import com.madlanga.blastradius.topology.model.GraphAnalysisResult;
+import com.madlanga.blastradius.topology.model.BlastRadiusResult;
 import com.madlanga.blastradius.topology.model.TheoreticalImpact;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.TreeSet;
  */
 public final class BlastRadiusGraphService {
 
-    public GraphAnalysisResult calculate(DependencyTopology topology, String originId) {
+    public BlastRadiusResult calculate(DependencyTopology topology, String originId) {
         Objects.requireNonNull(topology, "topology must not be null");
         if (originId == null || originId.isBlank()) {
             throw new IllegalArgumentException("originId must not be blank");
@@ -76,7 +76,7 @@ public final class BlastRadiusGraphService {
                 .comparingInt(TheoreticalImpact::getDistance)
                 .thenComparing(impact -> impact.getComponent().getId()));
 
-        return new GraphAnalysisResult(origin, impacts);
+        return new BlastRadiusResult(origin, impacts);
     }
 
     private Map<String, TreeSet<String>> buildReverseAdjacency(DependencyTopology topology) {
