@@ -316,9 +316,9 @@ IncidentAnalysisService
    -> IncidentHistoryController -> frontend/src/main.jsx
 
 Persisted/fresh IncidentAnalysis
-   -> DiagnosisContextFactory or StoredAnalysisDiagnosisContextMapper
-   -> AiDiagnosisService -> AiDiagnosisPort
-   -> DeterministicDiagnosisAdapter or GeminiDiagnosisAdapter
+   -> DiagnosisContextMapper
+   -> AiDiagnosisService -> AiDiagnosisProvider
+   -> DeterministicDiagnosisProvider or GeminiDiagnosisProvider
 ```
 
 That flow is the architectural spine of the repository.
