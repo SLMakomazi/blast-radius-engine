@@ -95,7 +95,9 @@ public class IncidentLifecycleService {
 
     private boolean isOutageEvidence(EvidenceSignal signal) {
         String value = signal.signal() == null ? "" : signal.signal().toLowerCase(java.util.Locale.ROOT);
-        return value.startsWith("liveness health down")
+        return value.startsWith("availability health down")
+                || value.startsWith("availability health out_of_service")
+                || value.startsWith("liveness health down")
                 || value.startsWith("liveness health out_of_service")
                 || value.startsWith("liveness unreachable")
                 // Non-HTTP dependencies such as PostgreSQL do not expose Spring
