@@ -40,6 +40,9 @@ export function nodeView(impact, incident) {
     else { tone = 'degraded'; label = 'Observed impact'; }
   }
   const origin = impact.state === 'ORIGIN';
+  if (!resolved && origin && evidence.length) {
+    label = tone === 'failed' ? 'Failure origin' : 'Likely origin';
+  }
   const path = impact.path || [];
   const dependency = path.length > 1 ? path[path.length - 2] : null;
   const reason = evidence.length ? explainSignal(evidence[0].signal) : 'No direct failure evidence is included for this service. Missing evidence is not proof that it is healthy.';
