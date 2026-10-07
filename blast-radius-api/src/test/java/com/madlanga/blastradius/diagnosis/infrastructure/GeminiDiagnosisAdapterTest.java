@@ -129,7 +129,6 @@ class GeminiDiagnosisAdapterTest {
                 new DiagnosisContext.Severity("HIGH", 50, List.of("3 dependent components observed")),
                 List.of(),
                 List.of(),
-                null,
                 List.of());
     }
 }
