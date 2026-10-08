@@ -98,9 +98,34 @@ export function incidentClassification(incident) {
   return `${type} · ${availability}`;
 }
 
-/** Ignore stale requests after a click, and preserve identity when nothing changed. */
+/** Compare ISO 8601 UTC instants without losing PostgreSQL microsecond precision. */
+export function compareIncidentTimestamps(a, b) {
+  const parse = value => {
+    const match = /^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})(?:\\.(\\d{1,9}))?(Z|[+-]\\d{2}:\\d{2})$/.exec(value || '');
+    if (!match) return null;
+    const millis = Date.parse(match[1] + match[3]);
+    if (!Number.isFinite(millis)) return null;
+    const fraction = BigInt((match[2] || '').padEnd(9, '0'));
+    return BigInt(millis) * 1000000n + fraction;
+  };
+  const left = parse(a), right = parse(b);
+  if (left === null || right === null) return null;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** Ignore stale requests after a click, preserving database timestamp precision. */
 export function acceptIncidentDetail(previous, next, selectedId) {
   if (next.id !== selectedId) return previous;
-  if (previous?.id === next.id && previous.updatedAt && next.updatedAt && Date.parse(next.updatedAt) < Date.parse(previous.updatedAt)) return previous;
+  if (previous?.id === next.id && previous.updatedAt && next.updatedAt
+      && compareIncidentTimestamps(next.updatedAt, previous.updatedAt) === -1) return previous;
   return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+}
+
+/** Include the bounded direct recovery proof even when ordinary evidence collection is capped. */
+export function incidentEvidenceTimeline(analysis = {}) {
+  const evidence = [...(analysis.timeline || [])];
+  if (analysis.lastRecoveryEvidence) evidence.push(analysis.lastRecoveryEvidence);
+  const key = e => [e.timestamp, e.component, e.family, e.kind, e.provider, e.sourceRef, e.signal].join('\\u0000');
+  return [...new Map(evidence.map(e => [key(e), e])).values()]
+    .sort((a, b) => compareIncidentTimestamps(a.timestamp, b.timestamp) ?? 0);
 }
