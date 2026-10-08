@@ -35,7 +35,7 @@ class CapturedTempoRegressionTest {
         var server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("http://tempo:3200/api/traces/captured"))
                 .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
-        var adapter = new TempoTraceAdapter(new TelemetryConfig.TempoProperties(), new TelemetrySanitizer(), builder);
+        var adapter = new TempoTraceAdapter(new TelemetryConfig.TempoProperties(), new TelemetrySanitizer(), builder.build());
         var result = adapter.fetchSpans(TelemetryQuery.builder().applicationId("document-platform")
                 .environment("local").from(from).to(to).traceId("captured").build());
         server.verify();
