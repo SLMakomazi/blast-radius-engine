@@ -99,3 +99,15 @@ These are targets for a fresh run, not a claim that every subsequent change has 
 `incident/`, `topology/`, `telemetry/`, `diagnosis/`, `lifecycle/` and `shared/` own the backend capabilities. The current checkout uses feature-first Spring folders such as `controller`, `service`, `model`, `provider` and `repository`. Frontend presentation does not change backend decisions; mock services and traffic generation are synthetic lab support.
 
 Telemetry is sanitized before storage, display and AI use. Keep coverage separate from health, provenance separate from raw provider payloads, and incident severity separate from any wider MadlangaAI health score. The engine does not autonomously repair production systems.
+
+## Outage-only incident lifecycle (feature branch)
+
+The detector creates an **OUTAGE / UNAVAILABLE** incident only from direct, typed availability evidence (configured Spring liveness or JDBC availability probes). HTTP 500, latency, readiness failures and CPU/resource pressure remain supporting telemetry and are not outage types. A database probe returning UNKNOWN (for example invalid credentials) does **not** prove a database outage.
+
+Every active incident retains a stable ID, initial detection time and deduplicated timestamped evidence from successive telemetry evaluations. Origin availability is monitored independently of historical symptoms. Recovery requires fresh positive availability evidence, full configured telemetry coverage and consecutive healthy evaluations. AI diagnosis is explicitly requested and archived with the exact incident evidence snapshot/version it used; polling does not regenerate it.
+
+The default per-incident collection limits are **20,000 observations** and **7 days**. Once a limit is reached, previous observations remain intact, the limitation is recorded, and the latest direct recovery proof is saved separately. These limits do **not** implement total database retention or provide missed-telemetry backfill during an observability outage. Historical incidents and diagnosis records are preserved until an explicit archival/retention policy is approved; no background deletion is enabled.
+
+Monitoring identities, topology and probes are application-profile configuration, not hard-coded engine logic. The demo configuration lives in `blast-radius-api/src/main/resources/application-demo.yml`; `infrastructure/monitoring/application-ledger.yml` illustrates another profile. Current scope is one monitored application/environment and one PostgreSQL/JDBC target per engine deployment; arbitrary automatic enterprise discovery and a multi-application registry are not implemented.
+
+Run backend verification with `mvn -f blast-radius-api/pom.xml clean verify`, frontend tests with `node --test frontend/src/incident-visuals.test.js`, and the frontend build with `npm --prefix frontend run build`. The branch also has a GitHub Actions validation workflow. The six-case outage runner and four-case degradation-evidence runner require an explicitly approved running lab, are **not** unit tests, and have not yet been validated on this branch.
