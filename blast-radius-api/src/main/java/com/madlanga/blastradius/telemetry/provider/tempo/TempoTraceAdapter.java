@@ -64,6 +64,7 @@ public class TempoTraceAdapter {
     private final TelemetrySanitizer sanitizer;
     private final RestClient restClient;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public TempoTraceAdapter(TempoProperties properties,
                              TelemetrySanitizer sanitizer,
                              RestClient.Builder restClientBuilder) {
@@ -77,6 +78,14 @@ public class TempoTraceAdapter {
         if (isolatedBuilder == null) isolatedBuilder = restClientBuilder;
         isolatedBuilder.requestFactory(requests);
         this.restClient = isolatedBuilder.baseUrl(properties.getBaseUrl()).build();
+    }
+
+    // Test seam for captured-trace regression: provide a RestClient already
+    // bound to a MockRestServiceServer without replacing its request factory.
+    TempoTraceAdapter(TempoProperties properties, TelemetrySanitizer sanitizer, RestClient client) {
+        this.properties = properties;
+        this.sanitizer = sanitizer;
+        this.restClient = client;
     }
 
     // -------------------------------------------------------------------------
