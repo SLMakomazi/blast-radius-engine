@@ -54,4 +54,23 @@ class IncidentEvidenceAccumulatorTest {
         assertThat(next.path("timeline").size()).isEqualTo(1);
         assertThat(next.path("origin").path("evidence").size()).isEqualTo(1);
     }
+    @Test void recoveryProofSurvivesEvidenceCountLimit() {
+        var down=signal(1,"down");
+        String first=accumulator.merge(null,analysis(down),1,Duration.ofDays(1));
+        var up=new EvidenceSignal(start.plusSeconds(30),"ledger-db","HEALTH","availability health UP","probe-up",
+                EvidenceSignal.Kind.AVAILABILITY_AVAILABLE,"direct-jdbc","database/availability",start.plusSeconds(31));
+        var next=mapper.readTree(accumulator.merge(first,analysis(up),1,Duration.ofDays(1)));
+        assertThat(next.path("timeline").size()).isEqualTo(1);
+        assertThat(next.path("lastRecoveryEvidence").path("kind").asText()).isEqualTo("AVAILABILITY_AVAILABLE");
+        assertThat(next.path("lastRecoveryEvidence").path("component").asText()).isEqualTo("ledger-db");
+    }
+    @Test void timestampsAreOrderedChronologicallyAcrossDifferentPrecision() {
+        var first=new EvidenceSignal(start.plusSeconds(1),"ledger-db","HEALTH","availability health DOWN","a",
+                EvidenceSignal.Kind.AVAILABILITY_UNAVAILABLE,"direct-jdbc","database/availability",start);
+        var later=new EvidenceSignal(start.plusSeconds(1).plusMillis(100),"ledger-db","HEALTH","availability health DOWN","b",
+                EvidenceSignal.Kind.AVAILABILITY_UNAVAILABLE,"direct-jdbc","database/availability",start);
+        var snapshot=mapper.readTree(accumulator.merge(null,analysis(later,first),100,Duration.ofDays(1)));
+        assertThat(snapshot.path("timeline").get(0).path("timestamp").asText()).isEqualTo(first.timestamp().toString());
+        assertThat(snapshot.path("timeline").get(1).path("timestamp").asText()).isEqualTo(later.timestamp().toString());
+    }
 }
