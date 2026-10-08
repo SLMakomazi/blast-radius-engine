@@ -89,7 +89,17 @@ public final class IncidentEvidenceAccumulator {
         next.put("availabilityStatus", confirmed ? "UNAVAILABLE" : "UNKNOWN");
         next.put("availabilityExplanation", confirmed ? "Confirmed unavailable — direct availability check failed." : "No retained direct availability confirmation.");
         next.put("rootCause", "UNDETERMINED");
-        next.put("evidenceVersion", old.path("evidenceVersion").asLong(0) + 1);
+        // Evidence revisions describe meaningful new incident knowledge, not
+        // the number of scheduler polls. Every collection still advances the
+        // server-side evaluated window and lastCollectedAt watermark.
+        boolean contentChanged = previous == null
+                || evidence.size() != old.path("timeline").size()
+                || !next.path("lastRecoveryEvidence").equals(old.path("lastRecoveryEvidence"))
+                || !next.path("impacts").equals(old.path("impacts"))
+                || !next.path("severity").equals(old.path("severity"))
+                || !next.path("coverage").equals(old.path("coverage"))
+                || !next.path("warnings").equals(old.path("warnings"));
+        next.put("evidenceVersion", old.path("evidenceVersion").asLong(0) + (contentChanged ? 1 : 0));
         next.put("collectionStartedAt", firstCollection.toString());
         next.put("collectionLimited", limited);
         next.put("lastCollectedAt", Instant.now().toString());
