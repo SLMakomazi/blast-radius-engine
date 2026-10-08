@@ -50,7 +50,7 @@ A dependency edge `payment-service → customer-service` means payment needs cus
 
 `IncidentAnalysisService` correlates evidence and assesses a likely origin with confidence. `BlastRadiusGraphService` calculates potential impact; `IncidentSeverityService` calculates severity using the incident evidence. The scheduler calls `IncidentLifecycleService` to create or update one ACTIVE incident per application/environment/origin.
 
-Recovery needs consecutive fully covered healthy windows. Missing telemetry cannot prove recovery. Incident persistence uses JDBC and PostgreSQL; topology persistence uses local files in a named Compose volume.
+Recovery requires three distinct, fresh direct origin UP probes by default. Partial logs/metrics/traces alone cannot prove or prevent recovery; missing direct origin availability evidence cannot prove recovery. Newer direct DOWN evidence resets the recovery streak, and compare-and-set incident revision checks guard resolution. Incident persistence uses JDBC and PostgreSQL; topology persistence uses local files in a named Compose volume.
 
 ## The visual dashboard
 
@@ -104,7 +104,7 @@ Telemetry is sanitized before storage, display and AI use. Keep coverage separat
 
 The detector creates an **OUTAGE / UNAVAILABLE** incident only from direct, typed availability evidence (configured Spring liveness or JDBC availability probes). HTTP 500, latency, readiness failures and CPU/resource pressure remain supporting telemetry and are not outage types. A database probe returning UNKNOWN (for example invalid credentials) does **not** prove a database outage.
 
-Every active incident retains a stable ID, initial detection time and deduplicated timestamped evidence from successive telemetry evaluations. Origin availability is monitored independently of historical symptoms. Recovery requires fresh positive availability evidence, full configured telemetry coverage and consecutive healthy evaluations. AI diagnosis is explicitly requested and archived with the exact incident evidence snapshot/version it used; polling does not regenerate it.
+Every active incident retains a stable ID, initial detection time and deduplicated timestamped evidence from successive telemetry evaluations. Origin availability is monitored independently of historical symptoms. Recovery requires fresh direct origin UP availability evidence across three distinct consecutive successful probe evaluations by default. Partial LOG/METRIC/TRACE coverage is recorded but does not reset otherwise valid direct recovery evidence; missing direct UP or newer direct DOWN evidence blocks recovery. Resolution uses a persisted revision compare-and-set guard. AI diagnosis is explicitly requested and archived with the exact incident evidence snapshot/version it used; polling does not regenerate it.
 
 The default per-incident collection limits are **20,000 observations** and **7 days**. Once a limit is reached, previous observations remain intact, the limitation is recorded, and the latest direct recovery proof is saved separately. These limits do **not** implement total database retention or provide missed-telemetry backfill during an observability outage. Historical incidents and diagnosis records are preserved until an explicit archival/retention policy is approved; no background deletion is enabled.
 
