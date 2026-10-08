@@ -311,7 +311,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) for every file and its connections.
 docker compose up -d --build frontend
 ```
 
-Open [the dashboard](http://localhost:5173). Select an ACTIVE or RESOLVED incident and its hard-failure validation or degradation validation view. If there are no active incidents, use resolved history; an empty ACTIVE list is legitimate.
+Open [the dashboard](http://localhost:5173). Select an ACTIVE or RESOLVED outage incident; the product does not expose development-stage modes. If there are no active incidents, use resolved history; an empty ACTIVE list is legitimate.
 
 1. Search the incident list for a service or symptom.
 2. Open the service map. Red is unavailable, amber is failure signals, pulsing green is potential impact, and gray is uncertainty.
@@ -324,3 +324,22 @@ Resolved snapshots are historical, not a live uptime map. Potential impact must 
 The frontend build uses `VITE_API_BASE_URL`. Compose defaults to the same-origin Nginx proxy in `frontend/nginx.conf`; keep this path for the simplest setup. A standalone Vite development server needs an API URL and backend CORS support or a local proxy.
 
 For a manual local demonstration, stop `customer-service`, wait for automatic detection, then start it again and wait for recovery. Do not stop the diagnostic database or inject faults during a validation run.
+
+## Outage lifecycle validation — feature branch
+
+Do not erase incident data or use `docker compose down -v`. On `feat/outage-evidence-lifecycle`, unit/build checks are:
+
+```bash
+mvn -f blast-radius-api/pom.xml clean verify
+node --test frontend/src/incident-visuals.test.js
+npm --prefix frontend run build
+docker compose config --quiet
+```
+
+With explicit permission to rebuild the demo environment, use `docker compose build blast-radius-api frontend` then `docker compose up -d`. Check the API health, diagnostic database, telemetry backends, monitored services and a healthy baseline before injecting any fault. **Only `postgres` is the monitored database**; `blast-radius-db` holds diagnostic history and must not be stopped for the outage demonstration.
+
+With separate approval for controlled fault injection, stop `postgres` and check that an OUTAGE / UNAVAILABLE incident appears from direct JDBC evidence. Record the incident UUID, startedAt, evidenceVersion and unique supporting events while the outage remains active. Confirm that HTTP 500/latency remain symptoms, downstream observations require evidence and AI diagnosis persists its requested evidence version. Restart `postgres`, observe fresh JDBC UP and guarded recovery, and confirm the same incident resolves with preserved history. Restore the service even if validation fails. Only then consider `python3 scripts/run-phase11-e2e.py` and `python3 scripts/run-degradation-e2e.py --scenario all`; these runners inject faults.
+
+The latter runner tests degradation evidence **without creating degradation-only OUTAGE incidents**. The user interface stays on the explicitly selected incident during silent polling. Historic diagnoses are stored server-side; the current frontend session caches explicitly generated diagnosis results, but does not automatically reload archives after a browser restart.
+
+Configure a different system through Spring application profile settings: application/environment, component/endpoints, configured topology, database probe and telemetry URLs. The default demo profile is isolated; the ledger example is not a production-ready connector. Existing supported scope is a single monitored app per engine and one configured JDBC target. The per-incident evidence limits are 20,000 observations/seven days; they do not cap all historical database records. Do not delete history without a separately approved retention/archival policy. Gaps while the collector was offline are reported, not silently backfilled.
