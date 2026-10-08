@@ -28,7 +28,7 @@ public final class IncidentEvidenceAccumulator {
             evidence.put(key(e), e);
         }
         var timeline = mapper.createArrayNode();
-        evidence.values().stream().sorted(Comparator.comparing(e -> e.path("timestamp").asText())).forEach(timeline::add);
+        evidence.values().stream().sorted(Comparator.comparing(e -> Instant.parse(e.path("timestamp").asText()))).forEach(timeline::add);
         next.set("timeline", timeline);
         LinkedHashMap<String, ObjectNode> impacts = new LinkedHashMap<>();
         old.path("impacts").forEach(i -> impacts.put(i.path("component").asText(), (ObjectNode) i.deepCopy()));
@@ -53,8 +53,8 @@ public final class IncidentEvidenceAccumulator {
         if (old.path("origin").has("confidence")) ((ObjectNode) next.get("origin")).set("confidence", old.path("origin").get("confidence"));
         impacts.values().stream().filter(i -> origin.equals(i.path("component").asText())).findFirst()
                 .ifPresent(i -> ((ObjectNode) next.get("origin")).set("evidence", i.get("evidence")));
-        if (old.has("from") && old.get("from").asText().compareTo(next.get("from").asText()) < 0) next.set("from", old.get("from"));
-        if (old.has("to") && old.get("to").asText().compareTo(next.get("to").asText()) > 0) next.set("to", old.get("to"));
+        if (old.has("from") && Instant.parse(old.get("from").asText()).isBefore(Instant.parse(next.get("from").asText()))) next.set("from", old.get("from"));
+        if (old.has("to") && Instant.parse(old.get("to").asText()).isAfter(Instant.parse(next.get("to").asText()))) next.set("to", old.get("to"));
         if (old.path("severity").path("score").asInt() > next.path("severity").path("score").asInt()) next.set("severity", old.get("severity"));
         var warnings = new LinkedHashSet<String>();
         if (old.has("to") && analysis.from().isAfter(Instant.parse(old.get("to").asText())))
