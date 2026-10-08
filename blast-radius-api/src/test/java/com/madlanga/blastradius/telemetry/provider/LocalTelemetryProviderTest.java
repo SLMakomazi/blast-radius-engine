@@ -176,7 +176,7 @@ class LocalTelemetryProviderTest {
         when(healthAdapter.fetchHealth(any())).thenReturn(
                 ActuatorHealthAdapter.HealthAdapterResult.unavailable("Health down"));
 
-        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UNKNOWN));
 
         TelemetryBundle bundle = provider.getTelemetry(query());
 
@@ -194,8 +194,34 @@ class LocalTelemetryProviderTest {
         // still contributes explicit PostgreSQL availability evidence.
         assertEquals(1, bundle.getHealth().size());
         assertEquals("postgres", bundle.getHealth().getFirst().getService());
-        assertEquals(HealthState.UP, bundle.getHealth().getFirst().getState());
+        assertEquals(HealthState.UNKNOWN, bundle.getHealth().getFirst().getState());
         assertTrue(bundle.hasWarnings()); // Caller must see explicit explanation
+    }
+
+    @Test
+    void databaseOnlyProfileCanReportAvailableHealthWithoutActuator() {
+        when(lokiAdapter.fetchLogs(any())).thenReturn(LokiLogAdapter.LogAdapterResult.unavailable("no log provider"));
+        when(prometheusAdapter.fetchMetrics(any())).thenReturn(PrometheusMetricsAdapter.MetricAdapterResult.unavailable("no metric provider"));
+        when(tempoAdapter.fetchSpans(any())).thenReturn(TempoTraceAdapter.TraceAdapterResult.unavailable("no trace provider"));
+        when(healthAdapter.fetchHealth(any())).thenReturn(
+                new ActuatorHealthAdapter.HealthAdapterResult(List.of(), CoverageStatus.NOT_SUPPORTED, List.of()));
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+        TelemetryBundle bundle = provider.getTelemetry(query());
+        assertEquals(CoverageStatus.AVAILABLE, bundle.getCoverage().getHealth());
+        assertEquals(HealthState.UP, bundle.getHealth().getFirst().getState());
+    }
+
+    @Test
+    void configuredActuatorFailureIsNotHiddenByAvailableDatabase() {
+        when(lokiAdapter.fetchLogs(any())).thenReturn(LokiLogAdapter.LogAdapterResult.unavailable("no logs"));
+        when(prometheusAdapter.fetchMetrics(any())).thenReturn(PrometheusMetricsAdapter.MetricAdapterResult.unavailable("no metrics"));
+        when(tempoAdapter.fetchSpans(any())).thenReturn(TempoTraceAdapter.TraceAdapterResult.unavailable("no traces"));
+        when(healthAdapter.fetchHealth(any())).thenReturn(
+                ActuatorHealthAdapter.HealthAdapterResult.unavailable("configured service unreachable"));
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+        TelemetryBundle bundle = provider.getTelemetry(query());
+        assertEquals(CoverageStatus.PARTIAL, bundle.getCoverage().getHealth());
+        assertFalse(bundle.isFullyCovered());
     }
 
     // -------------------------------------------------------------------------
@@ -247,7 +273,7 @@ class LocalTelemetryProviderTest {
         when(healthAdapter.fetchHealth(any())).thenReturn(
                 ActuatorHealthAdapter.HealthAdapterResult.unavailable("no health"));
 
-        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UNKNOWN));
 
         TelemetryBundle bundle = provider.getTelemetry(query());
 
@@ -271,7 +297,7 @@ class LocalTelemetryProviderTest {
         when(healthAdapter.fetchHealth(any())).thenReturn(
                 ActuatorHealthAdapter.HealthAdapterResult.unavailable("health unavailable"));
 
-        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UP));
+        when(databaseHealthAdapter.fetchHealth(any())).thenReturn(sampleDatabaseHealth(HealthState.UNKNOWN));
 
         TelemetryBundle bundle = provider.getTelemetry(query());
 
