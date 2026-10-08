@@ -31,7 +31,7 @@ class CapturedTempoRegressionTest {
         try (var input = getClass().getResourceAsStream("/tempo/" + name + ".json")) {
             json = new String(Objects.requireNonNull(input).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
-        var builder = RestClient.builder();
+        var builder = RestClient.builder().baseUrl("http://tempo:3200");
         var server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("http://tempo:3200/api/traces/captured"))
                 .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
