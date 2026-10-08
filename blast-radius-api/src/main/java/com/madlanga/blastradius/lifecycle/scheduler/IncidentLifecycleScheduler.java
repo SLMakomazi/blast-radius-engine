@@ -99,7 +99,14 @@ public class IncidentLifecycleScheduler {
                             incident.severityLevel(),
                             incident.severityScore()));
 
-            return analysis.origin().evidence().stream().anyMatch(com.madlanga.blastradius.incident.model.EvidenceSignal::confirmsUnavailable)
+            Instant latestDown = analysis.origin().evidence().stream()
+                    .filter(EvidenceSignal::confirmsUnavailable)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo).orElse(null);
+            Instant latestUp = analysis.timeline().stream()
+                    .filter(e -> e.component().equals(analysis.origin().component())
+                            && e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo).orElse(null);
+            return latestDown != null && (latestUp == null || !latestUp.isAfter(latestDown))
                     ? analysis.origin().component() : null;
         } catch (IllegalStateException e) {
             if (isNoFailureEvidence(e)) {
@@ -134,15 +141,6 @@ public class IncidentLifecycleScheduler {
                 return;
             }
 
-            boolean originStillUnavailable = analysis.origin().evidence().stream()
-                    .anyMatch(EvidenceSignal::confirmsUnavailable);
-            if (originStillUnavailable) {
-                resetHealthyWindows(incident.id());
-                log.info("Incident {} remains ACTIVE: direct unavailability evidence still exists for origin {}",
-                        incident.id(), incident.originComponent());
-                return;
-            }
-
             var newestHealthyProbeAt = analysis.timeline().stream()
                     .filter(e -> e.component().equals(incident.originComponent())
                             && e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)
@@ -163,7 +161,13 @@ public class IncidentLifecycleScheduler {
                             && "AVAILABILITY_UNAVAILABLE".equals(e.path("kind").asText()))
                     .map(e -> Instant.parse(e.path("timestamp").asText()))
                     .max(Instant::compareTo);
-            if (mostRecentFailure.isPresent() && !probeAt.isAfter(mostRecentFailure.get())) {
+            Instant newestWindowFailure = analysis.origin().evidence().stream()
+                    .filter(EvidenceSignal::confirmsUnavailable)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo).orElse(null);
+            Instant latestFailure = mostRecentFailure.orElse(null);
+            if (newestWindowFailure != null && (latestFailure == null || newestWindowFailure.isAfter(latestFailure)))
+                latestFailure = newestWindowFailure;
+            if (latestFailure != null && !probeAt.isAfter(latestFailure)) {
                 resetHealthyWindows(incident.id());
                 return;
             }
