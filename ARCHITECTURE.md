@@ -686,12 +686,12 @@ The browser reads existing incident APIs; visualization translates snapshots but
 
 ### `scripts/`
 
-These runners validate the two formal stages against the running lab without weakening evidence requirements.
+These runners validate outage detection and degradation telemetry against the running lab without weakening evidence requirements.
 
 | File | What it does and where it connects |
 |---|---|
 | [run-phase11-e2e.py](scripts/run-phase11-e2e.py) | Runs six hard-failure cases against the live lab, stopping and restoring services while checking detection, propagation and guarded recovery. Connects to [docker-compose.yml](docker-compose.yml). |
-| [run-degradation-e2e.py](scripts/run-degradation-e2e.py) | Runs four degradation cases using lab fault controls while asserting real evidence and same-incident recovery. Connects to [FaultInjectionController.java](mock-services/document-service/src/main/java/com/madlanga/lab/document/controller/FaultInjectionController.java). |
+| [run-degradation-e2e.py](scripts/run-degradation-e2e.py) | Runs four degradation cases using lab fault controls while asserting real LOG/METRIC/TRACE evidence, no new degradation-only outage and successful requests after reset. Connects to [FaultInjectionController.java](mock-services/document-service/src/main/java/com/madlanga/lab/document/controller/FaultInjectionController.java). |
 
 ### `traffic-generator/`
 
@@ -703,3 +703,17 @@ This small Python process continuously exercises the monitored request chain.
 | [Dockerfile](traffic-generator/Dockerfile) | Packages the synthetic Python traffic process for execution by Compose. Connects to [docker-compose.yml](docker-compose.yml). |
 | [test_traffic.py](traffic-generator/test_traffic.py) | Checks traffic settings, error handling, synthetic requests and controlled shutdown behavior. Connects to [traffic.py](traffic-generator/traffic.py). |
 | [traffic.py](traffic-generator/traffic.py) | Sends synthetic payments at a configured cadence so the full service chain produces real runtime telemetry. Connects to [docker-compose.yml](docker-compose.yml). |
+
+## Outage-evidence lifecycle additions
+
+- `incident/model/EvidenceSignal.java` includes explicit symptom, potential, directly unavailable and directly available kinds plus provenance/collection time. Only typed direct unavailable health evidence is an outage trigger.
+- `telemetry/model/EvidenceIdentity.java` stabilizes log, metric and trace observation identities for window overlap deduplication.
+- `lifecycle/service/IncidentEvidenceAccumulator.java` appends evidence without deleting older history, tracks evidence versions and explicit collection limits, and separately retains the latest origin recovery proof after caps.
+- `lifecycle/service/IncidentLifecycleService.java` locks the incident scope for creation/update/recovery and rejects analysis windows older than the accepted evaluation. This is not yet validated against concurrent real PostgreSQL connections.
+- `lifecycle/scheduler/IncidentLifecycleScheduler.java` requires typed origin availability, guarded positive recovery and avoids treating residual HTTP errors as ongoing outages.
+- `diagnosis/service/DiagnosisArchive.java` archives explicitly requested AI outputs and the exact input snapshot/version. `db/migration/V3__diagnosis_evidence_snapshots.sql` creates that persistent archive without modifying existing incident rows.
+- `topology/config/ConfiguredTopology.java`, `application-demo.yml` and `infrastructure/monitoring/application-ledger.yml` separate demo-specific endpoints/dependencies from generic topology analysis.
+- `frontend/src/incident-visuals.js` uses backend incident classification and typed direct-health evidence; the incident list and selected detail poll silently while preserving explicit selection.
+- `.github/workflows/validate-outage.yml` runs Maven verification and frontend tests/build on the feature branch. It does not replace live PostgreSQL migration or outage validation.
+
+The engine intentionally does not automatically delete old incident or diagnosis records; collection limits are **not** a complete global retention policy. Continuous collection cannot retroactively reconstruct telemetry lost during collector downtime. Runtime integration, migration safety and concurrency must be validated in an isolated approved environment before deployment.
