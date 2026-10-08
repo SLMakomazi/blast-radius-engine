@@ -84,3 +84,20 @@ test('newer fractional-second detail revision is accepted', async () => {
   const next={...previous,updatedAt:'2026-10-08T08:00:00.100Z'};
   assert.equal(acceptIncidentDetail(previous,next,'one'),next);
 });
+
+test('microsecond-precision stale ACTIVE response cannot replace newer RESOLVED detail', async () => {
+  const { acceptIncidentDetail, compareIncidentTimestamps } = await import('./incident-visuals.js');
+  const previous={id:'one',status:'RESOLVED',updatedAt:'2026-10-08T08:00:00.123900Z'};
+  const stale={id:'one',status:'ACTIVE',updatedAt:'2026-10-08T08:00:00.123100Z'};
+  assert.equal(compareIncidentTimestamps(stale.updatedAt,previous.updatedAt),-1);
+  assert.equal(acceptIncidentDetail(previous,stale,'one'),previous);
+  assert.notEqual(acceptIncidentDetail(previous,{...previous,updatedAt:'2026-10-08T08:00:00.123901Z'},'one'),previous);
+});
+
+test('bounded last recovery proof remains visible after timeline cap without double-counting', async () => {
+  const { incidentEvidenceTimeline } = await import('./incident-visuals.js');
+  const down={...event('db','availability health DOWN'),kind:'AVAILABILITY_UNAVAILABLE'};
+  const up={...event('db','availability health UP'),kind:'AVAILABILITY_AVAILABLE',timestamp:'2026-10-08T12:00:00.123900Z'};
+  assert.deepEqual(incidentEvidenceTimeline({timeline:[down],lastRecoveryEvidence:up}),[down,up]);
+  assert.equal(incidentEvidenceTimeline({timeline:[down,up],lastRecoveryEvidence:up}).length,2);
+});
