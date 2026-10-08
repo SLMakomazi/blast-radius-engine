@@ -134,20 +134,26 @@ public class IncidentLifecycleScheduler {
 
             var collected = lifecycleService.persistLifecycle(analysis);
 
+            // Recovery is decided by fresh direct origin availability, not by
+            // unrelated LOG/METRIC/TRACE adapter coverage. A missing telemetry
+            // family must not reset consecutive successful direct probes.
             if (!analysis.coverage().isFullyCovered()) {
-                resetHealthyWindows(incident.id());
-                log.info("Recovery not confirmed for incident {}: telemetry coverage is partial",
+                log.debug("Recovery evaluation for incident {} has partial telemetry; requiring direct origin UP evidence",
                         incident.id());
-                return;
             }
 
             var newestHealthyProbeAt = analysis.timeline().stream()
                     .filter(e -> e.component().equals(incident.originComponent())
                             && e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)
                     .map(EvidenceSignal::timestamp).max(Instant::compareTo);
-            if (newestHealthyProbeAt.isEmpty()) { resetHealthyWindows(incident.id()); return; }
+            if (newestHealthyProbeAt.isEmpty()) {
+                resetHealthyWindows(incident.id());
+                log.info("Recovery reset for incident {}: no fresh direct UP probe for {}", incident.id(), incident.originComponent());
+                return;
+            }
             if (collected.isEmpty() || collected.get().analysisTo().isAfter(analysis.to())) {
                 resetHealthyWindows(incident.id());
+                log.info("Recovery reset for incident {}: persisted incident revision is missing or newer than probe window", incident.id());
                 return;
             }
             Instant probeAt = newestHealthyProbeAt.get();
@@ -169,6 +175,7 @@ public class IncidentLifecycleScheduler {
                 latestFailure = newestWindowFailure;
             if (latestFailure != null && !probeAt.isAfter(latestFailure)) {
                 resetHealthyWindows(incident.id());
+                log.info("Recovery reset for incident {}: latest direct UP {} is not newer than direct DOWN {}", incident.id(), probeAt, latestFailure);
                 return;
             }
             Instant precedingProbe = lastHealthyProbeAt.get(incident.id());
