@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import { ServiceMap, EvidenceCharts, SignalExplanation } from "./ServiceMap.jsx";
-import { analysisOf, matchesIncident, incidentClassification, acceptIncidentDetail } from "./incident-visuals.js";
+import { analysisOf, matchesIncident, incidentClassification, acceptIncidentDetail, incidentEvidenceTimeline } from "./incident-visuals.js";
 
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -33,6 +33,10 @@ function App() {
   const [incidents, setIncidents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [diagnoses, setDiagnoses] = useState({});
+  const [diagnosisHistory, setDiagnosisHistory] = useState({});
+  const [diagnosisSelection, setDiagnosisSelection] = useState({});
+  const [diagnosisHistoryLoading, setDiagnosisHistoryLoading] = useState(false);
+  const diagnosisHistoryRequestRef = useRef(0);
   const selectedIdRef = useRef(null);
   const statusRef = useRef(status);
   const listGenerationRef = useRef(0);
@@ -94,15 +98,35 @@ function App() {
     }
   }
 
+  async function loadDiagnosisHistory(id) {
+    const request = ++diagnosisHistoryRequestRef.current;
+    setDiagnosisHistoryLoading(true);
+    try {
+      const res = await fetch(`${API}/api/v1/blast-radius/incidents/${id}/diagnoses`);
+      if (!res.ok) throw new Error(`Diagnosis history API returned HTTP ${res.status}`);
+      const items = await res.json();
+      if (request !== diagnosisHistoryRequestRef.current || selectedIdRef.current !== id) return;
+      setDiagnosisHistory(previous => ({ ...previous, [id]: items }));
+      setDiagnosisSelection(previous => previous[id] !== undefined ? previous : ({ ...previous, [id]: items[0]?.diagnosisId ?? null }));
+    } catch (e) {
+      if (request === diagnosisHistoryRequestRef.current && selectedIdRef.current === id) setError(e.message);
+    } finally {
+      if (request === diagnosisHistoryRequestRef.current) setDiagnosisHistoryLoading(false);
+    }
+  }
+
   async function runDiagnosis() {
     if (!selected) return;
+    const id = selected.id;
     setDiagnosing(true);
     setError("");
     try {
-      const res = await fetch(`${API}/api/v1/blast-radius/incidents/${selected.id}/diagnosis`, { method: "POST" });
+      const res = await fetch(`${API}/api/v1/blast-radius/incidents/${id}/diagnosis`, { method: "POST" });
       if (!res.ok) throw new Error(`Diagnosis API returned HTTP ${res.status}`);
       const result = await res.json();
-      setDiagnoses(prev => ({ ...prev, [selected.id]: result }));
+      setDiagnoses(prev => ({ ...prev, [id]: result }));
+      setDiagnosisHistory(prev => ({ ...prev, [id]: [result, ...(prev[id] || []).filter(item => item.diagnosisId !== result.diagnosisId)] }));
+      setDiagnosisSelection(prev => ({ ...prev, [id]: result.diagnosisId }));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -112,6 +136,8 @@ function App() {
 
   useEffect(() => {
     selectedIdRef.current = selected?.id ?? null;
+    if (selected?.id) void loadDiagnosisHistory(selected.id);
+    return () => { diagnosisHistoryRequestRef.current += 1; };
   }, [selected?.id]);
 
 
@@ -126,7 +152,9 @@ function App() {
   }, [status]);
 
   const analysis = analysisOf(selected);
-  const diagnosis = selected ? diagnoses[selected.id] ?? null : null;
+  const selectedDiagnosisId = selected ? diagnosisSelection[selected.id] : null;
+  const availableDiagnoses = selected ? diagnosisHistory[selected.id] || [] : [];
+  const diagnosis = selected ? (availableDiagnoses.find(d => d.diagnosisId === selectedDiagnosisId) || diagnoses[selected.id] || null) : null;
   const impacts = analysis.impacts || [];
   const coverage = analysis.coverage || {};
   const observed = impacts.filter(i => i.state === "OBSERVED").length;
@@ -136,7 +164,7 @@ function App() {
   const involved = originCount + observed;
   const impactPercent = impacts.length ? Math.round((involved / impacts.length) * 100) : 0;
   const impactScope = getImpactScope(impacts, involved);
-  const timeline = analysis.timeline || [];
+  const timeline = incidentEvidenceTimeline(analysis);
   const evidenceRows = timeline.filter(e =>
     (!evidenceComponent || e.component === evidenceComponent)
     && (evidenceFamily === "ALL" || e.family === evidenceFamily)
@@ -238,6 +266,12 @@ function App() {
               <div className="panel-head"><div><span className="eyebrow">ADVISORY LAYER</span><h2>AI diagnosis</h2><p>AI explains sanitized deterministic evidence. It does not calculate blast radius.</p></div>
                 <button className="primary" onClick={runDiagnosis} disabled={diagnosing}>{diagnosing?"Diagnosing…":diagnosis?"Run again":"Generate diagnosis"} <Bot size={16}/></button>
               </div>
+              {diagnosisHistoryLoading && <div className="diagnosis-meta">Loading saved diagnoses…</div>}
+              {availableDiagnoses.length > 0 && <label className="diagnosis-meta">Saved diagnoses
+                <select aria-label="Select saved diagnosis" value={selectedDiagnosisId || ""} onChange={e=>setDiagnosisSelection(previous=>({...previous,[selected.id]:e.target.value}))}>
+                  {availableDiagnoses.map((d,index)=><option key={d.diagnosisId || index} value={d.diagnosisId || ""}>{'Version '+(d.evidenceVersion ?? '?')+' · '+(d.evidenceCapturedAt ? new Date(d.evidenceCapturedAt).toLocaleString() : 'saved result '+(index+1))}</option>)}
+                </select>
+              </label>}
               {diagnosis ? <Diagnosis data={diagnosis}/> : <div className="ai-placeholder"><Bot size={28}/><span>Generate an evidence-bounded explanation and recommended next steps.</span></div>}
             </section>
           </>}
