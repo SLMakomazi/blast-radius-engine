@@ -119,6 +119,36 @@ class IncidentLifecycleSchedulerTest {
         verify(lifecycle,never()).resolveIfUnchanged(any(),any(),any());
     }
 
+    @Test void newerPersistedAnalysisWindowDoesNotResetFreshHealthyProbes() {
+        var engine = mock(IncidentAnalysisService.class);
+        var lifecycle = mock(IncidentLifecycleService.class);
+        var repository = mock(IncidentRepository.class);
+        Instant start = Instant.now().minusSeconds(120);
+        UUID id = UUID.randomUUID();
+        var incident = new PersistedIncident(id,"ledger","test",PersistedIncident.Status.ACTIVE,
+                start,null,"db",OriginAssessment.Confidence.HIGH,IncidentSeverity.Level.HIGH,
+                50,start,Instant.now().plusSeconds(300),"{}",start,start);
+        when(repository.findActive("ledger","test")).thenReturn(List.of(incident));
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),isNull()))
+                .thenThrow(new IllegalStateException("No failure evidence found"));
+        Instant probeAt = Instant.now();
+        var up = new EvidenceSignal(probeAt,"db","HEALTH","availability UP","up",
+                EvidenceSignal.Kind.AVAILABILITY_AVAILABLE,"jdbc","availability",probeAt);
+        var healthy = new IncidentAnalysis("ledger","test",start,Instant.now(),
+                new OriginAssessment("db",OriginAssessment.Confidence.LOW,0,List.of()),
+                TelemetryCoverage.allAvailable(),List.of(),List.of(up),
+                new IncidentSeverity(IncidentSeverity.Level.LOW,0,List.of()),List.of());
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db")))
+                .thenReturn(healthy,freshProbe(healthy,1),freshProbe(healthy,2));
+        when(lifecycle.persistLifecycle(any())).thenReturn(Optional.of(incident));
+        var scheduler = new IncidentLifecycleScheduler(engine,lifecycle,repository,
+                "ledger","test",Duration.ofSeconds(20),3);
+        scheduler.evaluateLifecycle();
+        scheduler.evaluateLifecycle();
+        scheduler.evaluateLifecycle();
+        verify(lifecycle).resolveIfUnchanged(eq(id),eq(incident.updatedAt()),any());
+    }
+
     private IncidentAnalysis freshProbe(IncidentAnalysis original,int offsetSeconds) {
         var events = original.timeline().stream().map(e -> e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE
                 ? new EvidenceSignal(e.timestamp().plusSeconds(offsetSeconds),e.component(),e.family(),e.signal(),
