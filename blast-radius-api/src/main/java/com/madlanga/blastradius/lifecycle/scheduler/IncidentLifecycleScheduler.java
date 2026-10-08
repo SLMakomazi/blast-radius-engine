@@ -156,7 +156,7 @@ public class IncidentLifecycleScheduler {
             // An older positive observation must never outweigh a newer, retained
             // direct unavailability probe even if both queries share an end time.
             var saved = collected.get();
-            var snapshot = new tools.jackson.databind.json.JsonMapper().readTree(saved.analysisSnapshot());
+            var snapshot = tools.jackson.databind.json.JsonMapper.builder().build().readTree(saved.analysisSnapshot());
             var mostRecentFailure = java.util.stream.StreamSupport.stream(snapshot.path("timeline").spliterator(), false)
                     .filter(e -> saved.originComponent().equals(e.path("component").asText())
                             && "HEALTH".equals(e.path("family").asText())
