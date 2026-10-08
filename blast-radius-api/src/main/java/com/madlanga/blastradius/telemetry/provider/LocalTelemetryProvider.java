@@ -107,8 +107,10 @@ public class LocalTelemetryProvider implements TelemetryProvider {
         CoverageStatus healthCoverage = healthResult.getCoverage();
         if (databaseHealth != null) {
             boolean databaseProbeConclusive = databaseHealth.getState() != com.madlanga.blastradius.telemetry.model.HealthState.UNKNOWN;
-            if (healthCoverage == CoverageStatus.UNAVAILABLE && healthResult.getHealth().isEmpty()) {
+            if (healthCoverage == CoverageStatus.NOT_SUPPORTED) {
                 healthCoverage = databaseProbeConclusive ? CoverageStatus.AVAILABLE : CoverageStatus.UNAVAILABLE;
+            } else if (healthCoverage == CoverageStatus.UNAVAILABLE && databaseProbeConclusive) {
+                healthCoverage = CoverageStatus.PARTIAL;
             } else if (!databaseProbeConclusive && healthCoverage == CoverageStatus.AVAILABLE) {
                 healthCoverage = CoverageStatus.PARTIAL;
             }
