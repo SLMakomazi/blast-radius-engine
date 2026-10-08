@@ -60,8 +60,8 @@ class JdbcIncidentRepositoryPostgresTest {
                     INSERT INTO incidents(id,application_id,environment,status,started_at,
                         origin_component,severity_level,severity_score,analysis_from,analysis_to,analysis_snapshot)
                     VALUES (?,?,?,'ACTIVE',?,?,?,?,?,?,CAST(? AS jsonb))
-                    """, UUID.randomUUID(), application, environment, started, "postgres",
-                    "HIGH", 80, started, started.plusSeconds(10), "{}"))
+                    """, UUID.randomUUID(), application, environment, java.sql.Timestamp.from(started), "postgres",
+                    "HIGH", 80, java.sql.Timestamp.from(started), java.sql.Timestamp.from(started.plusSeconds(10)), "{}"))
                     .isInstanceOf(DataIntegrityViolationException.class);
 
             UUID diagnosisId = UUID.randomUUID();
