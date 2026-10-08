@@ -73,4 +73,12 @@ class IncidentEvidenceAccumulatorTest {
         assertThat(snapshot.path("timeline").get(0).path("timestamp").asText()).isEqualTo(first.timestamp().toString());
         assertThat(snapshot.path("timeline").get(1).path("timestamp").asText()).isEqualTo(later.timestamp().toString());
     }
+    @Test void duplicatePollWithIdenticalEvidenceDoesNotIncrementEvidenceVersion() {
+        String first=accumulator.merge(null,analysis(signal(1,"first")),100,Duration.ofDays(1));
+        var previous=mapper.readTree(first);
+        var again=mapper.readTree(accumulator.merge(first,analysis(signal(1,"new-random-id")),100,Duration.ofDays(1)));
+        assertThat(again.path("timeline").size()).isEqualTo(1);
+        assertThat(again.path("evidenceVersion").asLong())
+                .isEqualTo(previous.path("evidenceVersion").asLong());
+    }
 }
