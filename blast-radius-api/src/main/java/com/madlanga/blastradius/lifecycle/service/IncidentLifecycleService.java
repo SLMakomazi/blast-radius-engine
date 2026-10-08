@@ -55,6 +55,11 @@ public class IncidentLifecycleService {
         var lastResolution = repository.latestResolution(analysis.applicationId(), analysis.environment(), analysis.origin().component());
         if (active.isEmpty() && lastResolution.isPresent() && analysis.origin().evidence().stream()
                 .filter(EvidenceSignal::confirmsUnavailable).noneMatch(e -> e.timestamp().isAfter(lastResolution.get()))) return Optional.empty();
+        if (active.isPresent() && !analysis.to().isAfter(active.get().analysisTo())) {
+            // The observation is older than the current accepted evaluation.
+            // Never replace the current availability assessment with stale data.
+            return active;
+        }
         String snapshot = new IncidentEvidenceAccumulator(jsonMapper).merge(active.map(PersistedIncident::analysisSnapshot).orElse(null),
                 analysis, Math.max(1, maxEvidence), collectionDuration);
         var merged = jsonMapper.readTree(snapshot);
