@@ -168,7 +168,7 @@ class ActuatorHealthAdapterTest {
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(filtered);
 
-        assertEquals(CoverageStatus.UNAVAILABLE, result.getCoverage());
+        assertEquals(CoverageStatus.NOT_SUPPORTED, result.getCoverage());
         assertTrue(result.getHealth().isEmpty());
         assertFalse(result.getWarnings().isEmpty());
     }
