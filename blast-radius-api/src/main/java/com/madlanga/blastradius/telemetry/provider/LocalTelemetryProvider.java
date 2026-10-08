@@ -14,6 +14,7 @@ import com.madlanga.blastradius.telemetry.provider.prometheus.PrometheusMetricsA
 import com.madlanga.blastradius.telemetry.provider.tempo.TempoTraceAdapter;
 import com.madlanga.blastradius.telemetry.model.TelemetryBundle;
 import com.madlanga.blastradius.telemetry.model.TelemetryCoverage;
+import com.madlanga.blastradius.telemetry.model.CoverageStatus;
 import com.madlanga.blastradius.telemetry.model.TelemetryQuery;
 import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
 
