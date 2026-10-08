@@ -435,3 +435,233 @@ docker compose ps blast-radius-api frontend blast-radius-db
 A controlled outage test still requires separate approval. Keep `blast-radius-db` running, stop only the monitored `postgres` service, observe OUTAGE/UNAVAILABLE and cumulative evidence, restore `postgres`, and confirm stable ID/start time, retained history and guarded RESOLVED state without a manual browser refresh.
 
 **Branch:** `feat/outage-evidence-lifecycle`. **No merge, force-push, database reset or existing history deletion was performed by ChatGPT.**
+
+
+---
+
+# Codex Post-Fix Validation Handover
+
+# MadlangaAI Blast Radius — validation and ChatGPT handover
+
+Validated 2026-10-08 (Africa/Johannesburg). This report supersedes the report at `952bd90`; its original findings remain available in Git history. **Automated builds pass, but five confirmed remaining issues/gaps prevent declaring the complete lifecycle validated. Controlled live outage/recovery acceptance remains unexecuted.**
+
+## 1. Repository and exact revision
+
+- Repository: `SLMakomazi/blast-radius-engine`.
+- Branch: `feat/outage-evidence-lifecycle`.
+- Application revision validated: **`fae38e008ffe5962dfadb7299ae223301f54ded4`**.
+- Started with a clean tree at `952bd90f352453e4e2f90dcbbc47543001211c1c`; fetched and fast-forwarded the feature branch through 41 commits. No application edits, fixes, refactoring, merges, infrastructure changes or fault injection occurred in this validation.
+- The user explicitly authorizes updating, committing and pushing **only this handover**. Its publication commit will be a descendant of the application revision above; obtain its SHA with `git log -1 --format=%H -- CHATGPT_HANDOVER.md`.
+- No database or Docker volume was reset/deleted. No local service was started, stopped or rebuilt. `main` remains untouched. Temporary reproduction probes are isolated inputs, not fabricated production telemetry.
+
+### Changes reviewed since 952bd90
+
+Reviewed the complete 25-file diff and commit history, including:
+
+- `a08b897`, `fa653b3`: exclude database UNKNOWN from confirmed outages, add correlation regression.
+- `7412316`, `6f8797f`, `5638d5c`, `585ab0b`: typed map availability, timestamp comparison and incident-list request scoping.
+- `96063aa`, `aeddd27`, `7366f23`, `4c550ad`, `82d1eed`: stale-window rejection, guarded resolution reporting and regression coverage.
+- `1c720ca`, `8b09020`, `42e4697`: bounded origin recovery proof and instant-based sorting.
+- `c838045` through `65bf74a`: JDBC-aware coverage and unconfigured HTTP probes.
+- `06dfcd0` through `cf1db9c`, `044c84e`, `f2e2ff6`, `ffa5b9d`: isolated HTTP clients/timeouts and captured Tempo test injection.
+- `85bab60`, `680fb6c`, `fe7414a`: distinct positive recovery observations.
+- `77a5ed3`, `8ac3f3f`: evidence version changes only when retained knowledge changes.
+- `fa5964d`, `6366b07`, `a34fcef`, `4bb9045`, `fae38e0`: CI, isolated PostgreSQL migration/repository tests, JDBC parameter correction and concurrent advisory-lock test.
+- Documentation updates explain outage-only scope, accumulated history, portability and remaining retention/runtime limits.
+
+## 2. Tests and builds actually executed
+
+| Execution | Result |
+|---|---|
+| Local `mvn -f blast-radius-api/pom.xml clean verify` | PASS: compilation, tests, JAR and Boot packaging. Surefire: 223 discovered, **221 passed, 0 failed/errors, 2 skipped**. |
+| Local `node --test frontend/src/incident-visuals.test.js` | PASS: **14 passed**, zero failures/skips. |
+| Local `npm --prefix frontend run build` | PASS: Vite 7.1.9, 1,668 modules. |
+| GitHub backend, same application SHA | PASS: **223 passed, 0 failures/errors/skips**, including both real PostgreSQL tests. |
+| GitHub frontend, same application SHA | PASS: npm clean install, **14 tests**, production build. |
+| Temporary production-method/function probes | Reproduced C2/C3/C6 residual defects; verified redundant evidence version stays 1 and corrected list race remains RESOLVED. Not part of the Maven/Node suite totals. |
+| Local Docker inventory (read-only) | Unavailable: `/Users/sisekomakomazi/.docker/run/docker.sock` does not exist. No runtime was started. |
+
+Local Maven used Java 25 targeting Java 21; GitHub used Temurin 21. The two locally skipped methods belong to `JdbcIncidentRepositoryPostgresTest`, enabled only when `CI_PG_URL` is configured. No local CI database variables were configured. Their absence is not a test pass; CI executed them successfully against PostgreSQL 17.
+
+Temporary logs (not committed; essential results are recorded here):
+
+- `/tmp/blast-validation2-backend.log`
+- `/tmp/blast-validation2-frontend.log`, `/tmp/blast-validation2-build.log`
+- `/tmp/blast-validation2-ci.log`, `/tmp/blast-validation2-ci-status.json`
+- `/tmp/blast-validation2-prior-ci-failure.log`
+- `/tmp/blast-validation2-probes.log`, `/tmp/blast-validation2-frontend-probes.log`
+- `/tmp/BlastValidation2Probe.java`, `/tmp/BlastValidationProbe.java`, `/tmp/blast-validation2-polling.mjs`
+
+### GitHub Actions evidence
+
+Workflow: `.github/workflows/validate-outage.yml`. Pushes to this feature branch and manual dispatch trigger backend/frontend jobs with read-only repository permission, per-branch cancellation and timeouts. The backend provisions its own disposable PostgreSQL 17 service (`blast_radius_ci`), passes CI_PG variables and runs full Maven verification; the frontend installs locked dependencies and runs its existing tests/build. No production database is targeted by the workflow configuration.
+
+Verified **completed/success** run for application SHA `fae38e0`:
+[Run 37756041645](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645).
+
+- [Backend job 113240832727](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645/job/113240832727): success, including container teardown; 223 tests, zero skipped.
+- [Frontend job 113240833079](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645/job/113240833079): success, 14 tests and build.
+- Logs show V1, V2 and V3 applied successfully to a fresh PostgreSQL schema, followed by `JdbcIncidentRepositoryPostgresTest`: 2 tests, zero failures/errors/skips.
+
+Investigated previous failed [run 37755770039](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37755770039) at `a34fcef`. Exact failure: `JdbcIncidentRepositoryPostgresTest.migrationsAdvisoryLocksJsonbUniquenessAndDiagnosisArchiveWorkOnPostgres:65` expected `DataIntegrityViolationException` but received `BadSqlGrammarException` during the duplicate INSERT. The test supplied raw `Instant` JDBC parameters; `4bb9045` converted them to `java.sql.Timestamp`. This is the code-supported cause of the earlier failure; the exception output abbreviates the underlying driver stack. Latest CI passes that assertion. No current standard-suite failure remains.
+
+### PostgreSQL coverage and limits
+
+Executed in CI:
+
+1. `migrationsAdvisoryLocksJsonbUniquenessAndDiagnosisArchiveWorkOnPostgres`: fresh Flyway migrations, repository JSONB save/read, unique ACTIVE origin constraint rejection, diagnosis table INSERT/version read, resolution and creation of a subsequent ACTIVE incident. It deletes only its UUID-scoped temporary records in the isolated CI database.
+2. `transactionAdvisoryLockSerializesTwoIndependentPostgresConnections`: second transaction remains blocked while first holds the scope lock, then acquires it after release.
+
+This proves the tested schema/repository paths against real PostgreSQL. It does **not** prove populated-database upgrade safety, complete lifecycle-service concurrency, rollback behavior after every failure, scheduler restarts, multi-instance recovery or a real outage. Archive integration inserts JSON directly; it does not exercise an actual AI call or the archive HTTP endpoint end to end. V2's unique index will require a preflight for duplicate active origins in any existing deployment; no such data inspection or repair was performed.
+
+## 3. Status of the ten previous findings
+
+| Finding | Current status | Evidence/remaining scope |
+|---|---|---|
+| C1 UNKNOWN PostgreSQL becomes outage | **Resolved in reviewed path** | `IncidentAnalysisService.java:139-144` limits UNKNOWN/null-status unavailability to liveness; database UNKNOWN remains symptom. `unknownDatabaseAvailabilityNeverBecomesConfirmedOutage` passes. |
+| C2 stale assessment/recovery chronology | **Partially resolved** | Strictly older analysis windows are rejected; new test passes. Equal-window older observations can still qualify recovery: detailed issue below. |
+| C3 lexical timestamps | **Partially resolved** | Backend uses Instant and mixed-precision test passes. Frontend fixes whole-second/fractional ordering but truncates sub-millisecond distinctions: detailed issue below. |
+| C4 stale incident-list response | **Resolved for list data** | `main.jsx:47-57,118-125,174` scopes requests by generation, latest request and status. Actual function harness returns RESOLVED after late ACTIVE response. Error/loading paths and mounted interactions still need tests. |
+| C5 symptom log makes map red | **Resolved in reviewed path** | `incident-visuals.js:38` requires typed HEALTH unavailability or narrow untyped HEALTH legacy match. Quoted log/readiness/HTTP500 regressions pass. |
+| C6 capped collection loses recovery proof | **Partially resolved** | Accumulator retains latest origin `lastRecoveryEvidence` outside cap. AI mapper and evidence UI omit that field; only one proof retained, not full qualifying sequence. |
+| C7 JDBC omitted from health coverage | **Resolved in reviewed path** | `LocalTelemetryProvider.java:107-122` aggregates JDBC with HTTP; zero matched HTTP probes become NOT_SUPPORTED. JDBC-only and partial-HTTP tests pass. Full-coverage recovery remains deliberately strict across telemetry families. |
+| C8 timeout properties unused/shared builder | **Resolved by source inspection; runtime timing unverified** | Loki/Prometheus/Tempo/Actuator construct individual HTTP clients/request factories with configured connect/read timeouts and clone the builder. No delayed-server timing test exists. Tempo captured-trace tests pass through explicit mock-bound client seam. |
+| C9 false successful resolution log | **Resolved by source inspection** | `IncidentLifecycleScheduler.java:177-184` checks Optional/result status before logging success. A dedicated rejected-resolution log test is still absent. |
+| C10 global storage retention | **Open, now explicitly documented** | Per-incident limits do not bound incident count or repeated full diagnosis snapshots. No archival/retention implementation added. |
+
+Summary: six findings resolved in their reviewed scope, three partially resolved, one open. Along with the newly elevated historical-diagnosis UI gap, there are **five confirmed remaining issue groups**, detailed below. Passing automated suites do not cover these residual cases.
+
+## 4. Confirmed remaining issues and proposed regressions
+
+Java paths below are relative to `blast-radius-api/src/main/java/com/madlanga/blastradius/`. Line numbers refer to `fae38e0`.
+
+### C2 — High: equal-window older positive observations can resolve a newer failure
+
+- **Files:** `lifecycle/service/IncidentLifecycleService.java:58-61`; `lifecycle/scheduler/IncidentLifecycleScheduler.java:137-159`; `lifecycle/service/IncidentLifecycleService.java:115-120`.
+- **Current/root cause:** Persistence only rejects a strictly earlier `analysis.to`. The scheduler compares that same window boundary and an in-memory prior UP timestamp, not the newest persisted direct DOWN observation. Equal-boundary batches are accepted and receive fresh updatedAt values. The resolution revision guard therefore approves the revision just written by the stale batch.
+- **Reproduction:** Temporary Java harness runs actual lifecycle service, accumulator and scheduler, with an in-memory repository and a controlled analysis-service subclass. Persist DOWN at T+29 in window [T+10,T+30]. Deliver three equal-window UP batches at T+11,T+12,T+13, without repeating the newer DOWN in those batches. All UPs lie within the accepted window; the scheduler reaches 3/3 and outputs `same-window older UPs after newer DOWN: RESOLVED`. T was current time minus 30 seconds. This establishes the domain ordering defect; it does not claim such ordering occurred in the live stack.
+- **Expected:** A positive observation older than an already retained direct failure must not qualify recovery, even if the query window is equal or later. Late historical evidence should be accumulated without replacing the current availability decision.
+- **Proposed fix:** Maintain a durable origin observation watermark/current availability revision. Under the scope lock, validate positive proof newer than the latest accepted DOWN and persist/reset the qualifying sequence atomically. Keep equal-window history ingestion, but do not equate it with fresh availability.
+- **Regression:** Real service/scheduler test with reverse observation order, equal query boundaries and retained DOWN; add PostgreSQL transactional concurrency coverage. Also exercise distinct observations arriving out of order and scheduler restart.
+
+### C3 — Medium: detail polling loses sub-millisecond ordering
+
+- **File:** `frontend/src/incident-visuals.js:102-105`.
+- **Current/root cause:** Date.parse compares milliseconds. PostgreSQL timestamp strings can distinguish microseconds, but this comparison cannot. A stale response with a distinct snapshot is accepted when both values map to the same millisecond.
+- **Reproduction:** Actual helper receives previous `{id:'one',updatedAt:'2026-10-08T08:00:00.123900Z',status:'RESOLVED'}` and older next `{id:'one',updatedAt:'2026-10-08T08:00:00.123100Z',status:'ACTIVE'}`. Output: `older submillisecond response accepted: true`.
+- **Expected:** Older detail revision must not replace newer state, including resolution.
+- **Proposed fix:** Use a monotonic server revision covering all incident state changes, or a comparator preserving full ISO instant precision. EvidenceVersion alone is insufficient because unchanged evidence/status-only changes need ordering too.
+- **Regression:** Reverse microsecond-precision responses within one millisecond, status changes with unchanged evidenceVersion, and selection changes while requests are pending.
+
+### C6 — Medium: capped recovery proof is retained but absent from AI and evidence explorer
+
+- **Files:** `lifecycle/service/IncidentEvidenceAccumulator.java:25-51`; `diagnosis/mapper/DiagnosisRequestMapper.java:55-83`; `frontend/src/main.jsx:139-145`.
+- **Current/root cause:** A bounded `lastRecoveryEvidence` slot now survives caps, but AI maps only timeline/impacts. Frontend evidence rows/charts also consume timeline. Neither consumes the recovery slot. Subsequent UP checks replace that slot, so the full consecutive recovery sequence is not retained outside the cap.
+- **Reproduction:** Actual accumulator at cap=1 retains DOWN in timeline and UP in `lastRecoveryEvidence`; mapping the stored JSON through actual DiagnosisRequestMapper produces a timeline containing only AVAILABILITY_UNAVAILABLE. Probe output: `capped retained recovery slot=true AI timeline=[...AVAILABILITY_UNAVAILABLE...]`.
+- **Expected:** Investigator and AI should receive the direct proof supporting resolution, with occurrence time/provenance and collection-limit disclosure.
+- **Proposed fix:** Include bounded recovery/transition proof in the diagnosis DTO and UI evidence view with deduplication. Preserve the qualifying recovery sequence or auditable transition record without removing existing historical evidence.
+- **Regression:** Reach count and duration caps, recover with distinct direct UPs, then verify persisted history, mapped AI request, archive snapshot and evidence UI all contain the recovery proof.
+
+### C10 — Medium: global retention remains unfinished
+
+- **Files:** `diagnosis/service/DiagnosisArchive.java:17-30`; `lifecycle/service/IncidentEvidenceAccumulator.java:21-37`; `blast-radius-api/src/main/resources/db/migration/V3__diagnosis_evidence_snapshots.sql:2-10`.
+- **Current/root cause:** Every explicitly requested diagnosis INSERTs a full evidence snapshot, and incident/diagnosis history has no total archival policy. Collection caps protect each timeline, not total storage.
+- **Evidence:** Source is unchanged; ARCHITECTURE.md now explicitly acknowledges this limitation. No data was deleted to address it.
+- **Expected/proposed fix:** Agree configurable archive/retention semantics with preserved auditability and explicit disclosure, then implement retrieval and limits. Do not silently purge history.
+- **Regression:** Repeated diagnoses, active versus resolved retention, archive retrieval and explicit limit notices.
+
+### N1 — Medium: historical AI diagnoses are not loaded by the frontend
+
+- **Files:** `frontend/src/main.jsx:35,85-109,128-129`; `incident/controller/IncidentHistoryController.java:88-90`; `diagnosis/service/DiagnosisArchive.java:28-30`.
+- **Current/root cause:** Frontend initializes diagnoses to an empty object and populates it only after POST diagnosis. It never requests existing GET `/{id}/diagnoses`. Reloading loses access in the UI to previously archived output; a subsequent diagnosis replaces the single locally displayed result for that incident, though both remain stored on the server.
+- **Evidence:** Complete frontend fetch/state call-site inspection. This is a pre-existing incomplete feature, not a newly introduced persistence regression. No mounted browser reproduction or real AI call was performed.
+- **Expected/proposed fix:** Retrieve archived diagnoses on explicit incident selection with selected-ID/stale-response guards; expose generated time and evidence version, and let users choose historical results. Background evidence polling must not replace an explicitly selected diagnosis or start a new one.
+- **Regression:** Reload/select an incident with two stored diagnoses; verify retrieval/version selection, polling independence and preservation of an in-flight explicit diagnosis.
+
+## 5. Six previous risk areas, updated
+
+1. **PostgreSQL persistence/migrations/concurrency — partially validated.** CI now proves fresh V1–V3 migrations, JSONB repository IO, active uniqueness, diagnosis-table storage and two-connection advisory serialization. Populated upgrades, restart persistence, rollback, full service-level concurrent evidence updates and scheduler recovery remain untested. Suspected precision edge: scheduler line 151 compares returned PostgreSQL analysisTo with original nanosecond analysis.to; upward microsecond rounding could reject an otherwise current check. Existing PostgreSQL test uses millisecond-truncated timestamps. Add a real round-trip test before claiming this path safe.
+2. **Distinct/replayed recovery — partially validated.** Cached identical UP cannot count repeatedly; new regression passes. Latest positive timestamp is tracked. Counters/watermarks are process-local and reset after restart; multiple instances do not share the sequence. C2 remains. Some branches remove only healthyWindows rather than both maps; test failure/coverage/exception interleavings and map cleanup for resolved incidents. No distributed scheduler experiment was performed.
+3. **Collection lag/source caps — open.** Fixed delay runs after evaluation, not on a guaranteed 10-second cadence; serial adapters plus 20-second lookback can miss late events or outages during downtime. Explicit gap/cap warnings retain existing history, but there is no backfill cursor. Rejected older windows may contain new historical observations that are currently dropped wholesale. Exercise slow providers, clock skew, delayed logs/traces, source pagination and restart catch-up.
+4. **Simultaneous origins/application portability — open runtime scope.** Core uses configured topology and a second-application test passes. Demo names are isolated from core decisions; database probe remains one JDBC target and provenance names PostgreSQL. Frontend database-name regex selects an icon only, not availability. No automatic multi-app discovery/registry is implemented. Proactive analysis selects one origin; simultaneous independent outage fairness and actual second-profile deployment are untested.
+5. **Growth/performance/evidence versions — partially improved.** Redundant retained input leaves evidenceVersion unchanged (test and temporary probe: 1 → 1). New actual health observations legitimately change knowledge. updatedAt/lastCollectedAt still change each collection; list returns full snapshots and UI compares JSON, so the prior load/heap/AI context concern remains. No load test or real AI request was made.
+6. **Mounted frontend interaction — unverified.** Helpers pass and actual list-function race harness passes. Stable selected ID/map key, separate diagnosis state and filters reset only on ID support intended preservation. No new mounted React/browser hover/focus/scroll/pinning/AI test was run. Main list catch/finally are not scope-guarded, so stale foreground errors/loading changes remain a risk. Overlapping polling may discard every response when list latency consistently exceeds five seconds; test slow networks and consider single-flight polling.
+
+Isolated HTTP timeout construction is verified by source and existing tests, not by actual delayed-response measurements. The clone-null fallback exists to accommodate mocks; real builders return independent clones. Add per-adapter delayed-server timing tests to protect wiring. No production infrastructure was altered for these checks.
+
+## 6. Behavior conclusions
+
+- Outage creation requires typed direct HEALTH unavailability. PostgreSQL UNKNOWN, HTTP500, latency, readiness failures and pressure alone do not pass the lifecycle outage gate. Direct JDBC availability and Spring liveness remain in place; symptom/impact evidence is retained separately. Availability confirmation does not establish an OOM, physical crash or network root cause.
+- Unavailable dependency does not automatically make all dependents unavailable. OBSERVED can represent degraded behavior; absent impact evidence stays potential/unknown. Map hard-failure colors are now tied to direct health evidence, and resolved maps describe historical state.
+- Accumulation retains original incident UUID/start, prior timeline, stable-ID/fallback dedup, occurrence/collection timestamps and provenance. Resolution retains snapshot and guarded stale reopening is tested. Collection caps are explicit; recovery slot caveat is C6. New service-level old-window rejection protects current revisions but is not a complete observation-order guarantee.
+- Guarded recovery still requires full telemetry coverage, no current direct origin unavailability, and the configured count (minimum two, default three) of distinct positive observations. Lingering HTTP500/latency no longer blocks it. Newer-write revision guard and scope locks remain; C2 and untested concurrency mean this is not yet a complete runtime proof.
+- AI input uses accumulated stored JSON, not only the latest 20-second window. Explicit output archives preserve snapshot/version without background replacement. Historical backend storage is present; capped proof mapping and frontend archive access remain incomplete.
+- Silent list refresh retains explicit selection and stable service-map key. Background updates do not clear diagnosis state or reset evidence filters by design. Full interaction preservation remains a source/test-helper conclusion, not a current mounted-browser acceptance result.
+
+## 7. Live validation still required — not executed
+
+**NOT EXECUTED — REQUIRES SEPARATE APPROVAL:** controlled PostgreSQL/service outages, recovery/restarts, stack rebuild/start, destructive fault E2E runners, migration against existing incident data and live AI POST. No Stage 1 6/6 or Stage 2 4/4 acceptance claim is made. Read-only LiveIT classes depending on the local lab were not rerun in this session because Docker was unavailable; earlier failures are historical, not current test results. No new local stack was provisioned.
+
+For a later approved run:
+
+1. Establish the exact build and a healthy baseline using read-only service/telemetry checks. Preserve `blast-radius-db` and all volumes; distinguish it from the monitored `postgres` dependency.
+2. Record active IDs and current history. With explicit outage approval only, stop monitored `postgres`; verify one new OUTAGE/UNAVAILABLE incident with direct JDBC failure proof.
+3. Across at least three completed collections, verify stable ID/start, accumulated unique evidence, meaningful version changes and no invented downstream unavailability. Inspect selected frontend map/filter/hover and diagnosis stability.
+4. Restore monitored PostgreSQL even if an assertion fails. Require distinct direct UP observations and configured threshold; verify same incident resolves, recovery proof/history persists, and old telemetry does not reopen it.
+5. In an approved isolated environment, test equal-window reverse ordering, database precision round trips, populated migrations, simultaneous collectors, rollback and restart continuity. Exercise caps and historical diagnosis retrieval after the proposed fixes.
+6. Only with explicit broader fault-injection approval run `python3 scripts/run-phase11-e2e.py` and `python3 scripts/run-degradation-e2e.py --scenario all`. These are not read-only test commands.
+
+## 8. Recommended continuation in priority order
+
+1. Fix C2 observation-level recovery ordering under the transaction lock; add real scheduler/service and PostgreSQL tests, including microsecond boundary behavior.
+2. Fix C3 detail revision ordering and C6 recovery proof delivery to AI/UI; retain full history and the residual-symptom recovery fix.
+3. Implement N1 historical diagnosis retrieval without changing background selection or implicitly regenerating output.
+4. Agree C10 archive policy; add lag/concurrency/timeout/slow-network/mounted UI tests for remaining risks.
+5. Rerun full Maven and Node/build checks, require both GitHub jobs (including PostgreSQL) to pass, then obtain separate controlled-outage approval.
+
+Read this document and check status/branch before changing code. The validator implemented no fixes. Do not treat this documentation push as authorization to merge, change production infrastructure, delete data or inject outages. Keep deterministic availability separate from AI. Preserve capability-first incident/topology/telemetry/diagnosis/lifecycle/shared packages.
+
+## 9. Local backend inventory
+
+Counts below are Surefire totals (including skipped cases); all local failures/errors are zero. The two skipped PostgreSQL cases both passed in CI.
+
+| Class | Total | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|
+| `com.madlanga.blastradius.ArchitectureBoundaryTest` | 3 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.BlastRadiusApplicationTests` | 1 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.diagnosis.mapper.DiagnosisRequestMapperStoredJsonTest` | 2 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.diagnosis.mapper.DiagnosisRequestMapperTest` | 1 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.diagnosis.provider.GeminiDiagnosisProviderTest` | 7 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.diagnosis.service.DiagnosisArchiveTest` | 1 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.diagnosis.service.DiagnosisServiceTest` | 2 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.incident.controller.IncidentControllerTest` | 6 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.incident.repository.JdbcIncidentRepositoryPostgresTest` | 2 | 0 | 0 | 2 |
+| `com.madlanga.blastradius.incident.service.IncidentAnalysisServiceTest` | 18 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.incident.service.IncidentSeverityServiceTest` | 6 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.lifecycle.scheduler.IncidentLifecycleSchedulerTest` | 3 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.lifecycle.service.IncidentEvidenceAccumulatorTest` | 7 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.lifecycle.service.IncidentLifecycleServiceTest` | 15 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.shared.sanitization.TelemetrySanitizerTest` | 29 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.EvidenceProvenanceTest` | 5 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.HealthEvidenceTest` | 8 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.LogEvidenceTest` | 7 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.MetricEvidenceTest` | 6 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.SpanEvidenceTest` | 9 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.TelemetryBundleTest` | 9 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.model.TelemetryQueryTest` | 5 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.LocalTelemetryProviderTest` | 8 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.health.ActuatorHealthAdapterTest` | 6 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.health.DatabaseHealthAdapterTest` | 1 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.loki.LokiLogAdapterTest` | 6 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.prometheus.PrometheusMetricsAdapterTest` | 5 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.tempo.CapturedTempoRegressionTest` | 5 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.telemetry.provider.tempo.TempoTraceAdapterTest` | 13 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.topology.config.ConfiguredTopologyTest` | 4 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.topology.model.TopologyModelTest` | 3 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.topology.service.BlastRadiusGraphServiceTest` | 11 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.topology.service.TopologyServiceTest` | 7 | 0 | 0 | 0 |
+| `com.madlanga.blastradius.topology.service.TraceTopologyServiceTest` | 2 | 0 | 0 | 0 |
+
+## 10. Publication checks
+
+Only `CHATGPT_HANDOVER.md` is intended for this documentation commit. Application code and tests were not edited. `git diff --check`, staged-file scope and remote branch synchronization are checked before publication; the handover commit SHA and push result are reported separately in the task response.
