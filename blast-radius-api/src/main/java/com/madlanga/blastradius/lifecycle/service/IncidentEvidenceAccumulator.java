@@ -22,7 +22,10 @@ public final class IncidentEvidenceAccumulator {
                 ? Instant.parse(old.get("collectionStartedAt").asText()) : Instant.now();
         boolean durationExceeded = Instant.now().isAfter(firstCollection.plus(collectionDuration));
         boolean limited = old.path("collectionLimited").asBoolean(false);
+        JsonNode lastSuccessfulAvailability = null;
         for (JsonNode e : next.path("timeline")) {
+            if ("AVAILABILITY_AVAILABLE".equals(e.path("kind").asText())) lastSuccessfulAvailability = e;
+
             if (evidence.containsKey(key(e))) continue;
             if (durationExceeded || evidence.size() >= limit) { limited = true; continue; }
             evidence.put(key(e), e);
@@ -30,6 +33,17 @@ public final class IncidentEvidenceAccumulator {
         var timeline = mapper.createArrayNode();
         evidence.values().stream().sorted(Comparator.comparing(e -> Instant.parse(e.path("timestamp").asText()))).forEach(timeline::add);
         next.set("timeline", timeline);
+        // Keep the recovery proof in a bounded slot even after the ordinary
+        // evidence count or collection-duration limit has been reached.
+        // This does not silently evict any previously collected evidence.
+        if (lastSuccessfulAvailability != null) {
+            JsonNode oldRecovery = old.path("lastRecoveryEvidence");
+            if (oldRecovery.isMissingNode() || Instant.parse(lastSuccessfulAvailability.path("timestamp").asText())
+                    .isAfter(Instant.parse(oldRecovery.path("timestamp").asText()))) {
+                next.set("lastRecoveryEvidence", lastSuccessfulAvailability);
+            } else next.set("lastRecoveryEvidence", oldRecovery);
+        } else if (old.has("lastRecoveryEvidence")) next.set("lastRecoveryEvidence", old.get("lastRecoveryEvidence"));
+
         LinkedHashMap<String, ObjectNode> impacts = new LinkedHashMap<>();
         old.path("impacts").forEach(i -> impacts.put(i.path("component").asText(), (ObjectNode) i.deepCopy()));
         next.path("impacts").forEach(i -> {
