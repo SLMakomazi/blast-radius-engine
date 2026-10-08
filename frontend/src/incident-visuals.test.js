@@ -70,3 +70,17 @@ test('background detail refresh preserves selection, identity and ignores stale 
   const resolved = { ...previous, status: 'RESOLVED', updatedAt: '2026-10-08T01:03:00Z' };
   assert.equal(acceptIncidentDetail(previous, resolved, 'selected'), resolved);
 });
+
+test('quoted liveness text in symptom logs never marks a service unavailable', () => {
+  const warning={...event('api','ERROR: dependency reported liveness health DOWN','LOG'),kind:'SYMPTOM'};
+  assert.equal(nodeView({component:'api',state:'OBSERVED',evidence:[warning]},incident).tone,'degraded');
+  const proof={...event('api','liveness health DOWN'),kind:'AVAILABILITY_UNAVAILABLE'};
+  assert.equal(nodeView({component:'api',state:'ORIGIN',evidence:[proof]},incident).tone,'failed');
+});
+
+test('newer fractional-second detail revision is accepted', async () => {
+  const { acceptIncidentDetail }=await import('./incident-visuals.js');
+  const previous={id:'one',updatedAt:'2026-10-08T08:00:00Z'};
+  const next={...previous,updatedAt:'2026-10-08T08:00:00.100Z'};
+  assert.equal(acceptIncidentDetail(previous,next,'one'),next);
+});
