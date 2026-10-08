@@ -709,7 +709,7 @@ This small Python process continuously exercises the monitored request chain.
 - `incident/model/EvidenceSignal.java` includes explicit symptom, potential, directly unavailable and directly available kinds plus provenance/collection time. Only typed direct unavailable health evidence is an outage trigger.
 - `telemetry/model/EvidenceIdentity.java` stabilizes log, metric and trace observation identities for window overlap deduplication.
 - `lifecycle/service/IncidentEvidenceAccumulator.java` appends evidence without deleting older history, tracks evidence versions and explicit collection limits, and separately retains the latest origin recovery proof after caps.
-- `lifecycle/service/IncidentLifecycleService.java` locks the incident scope for creation/update/recovery and rejects analysis windows older than the accepted evaluation. This is not yet validated against concurrent real PostgreSQL connections.
+- `lifecycle/service/IncidentLifecycleService.java` locks the incident scope for creation/update/recovery and rejects analysis windows older than the accepted evaluation. The isolated CI suite exercises cross-connection PostgreSQL advisory-lock serialization; live container recovery remains unvalidated.
 - `lifecycle/scheduler/IncidentLifecycleScheduler.java` requires typed origin availability, guarded positive recovery and avoids treating residual HTTP errors as ongoing outages.
 - `diagnosis/service/DiagnosisArchive.java` archives explicitly requested AI outputs and the exact input snapshot/version. `db/migration/V3__diagnosis_evidence_snapshots.sql` creates that persistent archive without modifying existing incident rows.
 - `topology/config/ConfiguredTopology.java`, `application-demo.yml` and `infrastructure/monitoring/application-ledger.yml` separate demo-specific endpoints/dependencies from generic topology analysis.
@@ -717,3 +717,7 @@ This small Python process continuously exercises the monitored request chain.
 - `.github/workflows/validate-outage.yml` runs Maven verification and frontend tests/build on the feature branch. It does not replace live PostgreSQL migration or outage validation.
 
 The engine intentionally does not automatically delete old incident or diagnosis records; collection limits are **not** a complete global retention policy. Continuous collection cannot retroactively reconstruct telemetry lost during collector downtime. Runtime integration, migration safety and concurrency must be validated in an isolated approved environment before deployment.
+
+### PostgreSQL CI integration
+
+`blast-radius-api/src/test/java/com/madlanga/blastradius/incident/repository/JdbcIncidentRepositoryPostgresTest.java` runs only when `CI_PG_URL` is supplied. It applies Flyway V1–V3 against an isolated CI PostgreSQL 17 service and checks incident JSONB round-tripping, diagnosis evidence archive tables, the unique ACTIVE-origin index, recovery followed by a new incident, and advisory-lock serialization across separate JDBC transactions. The [validated CI run](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645) passed 223 backend tests and 14 frontend tests; live Docker fault injection remains unexecuted for this branch.
