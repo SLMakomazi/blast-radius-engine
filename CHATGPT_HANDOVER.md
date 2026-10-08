@@ -665,3 +665,31 @@ Counts below are Surefire totals (including skipped cases); all local failures/e
 ## 10. Publication checks
 
 Only `CHATGPT_HANDOVER.md` is intended for this documentation commit. Application code and tests were not edited. `git diff --check`, staged-file scope and remote branch synchronization are checked before publication; the handover commit SHA and push result are reported separately in the task response.
+
+## 14. ChatGPT follow-up after Codex validation — 2026-10-08
+
+The Codex post-fix handover was safely rebased and pushed at `19aa0ff`. Following that validation, ChatGPT made targeted implementation commits on `feat/outage-evidence-lifecycle`; no merge to main and no local Docker/container changes occurred.
+
+### Corrections after the validation handover
+
+- **C2 — recovery observation ordering:** `IncidentLifecycleScheduler` checks that each candidate direct UP observation is strictly newer than the latest retained direct DOWN for that origin. Older same-window positives cannot advance consecutive recovery. A scheduler test covers this reversal. Remaining hardening: qualify the entire sequence within a database transaction and validate multi-instance/restart behavior.
+- **C3 — sub-millisecond detail ordering:** `compareIncidentTimestamps` preserves ISO-8601 fractional seconds to nanosecond precision, preventing an older ACTIVE response from replacing a newer RESOLVED incident when both fall in the same millisecond. A regression checks microsecond values.
+- **C6 — capped recovery evidence reaches investigators:** `DiagnosisRequestMapper.fromStoredJson` now includes the bounded `lastRecoveryEvidence` event when outside the capped timeline, sanitizes it and deduplicates it. The frontend evidence timeline/explorer also includes that proof without double-counting. Historical legacy JSON without the field remains supported. Full multi-probe recovery sequence archival remains a separate enhancement.
+- **N1 — diagnosis history retrieval:** React now calls the existing `GET /incidents/{id}/diagnoses` endpoint on explicit incident selection, protects against stale selected-ID fetches, and presents saved version/timestamp choices. Generating a diagnosis still requires explicit user action, and background polling does not generate diagnoses. Mounted browser/E2E interaction coverage remains pending.
+- **C10 — archival policy:** Still open. No automatic deletion or arbitrary retention/archival policy was introduced; preserve existing incident and diagnosis records.
+
+### Verified GitHub Actions result
+
+Implementation head `87cf6d3`, [run 37758434670](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37758434670): **225 backend tests passed, 0 failed/errors/skipped** (including both isolated real-PostgreSQL migration, archival, index and concurrency tests); **16 frontend tests passed, 0 failed**; **frontend production build succeeded**.
+
+Earlier intermediate attempts encountered an incorrectly escaped JavaScript timestamp regex and were corrected; this latest passing run supersedes them. The branch was not tested with a user-local controlled outage, the user's populated DB migration, external AI provider, or mounted browser session. No local runtime access was used.
+
+### Next steps requiring explicit user approval
+
+1. Pull the feature branch, verify its current HEAD and run standard Maven/Node/build checks locally.
+2. Obtain approval before rebuilding the user's demo stack or injecting faults. Keep all volumes and `blast-radius-db` intact; never use `docker compose down -v`.
+3. Validate actual monitored `postgres` stop/start with sustained evidence accumulation, direct JDBC UP after restart, correct 3+ distinct UP checks and retained history/AI diagnosis.
+4. In a disposable test system, strengthen multi-instance/restart recovery sequencing, provider lag, populated migration checks, React mounted UI behavior and longer-running evidence limits.
+5. Agree explicit archival/retention requirements before implementing any purging or long-term storage migration.
+
+The preceding Codex findings are historically useful, but C2/C3/C6/N1 have been addressed by these new changes subject to live validation. Do not interpret previous test counts as latest results.
