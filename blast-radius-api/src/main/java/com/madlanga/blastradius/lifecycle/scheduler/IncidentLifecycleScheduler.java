@@ -3,6 +3,7 @@ package com.madlanga.blastradius.lifecycle.scheduler;
 import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 import com.madlanga.blastradius.lifecycle.service.IncidentLifecycleService;
 import com.madlanga.blastradius.incident.model.IncidentAnalysis;
+import com.madlanga.blastradius.incident.model.EvidenceSignal;
 import com.madlanga.blastradius.incident.model.PersistedIncident;
 import com.madlanga.blastradius.incident.repository.IncidentRepository;
 import java.time.Duration;
@@ -132,10 +133,11 @@ public class IncidentLifecycleScheduler {
                 return;
             }
 
-            boolean originStillFailing = !analysis.origin().evidence().isEmpty();
-            if (originStillFailing) {
+            boolean originStillUnavailable = analysis.origin().evidence().stream()
+                    .anyMatch(EvidenceSignal::confirmsUnavailable);
+            if (originStillUnavailable) {
                 healthyWindows.remove(incident.id());
-                log.info("Incident {} remains ACTIVE: current failure evidence still exists for origin {}",
+                log.info("Incident {} remains ACTIVE: direct unavailability evidence still exists for origin {}",
                         incident.id(), incident.originComponent());
                 return;
             }
