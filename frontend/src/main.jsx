@@ -34,6 +34,9 @@ function App() {
   const [selected, setSelected] = useState(null);
   const [diagnoses, setDiagnoses] = useState({});
   const selectedIdRef = useRef(null);
+  const statusRef = useRef(status);
+  const listGenerationRef = useRef(0);
+  const latestListRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState("");
@@ -42,12 +45,15 @@ function App() {
   const [evidenceFamily, setEvidenceFamily] = useState("ALL");
 
   async function loadIncidents(nextStatus = status, { background = false } = {}) {
+    const generation = listGenerationRef.current;
+    const request = ++latestListRequestRef.current;
     if (!background) setLoading(true);
     if (!background) setError("");
     try {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents?status=${nextStatus}`);
       if (!res.ok) throw new Error(`Incident API returned HTTP ${res.status}`);
       const data = await res.json();
+      if (generation !== listGenerationRef.current || request !== latestListRequestRef.current || nextStatus !== statusRef.current) return;
       setIncidents(previous => JSON.stringify(previous) === JSON.stringify(data) ? previous : data);
       setLastUpdated(new Date());
 
@@ -110,6 +116,8 @@ function App() {
 
 
   useEffect(() => {
+    statusRef.current = status;
+    listGenerationRef.current += 1;
     void loadIncidents(status);
     const timer = window.setInterval(() => {
       void loadIncidents(status, { background: true });
@@ -163,7 +171,7 @@ function App() {
       <section className="workspace">
         <div className="incident-column panel">
           <div className="panel-head"><div><span className="eyebrow">INCIDENTS</span><h2>History</h2></div><div className="segmented">
-            {["ACTIVE","RESOLVED"].map(s => <button key={s} className={status===s?"selected":""} onClick={()=>setStatus(s)}>{s}</button>)}
+            {["ACTIVE","RESOLVED"].map(s => <button key={s} className={status===s?"selected":""} onClick={()=>{ statusRef.current=s; listGenerationRef.current+=1; setStatus(s); }}>{s}</button>)}
           </div></div>
           <label className="visual-search incident-search"><Search size={16}/><input aria-label="Search incidents" placeholder="Search service, symptom, ID…" value={search} onChange={e => setSearch(e.target.value)}/></label>
           <div className="incident-list">
