@@ -35,7 +35,7 @@ export function nodeView(impact, incident) {
   else if (impact.state === 'UNKNOWN') { tone = 'unknown'; }
   else if (impact.state === 'THEORETICAL_ONLY') { tone = 'risk'; label = 'At risk · unconfirmed'; }
   else if (evidence.length) {
-    const hardUnavailable = evidence.some(e => e.kind === "AVAILABILITY_UNAVAILABLE") || signals.some(s => /availability health (down|out_of_service)|liveness health (down|out_of_service)|liveness unreachable/.test(s));
+    const hardUnavailable = evidence.some(e => e.kind === "AVAILABILITY_UNAVAILABLE" && e.family === "HEALTH") || evidence.some(e => !e.kind && e.family === "HEALTH" && /^(availability health (down|out_of_service)|liveness health (down|out_of_service)|liveness unreachable)$/.test(String(e.signal || "").toLowerCase()));
     if (hardUnavailable) { tone = 'failed'; label = 'Unavailable'; }
     else { tone = 'degraded'; label = 'Observed impact'; }
   }
@@ -101,6 +101,6 @@ export function incidentClassification(incident) {
 /** Ignore stale requests after a click, and preserve identity when nothing changed. */
 export function acceptIncidentDetail(previous, next, selectedId) {
   if (next.id !== selectedId) return previous;
-  if (previous?.id === next.id && previous.updatedAt && next.updatedAt && next.updatedAt < previous.updatedAt) return previous;
+  if (previous?.id === next.id && previous.updatedAt && next.updatedAt && Date.parse(next.updatedAt) < Date.parse(previous.updatedAt)) return previous;
   return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
 }
