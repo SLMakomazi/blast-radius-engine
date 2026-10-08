@@ -23,8 +23,14 @@ public final class IncidentEvidenceAccumulator {
         boolean durationExceeded = Instant.now().isAfter(firstCollection.plus(collectionDuration));
         boolean limited = old.path("collectionLimited").asBoolean(false);
         JsonNode lastSuccessfulAvailability = null;
+        String originComponent = analysis.origin().component();
         for (JsonNode e : next.path("timeline")) {
-            if ("AVAILABILITY_AVAILABLE".equals(e.path("kind").asText())) lastSuccessfulAvailability = e;
+            if ("AVAILABILITY_AVAILABLE".equals(e.path("kind").asText())
+                    && originComponent.equals(e.path("component").asText())
+                    && (lastSuccessfulAvailability == null || Instant.parse(e.path("timestamp").asText())
+                    .isAfter(Instant.parse(lastSuccessfulAvailability.path("timestamp").asText())))) {
+                lastSuccessfulAvailability = e;
+            }
 
             if (evidence.containsKey(key(e))) continue;
             if (durationExceeded || evidence.size() >= limit) { limited = true; continue; }
