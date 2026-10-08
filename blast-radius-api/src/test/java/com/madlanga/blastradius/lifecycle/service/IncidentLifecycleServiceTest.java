@@ -141,6 +141,21 @@ class IncidentLifecycleServiceTest {
         verify(repository, never()).save(any());
     }
 
+    @Test void staleHealthyAnalysisCannotOverwriteMoreRecentOutageRevision() {
+        PersistedIncident current = activeIncident();
+        PersistedIncident newer = new PersistedIncident(
+                current.id(), current.applicationId(), current.environment(), current.status(),
+                current.startedAt(), current.resolvedAt(), current.originComponent(), current.originConfidence(),
+                current.severityLevel(), current.severityScore(), current.analysisFrom(),
+                current.analysisTo().plusSeconds(20), current.analysisSnapshot(), current.createdAt(),
+                current.updatedAt().plusSeconds(20));
+        when(repository.findActive("document-platform", "local", "postgres"))
+                .thenReturn(Optional.of(newer));
+        PersistedIncident result = service.persistLifecycle(analysis(false)).orElseThrow();
+        assertThat(result).isSameAs(newer);
+        verify(repository, never()).save(any());
+    }
+
     @Test void recoveryCannotResolveARevisionUpdatedByAnotherCollector() {
         var current = activeIncident();
         when(repository.findById(current.id())).thenReturn(Optional.of(current));
