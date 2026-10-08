@@ -43,6 +43,7 @@ public class IncidentLifecycleScheduler {
     private final Duration lookback;
     private final int healthyWindowsRequired;
     private final Map<UUID, Integer> healthyWindows = new ConcurrentHashMap<>();
+    private final Map<UUID, Instant> lastHealthyProbeAt = new ConcurrentHashMap<>();
 
     public IncidentLifecycleScheduler(
             IncidentAnalysisService analysisService,
@@ -73,7 +74,7 @@ public class IncidentLifecycleScheduler {
         List<PersistedIncident> activeIncidents = repository.findActive(applicationId, environment);
         for (PersistedIncident incident : activeIncidents) {
             if (incident.originComponent().equals(detectedOrigin)) {
-                healthyWindows.remove(incident.id());
+                resetHealthyWindows(incident.id());
                 continue;
             }
             evaluateRecovery(incident, from, to);
@@ -149,12 +150,21 @@ public class IncidentLifecycleScheduler {
                 healthyWindows.remove(incident.id());
                 return;
             }
+            Instant probeAt = newestHealthyProbeAt.get();
+            Instant precedingProbe = lastHealthyProbeAt.get(incident.id());
+            if (precedingProbe != null && !probeAt.isAfter(precedingProbe)) return;
+            lastHealthyProbeAt.put(incident.id(), probeAt);
             confirmHealthyWindow(collected.get(), Instant.now());
         } catch (RuntimeException e) {
             healthyWindows.remove(incident.id());
             log.warn("Recovery evaluation failed for incident {} ({}); leaving incident ACTIVE",
                     incident.id(), e.getClass().getSimpleName());
         }
+    }
+
+    private void resetHealthyWindows(UUID incidentId) {
+        healthyWindows.remove(incidentId);
+        lastHealthyProbeAt.remove(incidentId);
     }
 
     private void confirmHealthyWindow(PersistedIncident incident, Instant evaluatedAt) {
