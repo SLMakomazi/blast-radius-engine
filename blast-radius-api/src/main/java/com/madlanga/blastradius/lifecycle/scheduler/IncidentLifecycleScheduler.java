@@ -145,7 +145,7 @@ public class IncidentLifecycleScheduler {
             boolean directlyAvailable = analysis.timeline().stream().anyMatch(e -> e.component().equals(incident.originComponent())
                     && e.kind() == com.madlanga.blastradius.incident.model.EvidenceSignal.Kind.AVAILABILITY_AVAILABLE);
             if (!directlyAvailable) { healthyWindows.remove(incident.id()); return; }
-            if (collected.isEmpty() || !collected.get().analysisTo().equals(analysis.to())) {
+            if (collected.isEmpty() || collected.get().analysisTo().isAfter(analysis.to())) {
                 healthyWindows.remove(incident.id());
                 return;
             }
