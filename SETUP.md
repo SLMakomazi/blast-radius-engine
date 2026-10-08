@@ -111,13 +111,13 @@ Run the current API suite:
 mvn -f blast-radius-api/pom.xml clean test
 ```
 
-Previously recorded result (rerun for the current checkout):
+Recorded local result on 2026-10-08 for feature commit ba7382d (rerun after changes):
 
 ```text
-Tests run: 189
+Tests run: 226
 Failures: 0
 Errors: 0
-Skipped: 0
+Skipped: 2
 BUILD SUCCESS
 ```
 
@@ -347,3 +347,30 @@ Configure a different system through Spring application profile settings: applic
 ### Isolated integration tests in CI
 
 The feature branch's GitHub Actions validation workflow provisions an ephemeral PostgreSQL 17 service and sets `CI_PG_URL`, `CI_PG_USER` and `CI_PG_PASSWORD` only inside the CI backend job. `JdbcIncidentRepositoryPostgresTest` executes V1–V3 migrations, creates uniquely scoped test incidents and diagnosis entries, tests the partial ACTIVE-origin constraint and transaction-level advisory locking, and cleans up only its own test data. Developers without `CI_PG_URL` skip these explicitly CI-gated tests. The last verified CI run is [37756041645](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645). Real application container fault injection, lifecycle recovery and AI integration remain separate acceptance checks.
+
+
+## 18. Outage-only lifecycle recovery acceptance (2026-10-08)
+
+The outage-only detector creates ACTIVE incidents only from direct liveness or JDBC unavailability evidence. HTTP 500, latency, readiness and resource-pressure signals are symptoms, not standalone outages. The incident history is stored in `blast-radius-db`, separate from monitored `postgres`.
+
+Recovery uses fresh direct origin UP evidence and requires **three distinct consecutive healthy probe evaluations** by default. An older retained DOWN observation must not override a newer UP observation. A newer direct DOWN observation or missing direct UP prevents recovery. Incomplete LOG/METRIC/TRACE adapter coverage is recorded but does not itself reset the recovery streak. A newer persisted analysis-window timestamp is not itself a DOWN signal. Resolution uses compare-and-set against the current incident revision to guard concurrent changes. AI is advisory and does not decide incident state.
+
+### Validated local results
+
+On 2026-10-08, feature commit `ba7382d` passed `mvn -f blast-radius-api/pom.xml clean verify`: **226 tests, 0 failures, 0 errors, 2 skipped**. Docker rebuilt the API successfully, and its Actuator health endpoint returned UP. The following sequential local service interruptions were then verified without recreating the API during the scenarios:
+
+| Origin | ACTIVE detection | Automatic resolution after service health returned | Recovery evidence |
+|---|---:|---:|---|
+| payment-service | 10.2 s | 25.4 s | 1/3 → 2/3 → 3/3 → automatically resolved |
+| document-service | 10.1 s | 25.3 s | 1/3 → 2/3 → 3/3 → automatically resolved |
+| postgres (monitored DB) | 15.2 s | 35.5 s | 1/3 → 2/3 → 3/3 → automatically resolved |
+
+The test script also checked the absence of pre-existing ACTIVE incidents and restored each stopped service in a `finally` block. These figures are **one local run**, not performance SLAs or production resilience proof. The separate 6/6 hard-failure and 4/4 degradation suites were **not rerun as part of this three-scenario acceptance**. The two skipped Maven tests are PostgreSQL repository integration tests; their skip should be reviewed before production rollout.
+
+### Repeat safely
+
+Run `mvn -f blast-radius-api/pom.xml clean verify`, `docker compose up -d --build --no-deps blast-radius-api`, and check `curl -fsS http://localhost:8080/actuator/health`. Confirm there are no pre-existing ACTIVE incidents before deliberately stopping **one local test service at a time**. After each service is restored, inspect `docker compose logs --since=10m blast-radius-api` for the three healthy windows and `automatically resolved`; verify the incident is no longer ACTIVE using `GET /api/v1/blast-radius/incidents?status=ACTIVE`. Do not inject outages against production or shared workloads, stop `blast-radius-db`, or delete volumes. Avoid restarting the API between outage and recovery because that would invalidate the continuity check.
+
+### Remaining limitations
+
+The recovery streak is held in scheduler memory; process restarts reset that counter. The lab validates one application/environment and synthetic local services, not multi-instance scheduling, distributed leader election, enterprise alert delivery, or real production incidents. Observability coverage gaps remain visible and should not be presented as proof of application health.
