@@ -60,12 +60,11 @@ class DiagnosisRequestMapperStoredJsonTest {
         String capped = base.substring(0,base.lastIndexOf('}')) + recovery + "}";
         var context = mapper.fromStoredJson(capped);
         assertThat(context.timeline()).hasSize(2);
-        assertThat(context.timeline()).anySatisfy(e -> {
-            if ("AVAILABILITY_AVAILABLE".equals(e.kind())) {
-                assertThat(e.component()).isEqualTo("postgres");
-                assertThat(e.signal()).contains("[REDACTED]").doesNotContain("test-secret");
-            }
-        });
+        assertThat(context.timeline().stream().filter(e -> "AVAILABILITY_AVAILABLE".equals(e.kind())).toList())
+                .singleElement().satisfies(e -> {
+                    assertThat(e.component()).isEqualTo("postgres");
+                    assertThat(e.signal()).contains("[REDACTED]").doesNotContain("test-secret");
+                });
         assertThat(context.timeline().stream().filter(e -> "AVAILABILITY_AVAILABLE".equals(e.kind())).count())
                 .isEqualTo(1);
     }
