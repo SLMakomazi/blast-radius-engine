@@ -145,7 +145,10 @@ public class IncidentLifecycleScheduler {
             boolean directlyAvailable = analysis.timeline().stream().anyMatch(e -> e.component().equals(incident.originComponent())
                     && e.kind() == com.madlanga.blastradius.incident.model.EvidenceSignal.Kind.AVAILABILITY_AVAILABLE);
             if (!directlyAvailable) { healthyWindows.remove(incident.id()); return; }
-            if (collected.isEmpty()) { healthyWindows.remove(incident.id()); return; }
+            if (collected.isEmpty() || !collected.get().analysisTo().equals(analysis.to())) {
+                healthyWindows.remove(incident.id());
+                return;
+            }
             confirmHealthyWindow(collected.get(), Instant.now());
         } catch (RuntimeException e) {
             healthyWindows.remove(incident.id());
@@ -160,10 +163,13 @@ public class IncidentLifecycleScheduler {
                 incident.id(), count, healthyWindowsRequired);
 
         if (count >= healthyWindowsRequired) {
-            lifecycleService.resolveIfUnchanged(incident.id(), incident.updatedAt(), evaluatedAt);
+            var resolved = lifecycleService.resolveIfUnchanged(incident.id(), incident.updatedAt(), evaluatedAt);
             healthyWindows.remove(incident.id());
-            log.info("Incident {} automatically resolved after {} consecutive healthy windows",
-                    incident.id(), count);
+            if (resolved.isPresent() && resolved.get().status() == PersistedIncident.Status.RESOLVED) {
+                log.info("Incident {} automatically resolved after {} consecutive healthy windows", incident.id(), count);
+            } else {
+                log.info("Incident {} recovery confirmation rejected due to a newer revision; will re-evaluate", incident.id());
+            }
         }
     }
 
