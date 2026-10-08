@@ -103,11 +103,21 @@ public class LocalTelemetryProvider implements TelemetryProvider {
         var databaseHealth = databaseHealthAdapter.fetchHealth(query);
         if (databaseHealth != null) healthEvidence.add(databaseHealth);
 
+        CoverageStatus healthCoverage = healthResult.getCoverage();
+        if (databaseHealth != null) {
+            boolean databaseProbeConclusive = databaseHealth.getState() != com.madlanga.blastradius.telemetry.model.HealthState.UNKNOWN;
+            if (healthCoverage == CoverageStatus.UNAVAILABLE && healthResult.getHealth().isEmpty()) {
+                healthCoverage = databaseProbeConclusive ? CoverageStatus.AVAILABLE : CoverageStatus.UNAVAILABLE;
+            } else if (!databaseProbeConclusive && healthCoverage == CoverageStatus.AVAILABLE) {
+                healthCoverage = CoverageStatus.PARTIAL;
+            }
+        }
+
         TelemetryCoverage coverage = TelemetryCoverage.builder()
                 .logs(logsResult.getCoverage())
                 .metrics(metricsResult.getCoverage())
                 .traces(spansResult.getCoverage())
-                .health(healthResult.getCoverage())
+                .health(healthCoverage)
                 .build();
 
         log.debug("TelemetryBundle assembled for {}/{}: logs={}, metrics={}, spans={}, health={}, warnings={}",
