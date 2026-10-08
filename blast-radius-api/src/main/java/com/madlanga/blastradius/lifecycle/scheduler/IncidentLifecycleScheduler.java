@@ -137,7 +137,7 @@ public class IncidentLifecycleScheduler {
             boolean originStillUnavailable = analysis.origin().evidence().stream()
                     .anyMatch(EvidenceSignal::confirmsUnavailable);
             if (originStillUnavailable) {
-                healthyWindows.remove(incident.id());
+                resetHealthyWindows(incident.id());
                 log.info("Incident {} remains ACTIVE: direct unavailability evidence still exists for origin {}",
                         incident.id(), incident.originComponent());
                 return;
@@ -149,10 +149,24 @@ public class IncidentLifecycleScheduler {
                     .map(EvidenceSignal::timestamp).max(Instant::compareTo);
             if (newestHealthyProbeAt.isEmpty()) { resetHealthyWindows(incident.id()); return; }
             if (collected.isEmpty() || collected.get().analysisTo().isAfter(analysis.to())) {
-                healthyWindows.remove(incident.id());
+                resetHealthyWindows(incident.id());
                 return;
             }
             Instant probeAt = newestHealthyProbeAt.get();
+            // An older positive observation must never outweigh a newer, retained
+            // direct unavailability probe even if both queries share an end time.
+            var saved = collected.get();
+            var snapshot = new tools.jackson.databind.json.JsonMapper().readTree(saved.analysisSnapshot());
+            var mostRecentFailure = java.util.stream.StreamSupport.stream(snapshot.path("timeline").spliterator(), false)
+                    .filter(e -> saved.originComponent().equals(e.path("component").asText())
+                            && "HEALTH".equals(e.path("family").asText())
+                            && "AVAILABILITY_UNAVAILABLE".equals(e.path("kind").asText()))
+                    .map(e -> Instant.parse(e.path("timestamp").asText()))
+                    .max(Instant::compareTo);
+            if (mostRecentFailure.isPresent() && !probeAt.isAfter(mostRecentFailure.get())) {
+                resetHealthyWindows(incident.id());
+                return;
+            }
             Instant precedingProbe = lastHealthyProbeAt.get(incident.id());
             if (precedingProbe != null && !probeAt.isAfter(precedingProbe)) return;
             lastHealthyProbeAt.put(incident.id(), probeAt);
