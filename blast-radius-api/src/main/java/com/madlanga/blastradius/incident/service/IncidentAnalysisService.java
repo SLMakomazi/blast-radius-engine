@@ -140,7 +140,7 @@ public class IncidentAnalysisService {
                         new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
                                 signal, health.getId()).withSource(health.getProvenance(),
                                 (endpoint.equals("database/availability") || endpoint.endsWith("/liveness"))
-                                && (health.getState() == HealthState.DOWN || (health.getState() == HealthState.UNKNOWN && health.getHttpStatus() == null))
+                                && (health.getState() == HealthState.DOWN || (endpoint.endsWith("/liveness") && health.getState() == HealthState.UNKNOWN && health.getHttpStatus() == null))
                                 ? EvidenceSignal.Kind.AVAILABILITY_UNAVAILABLE : EvidenceSignal.Kind.SYMPTOM));
             }
         }
