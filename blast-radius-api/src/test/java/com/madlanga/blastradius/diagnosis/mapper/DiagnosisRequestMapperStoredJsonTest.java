@@ -45,6 +45,31 @@ class DiagnosisRequestMapperStoredJsonTest {
         assertThat(context.warnings().getFirst()).doesNotContain("another-secret");
     }
 
+    @Test
+    void cappedRecoveryProofReachesAiInputAndIsSanitizedAndDeduplicated() {
+        String base = snapshot("availability health DOWN", "evidence cap reached");
+        String recovery = """
+            ,"lastRecoveryEvidence":{
+              "timestamp":"2026-10-03T09:44:59.123456Z",
+              "component":"postgres","family":"HEALTH",
+              "signal":"availability health UP Authorization: Bearer test-secret",
+              "evidenceId":"up-1","kind":"AVAILABILITY_AVAILABLE",
+              "provider":"direct-jdbc","sourceRef":"database/availability"
+            }
+            """;
+        String capped = base.substring(0,base.lastIndexOf('}')) + recovery + "}";
+        var context = mapper.fromStoredJson(capped);
+        assertThat(context.timeline()).hasSize(2);
+        assertThat(context.timeline()).anySatisfy(e -> {
+            if ("AVAILABILITY_AVAILABLE".equals(e.kind())) {
+                assertThat(e.component()).isEqualTo("postgres");
+                assertThat(e.signal()).contains("[REDACTED]").doesNotContain("test-secret");
+            }
+        });
+        assertThat(context.timeline().stream().filter(e -> "AVAILABILITY_AVAILABLE".equals(e.kind())).count())
+                .isEqualTo(1);
+    }
+
     private String snapshot(String signal, String warning) {
         return """
                 {
