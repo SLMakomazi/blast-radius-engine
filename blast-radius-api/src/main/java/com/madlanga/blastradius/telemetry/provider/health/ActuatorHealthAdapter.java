@@ -64,8 +64,10 @@ public class ActuatorHealthAdapter {
         var client = java.net.http.HttpClient.newBuilder().connectTimeout(properties.getTimeout()).build();
         var requests = new org.springframework.http.client.JdkClientHttpRequestFactory(client);
         requests.setReadTimeout(properties.getTimeout());
-        restClientBuilder.requestFactory(requests);
-        this.restClient = restClientBuilder.build();
+        RestClient.Builder isolatedBuilder = restClientBuilder.clone();
+        if (isolatedBuilder == null) isolatedBuilder = restClientBuilder;
+        isolatedBuilder.requestFactory(requests);
+        this.restClient = isolatedBuilder.build();
     }
 
     // -------------------------------------------------------------------------
