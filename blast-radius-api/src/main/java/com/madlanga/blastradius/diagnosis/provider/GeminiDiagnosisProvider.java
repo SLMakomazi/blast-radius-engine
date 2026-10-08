@@ -52,7 +52,11 @@ public final class GeminiDiagnosisProvider implements DiagnosisProvider {
                     Rules:
                     - Never calculate, expand, shrink, or contradict the supplied blast radius.
                     - Never invent components, telemetry, evidence, causes, credentials, people, or events.
-                    - Clearly distinguish evidence-backed facts from recommendations.
+                    - Clearly distinguish confirmed facts, hypotheses, and recommendations.
+                    - A failed direct availability check confirms unavailability from the monitor, not its physical cause.
+                    - Name a physical cause only with specific supporting evidence; otherwise label it undetermined.
+                    - Distinguish observed request failures from potential topology impact and explain each affected path.
+                    - Evidence spans the incident lifecycle; older observations are history, not necessarily current state.
                     - Evidence observed in a component does not prove that component caused the incident.
                     - Keep the deterministic origin separate from the services where its effects were observed.
                     - In recommendations, deal with the incident origin first. Put resilience and containment improvements after the immediate fix.

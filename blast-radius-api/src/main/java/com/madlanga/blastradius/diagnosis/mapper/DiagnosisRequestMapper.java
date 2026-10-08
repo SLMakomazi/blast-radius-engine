@@ -79,7 +79,7 @@ public final class DiagnosisRequestMapper {
                             integer(severity, "score"),
                             strings(severity.get("reasons"), true)),
                     impacts(root.get("impacts")),
-                    evidenceList(root.get("timeline")),
+                    evidenceWithRecovery(root),
                     strings(root.get("warnings"), true));
         } catch (RuntimeException e) {
             throw e;
@@ -90,7 +90,8 @@ public final class DiagnosisRequestMapper {
 
     private DiagnosisRequest.Evidence evidence(EvidenceSignal signal) {
         return new DiagnosisRequest.Evidence(
-                signal.timestamp(), signal.component(), signal.family(), signal.signal(), signal.evidenceId());
+                signal.timestamp(), signal.component(), signal.family(), signal.signal(), signal.evidenceId(),
+                signal.kind().name(), signal.provider(), signal.sourceRef(), signal.collectedAt());
     }
 
     private List<DiagnosisRequest.Impact> impacts(JsonNode node) {
@@ -117,7 +118,29 @@ public final class DiagnosisRequestMapper {
                 text(item, "component"),
                 text(item, "family"),
                 sanitize(text(item, "signal")),
-                text(item, "evidenceId"))));
+                text(item, "evidenceId"), item.path("kind").asText("SYMPTOM"), item.path("provider").asText("unknown"),
+                sanitize(item.path("sourceRef").asText("")), item.hasNonNull("collectedAt") ? instant(item,"collectedAt") : null)));
+        return List.copyOf(result);
+    }
+
+    /** Include direct recovery proof saved outside the ordinary evidence cap. */
+    private List<DiagnosisRequest.Evidence> evidenceWithRecovery(JsonNode root) {
+        List<DiagnosisRequest.Evidence> result = new ArrayList<>(evidenceList(root.get("timeline")));
+        JsonNode recovery = root.get("lastRecoveryEvidence");
+        if (recovery != null && recovery.isObject()) {
+            var supplemental = evidenceList(jsonMapper.valueToTree(List.of(recovery)));
+            for (var candidate : supplemental) {
+                if (result.stream().noneMatch(existing ->
+                        existing.timestamp().equals(candidate.timestamp())
+                        && existing.component().equals(candidate.component())
+                        && existing.family().equals(candidate.family())
+                        && java.util.Objects.equals(existing.kind(),candidate.kind())
+                        && java.util.Objects.equals(existing.provider(),candidate.provider())
+                        && java.util.Objects.equals(existing.sourceRef(),candidate.sourceRef())
+                        && existing.signal().equals(candidate.signal()))) result.add(candidate);
+            }
+        }
+        result.sort(java.util.Comparator.comparing(DiagnosisRequest.Evidence::timestamp));
         return List.copyOf(result);
     }
 

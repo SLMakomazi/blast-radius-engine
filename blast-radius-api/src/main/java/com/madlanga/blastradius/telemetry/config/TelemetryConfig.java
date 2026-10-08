@@ -19,7 +19,8 @@ import org.springframework.web.client.RestClient;
         TelemetryConfig.LokiProperties.class,
         TelemetryConfig.PrometheusProperties.class,
         TelemetryConfig.TempoProperties.class,
-        TelemetryConfig.ActuatorHealthProperties.class
+        TelemetryConfig.ActuatorHealthProperties.class,
+        TelemetryConfig.DatabaseHealthProperties.class
 })
 public class TelemetryConfig {
 
@@ -91,15 +92,36 @@ public class TelemetryConfig {
         public void setSearchLimit(int searchLimit) { this.searchLimit = searchLimit; }
     }
 
+    @ConfigurationProperties(prefix = "blast-radius.telemetry.database-health")
+    public static class DatabaseHealthProperties {
+        private String service = "";
+        private String url = "";
+        private String username = "";
+        private String password = "";
+        private Duration timeout = Duration.ofSeconds(3);
+        private String providerId = "jdbc-availability";
+        public String getService() { return service; }
+        public void setService(String service) { this.service = service; }
+        public String getUrl() { return url; }
+        public void setUrl(String url) { this.url = url; }
+        public String getUsername() { return username; }
+        public void setUsername(String username) { this.username = username; }
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
+        public Duration getTimeout() { return timeout; }
+        public void setTimeout(Duration timeout) { this.timeout = timeout; }
+        public String getProviderId() { return providerId; }
+        public void setProviderId(String providerId) { this.providerId = providerId; }
+    }
+
     @ConfigurationProperties(prefix = "blast-radius.telemetry.health")
     public static class ActuatorHealthProperties {
         private Duration timeout = Duration.ofSeconds(5);
         private String providerId = "local-actuator";
-        private Map<String, String> endpoints = new LinkedHashMap<>(Map.of(
-                "blast-radius-api", "http://blast-radius-api:8080",
-                "payment-service", "http://payment-service:8081",
-                "customer-service", "http://customer-service:8082",
-                "document-service", "http://document-service:8083"));
+        private Map<String, String> endpoints = new LinkedHashMap<>();
+        private String livenessPath = "/actuator/health/liveness";
+        public String getLivenessPath() { return livenessPath; }
+        public void setLivenessPath(String path) { livenessPath = path; }
         public Duration getTimeout() { return timeout; }
         public void setTimeout(Duration timeout) { this.timeout = timeout; }
         public String getProviderId() { return providerId; }

@@ -3,6 +3,7 @@ package com.madlanga.blastradius.lifecycle.scheduler;
 import com.madlanga.blastradius.incident.service.IncidentAnalysisService;
 import com.madlanga.blastradius.lifecycle.service.IncidentLifecycleService;
 import com.madlanga.blastradius.incident.model.IncidentAnalysis;
+import com.madlanga.blastradius.incident.model.EvidenceSignal;
 import com.madlanga.blastradius.incident.model.PersistedIncident;
 import com.madlanga.blastradius.incident.repository.IncidentRepository;
 import java.time.Duration;
@@ -42,12 +43,13 @@ public class IncidentLifecycleScheduler {
     private final Duration lookback;
     private final int healthyWindowsRequired;
     private final Map<UUID, Integer> healthyWindows = new ConcurrentHashMap<>();
+    private final Map<UUID, Instant> lastHealthyProbeAt = new ConcurrentHashMap<>();
 
     public IncidentLifecycleScheduler(
             IncidentAnalysisService analysisService,
             IncidentLifecycleService lifecycleService,
             IncidentRepository repository,
-            @Value("${blast-radius.lifecycle.application-id:document-platform}") String applicationId,
+            @Value("${blast-radius.lifecycle.application-id}") String applicationId,
             @Value("${blast-radius.lifecycle.environment:local}") String environment,
             @Value("${blast-radius.lifecycle.recovery-lookback:20s}") Duration lookback,
             @Value("${blast-radius.lifecycle.healthy-windows-required:3}") int healthyWindowsRequired) {
@@ -72,7 +74,7 @@ public class IncidentLifecycleScheduler {
         List<PersistedIncident> activeIncidents = repository.findActive(applicationId, environment);
         for (PersistedIncident incident : activeIncidents) {
             if (incident.originComponent().equals(detectedOrigin)) {
-                healthyWindows.remove(incident.id());
+                resetHealthyWindows(incident.id());
                 continue;
             }
             evaluateRecovery(incident, from, to);
@@ -97,7 +99,15 @@ public class IncidentLifecycleScheduler {
                             incident.severityLevel(),
                             incident.severityScore()));
 
-            return analysis.origin().component();
+            Instant latestDown = analysis.origin().evidence().stream()
+                    .filter(EvidenceSignal::confirmsUnavailable)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo).orElse(null);
+            Instant latestUp = analysis.timeline().stream()
+                    .filter(e -> e.component().equals(analysis.origin().component())
+                            && e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo).orElse(null);
+            return latestDown != null && (latestUp == null || !latestUp.isAfter(latestDown))
+                    ? analysis.origin().component() : null;
         } catch (IllegalStateException e) {
             if (isNoFailureEvidence(e)) {
                 log.debug("Proactive detector found no failure evidence in current telemetry window");
@@ -122,27 +132,70 @@ public class IncidentLifecycleScheduler {
             IncidentAnalysis analysis = analysisService.analyze(
                     applicationId, environment, from, to, incident.originComponent());
 
+            var collected = lifecycleService.persistLifecycle(analysis);
+
+            // Recovery is decided by fresh direct origin availability, not by
+            // unrelated LOG/METRIC/TRACE adapter coverage. A missing telemetry
+            // family must not reset consecutive successful direct probes.
             if (!analysis.coverage().isFullyCovered()) {
-                healthyWindows.remove(incident.id());
-                log.info("Recovery not confirmed for incident {}: telemetry coverage is partial",
+                log.debug("Recovery evaluation for incident {} has partial telemetry; requiring direct origin UP evidence",
                         incident.id());
-                return;
             }
 
-            boolean originStillFailing = !analysis.origin().evidence().isEmpty();
-            if (originStillFailing) {
-                healthyWindows.remove(incident.id());
-                log.info("Incident {} remains ACTIVE: current failure evidence still exists for origin {}",
-                        incident.id(), incident.originComponent());
+            var newestHealthyProbeAt = analysis.timeline().stream()
+                    .filter(e -> e.component().equals(incident.originComponent())
+                            && e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo);
+            if (newestHealthyProbeAt.isEmpty()) {
+                resetHealthyWindows(incident.id());
+                log.info("Recovery reset for incident {}: no fresh direct UP probe for {}", incident.id(), incident.originComponent());
                 return;
             }
-
-            confirmHealthyWindow(incident, to);
+            if (collected.isEmpty()) {
+                resetHealthyWindows(incident.id());
+                log.info("Recovery reset for incident {}: persisted incident is unavailable", incident.id());
+                return;
+            }
+            // Persisted analysisTo can legitimately advance as other telemetry is
+            // collected. It is not a direct DOWN observation and must not reset
+            // healthy probes. Compare the actual UP/DOWN evidence timestamps below;
+            // resolveIfUnchanged still protects against concurrent revisions.
+            Instant probeAt = newestHealthyProbeAt.get();
+            // An older positive observation must never outweigh a newer, retained
+            // direct unavailability probe even if both queries share an end time.
+            var saved = collected.get();
+            var snapshot = tools.jackson.databind.json.JsonMapper.builder().build().readTree(saved.analysisSnapshot());
+            var mostRecentFailure = java.util.stream.StreamSupport.stream(snapshot.path("timeline").spliterator(), false)
+                    .filter(e -> saved.originComponent().equals(e.path("component").asText())
+                            && "HEALTH".equals(e.path("family").asText())
+                            && "AVAILABILITY_UNAVAILABLE".equals(e.path("kind").asText()))
+                    .map(e -> Instant.parse(e.path("timestamp").asText()))
+                    .max(Instant::compareTo);
+            Instant newestWindowFailure = analysis.origin().evidence().stream()
+                    .filter(EvidenceSignal::confirmsUnavailable)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo).orElse(null);
+            Instant latestFailure = mostRecentFailure.orElse(null);
+            if (newestWindowFailure != null && (latestFailure == null || newestWindowFailure.isAfter(latestFailure)))
+                latestFailure = newestWindowFailure;
+            if (latestFailure != null && !probeAt.isAfter(latestFailure)) {
+                resetHealthyWindows(incident.id());
+                log.info("Recovery reset for incident {}: latest direct UP {} is not newer than direct DOWN {}", incident.id(), probeAt, latestFailure);
+                return;
+            }
+            Instant precedingProbe = lastHealthyProbeAt.get(incident.id());
+            if (precedingProbe != null && !probeAt.isAfter(precedingProbe)) return;
+            lastHealthyProbeAt.put(incident.id(), probeAt);
+            confirmHealthyWindow(collected.get(), Instant.now());
         } catch (RuntimeException e) {
             healthyWindows.remove(incident.id());
             log.warn("Recovery evaluation failed for incident {} ({}); leaving incident ACTIVE",
                     incident.id(), e.getClass().getSimpleName());
         }
+    }
+
+    private void resetHealthyWindows(UUID incidentId) {
+        healthyWindows.remove(incidentId);
+        lastHealthyProbeAt.remove(incidentId);
     }
 
     private void confirmHealthyWindow(PersistedIncident incident, Instant evaluatedAt) {
@@ -151,10 +204,13 @@ public class IncidentLifecycleScheduler {
                 incident.id(), count, healthyWindowsRequired);
 
         if (count >= healthyWindowsRequired) {
-            lifecycleService.resolve(incident.id(), evaluatedAt);
+            var resolved = lifecycleService.resolveIfUnchanged(incident.id(), incident.updatedAt(), evaluatedAt);
             healthyWindows.remove(incident.id());
-            log.info("Incident {} automatically resolved after {} consecutive healthy windows",
-                    incident.id(), count);
+            if (resolved.isPresent() && resolved.get().status() == PersistedIncident.Status.RESOLVED) {
+                log.info("Incident {} automatically resolved after {} consecutive healthy windows", incident.id(), count);
+            } else {
+                log.info("Incident {} recovery confirmation rejected due to a newer revision; will re-evaluate", incident.id());
+            }
         }
     }
 

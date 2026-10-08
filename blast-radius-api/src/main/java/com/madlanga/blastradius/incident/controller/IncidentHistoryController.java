@@ -24,6 +24,7 @@ import tools.jackson.databind.json.JsonMapper;
 @RestController
 @RequestMapping("/api/v1/blast-radius/incidents")
 public class IncidentHistoryController {
+    private final com.madlanga.blastradius.diagnosis.service.DiagnosisArchive archive;
     private final IncidentRepository repository;
     private final JsonMapper jsonMapper;
     private final IncidentLifecycleService lifecycleService;
@@ -32,7 +33,8 @@ public class IncidentHistoryController {
 
     public IncidentHistoryController(IncidentRepository repository, JsonMapper jsonMapper,
             IncidentLifecycleService lifecycleService, DiagnosisService diagnosisService,
-            DiagnosisRequestMapper diagnosisRequestMapper) {
+            DiagnosisRequestMapper diagnosisRequestMapper, com.madlanga.blastradius.diagnosis.service.DiagnosisArchive archive) {
+        this.archive = archive;
         this.repository = repository;
         this.jsonMapper = jsonMapper;
         this.lifecycleService = lifecycleService;
@@ -77,10 +79,15 @@ public class IncidentHistoryController {
         try {
             DiagnosisRequest context = diagnosisRequestMapper.fromStoredJson(incident.get().analysisSnapshot());
             DiagnosisResponse diagnosis = diagnosisService.diagnose(context);
-            return ResponseEntity.ok(diagnosis);
+            return ResponseEntity.ok(archive.save(incident.get(), diagnosis));
         } catch (Exception e) {
             throw new IllegalStateException("stored incident snapshot cannot be diagnosed", e);
         }
+    }
+
+    @GetMapping("/{id}/diagnoses")
+    public java.util.List<tools.jackson.databind.JsonNode> diagnoses(@PathVariable UUID id) {
+        return archive.list(id);
     }
 
     @Operation(summary = "Explicitly resolve an active blast radius incident")

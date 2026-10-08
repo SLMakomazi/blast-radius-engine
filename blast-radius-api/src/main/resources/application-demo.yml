@@ -1,0 +1,23 @@
+# Default local demonstration. Application-specific identities belong here.
+blast-radius:
+  topology:
+    application-id: ${TOPOLOGY_APPLICATION_ID:document-platform}
+  lifecycle:
+    application-id: ${TOPOLOGY_APPLICATION_ID:document-platform}
+  telemetry:
+    database-health:
+      service: postgres
+      url: ${MONITORED_POSTGRES_URL:jdbc:postgresql://postgres:5432/synthetic_lab?connectTimeout=2&socketTimeout=3}
+      username: ${MONITORED_POSTGRES_USER:synthetic_lab}
+      password: ${MONITORED_POSTGRES_PASSWORD:}
+      timeout: 3s
+      provider-id: local-postgres
+
+    health:
+      timeout: 5s
+      provider-id: local-actuator
+      endpoints:
+        blast-radius-api: ${BLAST_RADIUS_API_URL:http://blast-radius-api:8080}
+        payment-service:  ${PAYMENT_SERVICE_URL:http://payment-service:8081}
+        customer-service: ${CUSTOMER_SERVICE_URL:http://customer-service:8082}
+        document-service: ${DOCUMENT_SERVICE_URL:http://document-service:8083}

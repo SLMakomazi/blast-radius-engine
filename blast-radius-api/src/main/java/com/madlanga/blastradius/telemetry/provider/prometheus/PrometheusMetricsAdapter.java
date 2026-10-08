@@ -56,9 +56,14 @@ public class PrometheusMetricsAdapter {
                                     RestClient.Builder restClientBuilder) {
         this.properties = properties;
         this.sanitizer = sanitizer;
-        this.restClient = restClientBuilder
-                .baseUrl(properties.getBaseUrl())
-                .build();
+        var client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(properties.getTimeout()).build();
+        var requests = new org.springframework.http.client.JdkClientHttpRequestFactory(client);
+        requests.setReadTimeout(properties.getTimeout());
+        RestClient.Builder isolatedBuilder = restClientBuilder.clone();
+        if (isolatedBuilder == null) isolatedBuilder = restClientBuilder;
+        isolatedBuilder.requestFactory(requests);
+        this.restClient = isolatedBuilder.baseUrl(properties.getBaseUrl()).build();
     }
 
     // -------------------------------------------------------------------------
@@ -194,7 +199,7 @@ public class PrometheusMetricsAdapter {
                 dims.remove("environment");
 
                 MetricEvidence evidence = MetricEvidence.builder()
-                        .id("metric-" + UUID.randomUUID())
+                        .id(com.madlanga.blastradius.telemetry.model.EvidenceIdentity.of(properties.getProviderId(), service, timestamp, normalizedName, new java.util.TreeMap<>(dims)))
                         .timestamp(timestamp)
                         .service(service)
                         .environment(environment)

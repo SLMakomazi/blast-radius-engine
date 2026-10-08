@@ -6,7 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * HTTP fault controls for the local Stage 2–4 lab scenarios.
+ * HTTP fault controls for the local degradation lab scenarios.
  *
  * <p>The compose file only publishes document-service on 127.0.0.1. This endpoint
  * is intentionally part of the synthetic service and must not be copied into a

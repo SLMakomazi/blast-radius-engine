@@ -38,5 +38,10 @@ public record DiagnosisRequest(
         }
     }
 
-    public record Evidence(Instant timestamp, String component, String family, String signal, String evidenceId) {}
+    public record Evidence(Instant timestamp, String component, String family, String signal, String evidenceId,
+            String kind, String provider, String sourceRef, Instant collectedAt) {
+        public Evidence(Instant timestamp, String component, String family, String signal, String evidenceId) {
+            this(timestamp, component, family, signal, evidenceId, null, null, null, null);
+        }
+    }
 }

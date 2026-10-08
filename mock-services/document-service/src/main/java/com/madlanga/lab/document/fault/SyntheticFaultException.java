@@ -5,6 +5,6 @@ package com.madlanga.lab.document.fault;
  */
 public final class SyntheticFaultException extends RuntimeException {
     public SyntheticFaultException() {
-        super("Synthetic Stage 2 application failure");
+        super("Synthetic application failure");
     }
 }

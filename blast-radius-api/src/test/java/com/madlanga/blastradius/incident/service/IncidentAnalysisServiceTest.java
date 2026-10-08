@@ -315,6 +315,25 @@ class IncidentAnalysisServiceTest {
 
 
 
+    @Test
+    void unknownDatabaseAvailabilityNeverBecomesConfirmedOutage() {
+        HealthEvidence unknown = HealthEvidence.builder()
+                .id("db-config-error").timestamp(FROM.plusSeconds(10))
+                .service("postgres").environment("local")
+                .endpoint("database/availability").state(HealthState.UNKNOWN)
+                .provenance(provenance(EvidenceFamily.HEALTH)).build();
+        TelemetryBundle data = TelemetryBundle.builder()
+                .coverage(TelemetryCoverage.allAvailable())
+                .spans(List.of(span("known-dependency", "document-service", "postgres",
+                        SpanStatus.OK, FROM.plusSeconds(1), Map.of("db.system","postgresql"))))
+                .health(List.of(unknown)).build();
+        IncidentAnalysis result = service(q -> data)
+                .analyze("document-platform","local",FROM,TO,"postgres");
+        assertThat(result.origin().evidence()).noneMatch(EvidenceSignal::confirmsUnavailable);
+        assertThat(result.timeline()).anyMatch(signal -> signal.signal().contains("availability health UNKNOWN")
+                && signal.kind() != EvidenceSignal.Kind.AVAILABILITY_UNAVAILABLE);
+    }
+
     private IncidentAnalysisService service(TelemetryProvider provider) {
         return new IncidentAnalysisService(provider, (app, env) -> {
             var spans = new java.util.ArrayList<>(provider.getTelemetry(TelemetryQuery.builder()

@@ -1,6 +1,6 @@
 # MadlangaAI Blast Radius Engine — Setup and Handover
 
-This guide is for cloning, running, validating and handing over the current Blast Radius Engine.
+Read this after [README.md](README.md). It takes a new operator from a clean checkout to a healthy local lab and verified incident detection; use [PRESENTATION.md](PRESENTATION.md) for the demonstration.
 
 ## 1. Prerequisites
 
@@ -19,7 +19,7 @@ For direct API development/testing:
 
 For direct frontend development:
 
-- Node.js 20+
+- Node.js 22.12+ (the container build uses Node 22)
 - npm
 
 PostgreSQL, Loki, Prometheus, Tempo and OpenTelemetry Collector run through Docker Compose.
@@ -67,7 +67,7 @@ Local endpoints:
 
 ## 4. Know the two PostgreSQL containers
 
-`postgres` belongs to the synthetic document application. Stopping it is a monitored Stage 1 failure.
+`postgres` belongs to the synthetic document application. Stopping it is a monitored hard-failure validation failure.
 
 `blast-radius-db` belongs to the Blast Radius Engine and stores incidents.
 
@@ -111,13 +111,13 @@ Run the current API suite:
 mvn -f blast-radius-api/pom.xml clean test
 ```
 
-Current validated result:
+Recorded local result on 2026-10-08 for feature commit ba7382d (rerun after changes):
 
 ```text
-Tests run: 189
+Tests run: 226
 Failures: 0
 Errors: 0
-Skipped: 0
+Skipped: 2
 BUILD SUCCESS
 ```
 
@@ -128,7 +128,7 @@ rm -rf blast-radius-api/target
 mvn -f blast-radius-api/pom.xml clean test
 ```
 
-## 8. Stage 1 / Phase 11 — hard failures
+## 8. Hard failure validation
 
 Run:
 
@@ -136,7 +136,7 @@ Run:
 python3 scripts/run-phase11-e2e.py
 ```
 
-Current validated result: **6/6 PASS**.
+Previously recorded result (rerun for the current checkout): **6/6 PASS**.
 
 Scenarios:
 
@@ -157,26 +157,28 @@ postgres -> document-service -> customer-service -> payment-service
 
 The partial-observability scenario verifies that loss of Tempo coverage cannot falsely resolve an ACTIVE incident.
 
-## 9. Stage 2 — degraded but still running
+Before degradation validation, wait at least 10 seconds after hard-failure validation. Confirm Tempo `/ready`, Collector health on port 13133, and fresh traces through Tempo `/api/search`; inspect recent Collector logs for export failures. If tracing has not recovered after the deliberate outage, restart `tempo` and `otel-collector`, wait for readiness and fresh traces, then continue. A running container alone is not sufficient.
+
+## 9. degradation validation — degraded but still running
 
 Run all four:
 
 ```bash
-python3 scripts/run-stage2-e2e.py --scenario all
+python3 scripts/run-degradation-e2e.py --scenario all
 ```
 
 Individual scenarios:
 
 ```bash
-python3 scripts/run-stage2-e2e.py --scenario http-500
-python3 scripts/run-stage2-e2e.py --scenario intermittent
-python3 scripts/run-stage2-e2e.py --scenario latency
-python3 scripts/run-stage2-e2e.py --scenario db-connectivity
+python3 scripts/run-degradation-e2e.py --scenario http-500
+python3 scripts/run-degradation-e2e.py --scenario intermittent
+python3 scripts/run-degradation-e2e.py --scenario latency
+python3 scripts/run-degradation-e2e.py --scenario db-connectivity
 ```
 
 Target: **4/4 PASS**.
 
-Stage 2 uses the localhost-only `document-service` fault endpoint. The injected condition is synthetic; the resulting logs, metrics and traces come from the running services.
+degradation validation uses the localhost-only `document-service` fault endpoint. The injected condition is synthetic; the resulting logs, metrics and traces come from the running services.
 
 Manual reset:
 
@@ -204,7 +206,8 @@ Frontend:
 
 ```bash
 cd frontend
-npm install
+npm ci
+node --test src/incident-visuals.test.js
 npm run build
 cd ..
 ```
@@ -212,8 +215,8 @@ cd ..
 Full E2E acceptance target:
 
 ```text
-Stage 1: 6/6
-Stage 2: 4/4
+hard-failure validation: 6/6
+degradation validation: 4/4
 TOTAL: 10/10
 ```
 
@@ -277,7 +280,7 @@ Both must use the same canonical component identities. The deterministic engine 
 
 **Telemetry provider is AVAILABLE but has no evidence:** the backend responded, but no normalized evidence matched the requested scope/window.
 
-**Stage 2 misses TRACE:** inspect service Java-agent output, OpenTelemetry Collector and Tempo ingestion/search.
+**degradation validation misses TRACE:** inspect service Java-agent output, OpenTelemetry Collector and Tempo ingestion/search.
 
 **AI fails:** deterministic incident analysis should continue. Gemini is optional. Check `GEMINI_ENABLED`, `GEMINI_API_KEY`, `GEMINI_MODEL` and `GEMINI_FALLBACK_MODELS`. The default model chain is `gemini-3.5-flash-lite` -> `gemini-3.5-flash`; model unavailability, timeout and retryable provider failures can move diagnosis to the configured fallback model, while the deterministic provider remains the final application fallback.
 
@@ -295,9 +298,79 @@ mvn -f blast-radius-api/pom.xml clean test
 docker compose up -d --build blast-radius-api
 curl -s http://127.0.0.1:8080/actuator/health
 python3 scripts/run-phase11-e2e.py
-python3 scripts/run-stage2-e2e.py --scenario all
+python3 scripts/run-degradation-e2e.py --scenario all
 docker compose ps
 git status
 ```
 
-Read **ARCHITECTURE.md** for the current package/class map.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for every file and its connections.
+
+## 17. Rebuild and demonstrate the visual dashboard
+
+```bash
+docker compose up -d --build frontend
+```
+
+Open [the dashboard](http://localhost:5173). Select an ACTIVE or RESOLVED outage incident; the product does not expose development-stage modes. If there are no active incidents, use resolved history; an empty ACTIVE list is legitimate.
+
+1. Search the incident list for a service or symptom.
+2. Open the service map. Red is unavailable, amber is failure signals, pulsing green is potential impact, and gray is uncertainty.
+3. Hover, focus or select a service to read its explanation and recorded dependency path. Select “Inspect supporting evidence” to see the underlying observations.
+4. Use the evidence timeline legend to filter by logs, measurements, traces or health. Expand “Technical observation” for the original sanitized signal.
+5. “Copy team handoff” copies text locally for review; it does not notify anyone. Browser clipboard restrictions may require manual copying.
+
+Resolved snapshots are historical, not a live uptime map. Potential impact must never be presented as a confirmed outage or confirmed health. The animation respects reduced-motion settings.
+
+The frontend build uses `VITE_API_BASE_URL`. Compose defaults to the same-origin Nginx proxy in `frontend/nginx.conf`; keep this path for the simplest setup. A standalone Vite development server needs an API URL and backend CORS support or a local proxy.
+
+For a manual local demonstration, stop `customer-service`, wait for automatic detection, then start it again and wait for recovery. Do not stop the diagnostic database or inject faults during a validation run.
+
+## Outage lifecycle validation — feature branch
+
+Do not erase incident data or use `docker compose down -v`. On `feat/outage-evidence-lifecycle`, unit/build checks are:
+
+```bash
+mvn -f blast-radius-api/pom.xml clean verify
+node --test frontend/src/incident-visuals.test.js
+npm --prefix frontend run build
+docker compose config --quiet
+```
+
+With explicit permission to rebuild the demo environment, use `docker compose build blast-radius-api frontend` then `docker compose up -d`. Check the API health, diagnostic database, telemetry backends, monitored services and a healthy baseline before injecting any fault. **Only `postgres` is the monitored database**; `blast-radius-db` holds diagnostic history and must not be stopped for the outage demonstration.
+
+With separate approval for controlled fault injection, stop `postgres` and check that an OUTAGE / UNAVAILABLE incident appears from direct JDBC evidence. Record the incident UUID, startedAt, evidenceVersion and unique supporting events while the outage remains active. Confirm that HTTP 500/latency remain symptoms, downstream observations require evidence and AI diagnosis persists its requested evidence version. Restart `postgres`, observe fresh JDBC UP and guarded recovery, and confirm the same incident resolves with preserved history. Restore the service even if validation fails. Only then consider `python3 scripts/run-phase11-e2e.py` and `python3 scripts/run-degradation-e2e.py --scenario all`; these runners inject faults.
+
+The latter runner tests degradation evidence **without creating degradation-only OUTAGE incidents**. The user interface stays on the explicitly selected incident during silent polling. Historic diagnoses are stored server-side; the current frontend session caches explicitly generated diagnosis results, but does not automatically reload archives after a browser restart.
+
+Configure a different system through Spring application profile settings: application/environment, component/endpoints, configured topology, database probe and telemetry URLs. The default demo profile is isolated; the ledger example is not a production-ready connector. Existing supported scope is a single monitored app per engine and one configured JDBC target. The per-incident evidence limits are 20,000 observations/seven days; they do not cap all historical database records. Do not delete history without a separately approved retention/archival policy. Gaps while the collector was offline are reported, not silently backfilled.
+
+### Isolated integration tests in CI
+
+The feature branch's GitHub Actions validation workflow provisions an ephemeral PostgreSQL 17 service and sets `CI_PG_URL`, `CI_PG_USER` and `CI_PG_PASSWORD` only inside the CI backend job. `JdbcIncidentRepositoryPostgresTest` executes V1–V3 migrations, creates uniquely scoped test incidents and diagnosis entries, tests the partial ACTIVE-origin constraint and transaction-level advisory locking, and cleans up only its own test data. Developers without `CI_PG_URL` skip these explicitly CI-gated tests. The last verified CI run is [37756041645](https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645). Real application container fault injection, lifecycle recovery and AI integration remain separate acceptance checks.
+
+
+## 18. Outage-only lifecycle recovery acceptance (2026-10-08)
+
+The outage-only detector creates ACTIVE incidents only from direct liveness or JDBC unavailability evidence. HTTP 500, latency, readiness and resource-pressure signals are symptoms, not standalone outages. The incident history is stored in `blast-radius-db`, separate from monitored `postgres`.
+
+Recovery uses fresh direct origin UP evidence and requires **three distinct consecutive healthy probe evaluations** by default. An older retained DOWN observation must not override a newer UP observation. A newer direct DOWN observation or missing direct UP prevents recovery. Incomplete LOG/METRIC/TRACE adapter coverage is recorded but does not itself reset the recovery streak. A newer persisted analysis-window timestamp is not itself a DOWN signal. Resolution uses compare-and-set against the current incident revision to guard concurrent changes. AI is advisory and does not decide incident state.
+
+### Validated local results
+
+On 2026-10-08, feature commit `ba7382d` passed `mvn -f blast-radius-api/pom.xml clean verify`: **226 tests, 0 failures, 0 errors, 2 skipped**. Docker rebuilt the API successfully, and its Actuator health endpoint returned UP. The following sequential local service interruptions were then verified without recreating the API during the scenarios:
+
+| Origin | ACTIVE detection | Automatic resolution after service health returned | Recovery evidence |
+|---|---:|---:|---|
+| payment-service | 10.2 s | 25.4 s | 1/3 → 2/3 → 3/3 → automatically resolved |
+| document-service | 10.1 s | 25.3 s | 1/3 → 2/3 → 3/3 → automatically resolved |
+| postgres (monitored DB) | 15.2 s | 35.5 s | 1/3 → 2/3 → 3/3 → automatically resolved |
+
+The test script also checked the absence of pre-existing ACTIVE incidents and restored each stopped service in a `finally` block. These figures are **one local run**, not performance SLAs or production resilience proof. The separate 6/6 hard-failure and 4/4 degradation suites were **not rerun as part of this three-scenario acceptance**. The two skipped Maven tests are PostgreSQL repository integration tests; their skip should be reviewed before production rollout.
+
+### Repeat safely
+
+Run `mvn -f blast-radius-api/pom.xml clean verify`, `docker compose up -d --build --no-deps blast-radius-api`, and check `curl -fsS http://localhost:8080/actuator/health`. Confirm there are no pre-existing ACTIVE incidents before deliberately stopping **one local test service at a time**. After each service is restored, inspect `docker compose logs --since=10m blast-radius-api` for the three healthy windows and `automatically resolved`; verify the incident is no longer ACTIVE using `GET /api/v1/blast-radius/incidents?status=ACTIVE`. Do not inject outages against production or shared workloads, stop `blast-radius-db`, or delete volumes. Avoid restarting the API between outage and recovery because that would invalidate the continuity check.
+
+### Remaining limitations
+
+The recovery streak is held in scheduler memory; process restarts reset that counter. The lab validates one application/environment and synthetic local services, not multi-instance scheduling, distributed leader election, enterprise alert delivery, or real production incidents. Observability coverage gaps remain visible and should not be presented as proof of application health.

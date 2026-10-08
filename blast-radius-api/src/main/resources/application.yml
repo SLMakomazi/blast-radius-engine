@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    default: demo
   application:
     name: blast-radius-api
   datasource:
@@ -42,12 +44,14 @@ blast-radius:
     discovery-window: ${TOPOLOGY_DISCOVERY_WINDOW:5m}
     refresh-interval: ${TOPOLOGY_REFRESH_INTERVAL:30s}
     refresh-enabled: ${TOPOLOGY_REFRESH_ENABLED:true}
-    application-id: ${TOPOLOGY_APPLICATION_ID:document-platform}
-    environment: ${TOPOLOGY_ENVIRONMENT:local}
+    application-id: ${MONITOR_APPLICATION_ID}
+    environment: ${MONITOR_ENVIRONMENT:local}
   lifecycle:
     auto-recovery-enabled: true
-    application-id: document-platform
-    environment: local
+    application-id: ${MONITOR_APPLICATION_ID}
+    environment: ${MONITOR_ENVIRONMENT:local}
+    max-evidence-per-incident: ${INCIDENT_MAX_EVIDENCE:20000}
+    collection-duration: ${INCIDENT_COLLECTION_DURATION:7d}
     evaluation-interval: 10s
     initial-delay: 10s
     recovery-lookback: 20s
@@ -81,14 +85,6 @@ blast-radius:
       provider-id: local-tempo
       search-limit: 20
 
-    health:
-      timeout: 5s
-      provider-id: local-actuator
-      endpoints:
-        blast-radius-api: ${BLAST_RADIUS_API_URL:http://blast-radius-api:8080}
-        payment-service:  ${PAYMENT_SERVICE_URL:http://payment-service:8081}
-        customer-service: ${CUSTOMER_SERVICE_URL:http://customer-service:8082}
-        document-service: ${DOCUMENT_SERVICE_URL:http://document-service:8083}
 
   ai:
     gemini:

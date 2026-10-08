@@ -8,11 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.madlanga.blastradius.telemetry.provider.health.ActuatorHealthAdapter;
+import com.madlanga.blastradius.telemetry.provider.health.DatabaseHealthAdapter;
 import com.madlanga.blastradius.telemetry.provider.loki.LokiLogAdapter;
 import com.madlanga.blastradius.telemetry.provider.prometheus.PrometheusMetricsAdapter;
 import com.madlanga.blastradius.telemetry.provider.tempo.TempoTraceAdapter;
 import com.madlanga.blastradius.telemetry.model.TelemetryBundle;
 import com.madlanga.blastradius.telemetry.model.TelemetryCoverage;
+import com.madlanga.blastradius.telemetry.model.CoverageStatus;
 import com.madlanga.blastradius.telemetry.model.TelemetryQuery;
 import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
 
@@ -46,21 +48,28 @@ import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
 @Component
 public class LocalTelemetryProvider implements TelemetryProvider {
 
+    @org.springframework.beans.factory.annotation.Value("${blast-radius.topology.application-id:}")
+    private String configuredApplication = "";
+    @org.springframework.beans.factory.annotation.Value("${blast-radius.topology.environment:local}")
+    private String configuredEnvironment = "local";
     private static final Logger log = LoggerFactory.getLogger(LocalTelemetryProvider.class);
 
     private final LokiLogAdapter lokiAdapter;
     private final PrometheusMetricsAdapter prometheusAdapter;
     private final TempoTraceAdapter tempoAdapter;
     private final ActuatorHealthAdapter healthAdapter;
+    private final DatabaseHealthAdapter databaseHealthAdapter;
 
     public LocalTelemetryProvider(LokiLogAdapter lokiAdapter,
                                    PrometheusMetricsAdapter prometheusAdapter,
                                    TempoTraceAdapter tempoAdapter,
-                                   ActuatorHealthAdapter healthAdapter) {
+                                   ActuatorHealthAdapter healthAdapter,
+                                   DatabaseHealthAdapter databaseHealthAdapter) {
         this.lokiAdapter = lokiAdapter;
         this.prometheusAdapter = prometheusAdapter;
         this.tempoAdapter = tempoAdapter;
         this.healthAdapter = healthAdapter;
+        this.databaseHealthAdapter = databaseHealthAdapter;
     }
 
     /**
@@ -76,6 +85,8 @@ public class LocalTelemetryProvider implements TelemetryProvider {
      */
     @Override
     public TelemetryBundle getTelemetry(TelemetryQuery query) {
+        if (!configuredApplication.isBlank() && (!configuredApplication.equals(query.getApplicationId()) || !configuredEnvironment.equals(query.getEnvironment())))
+            throw new IllegalArgumentException("Application/environment is outside the configured monitoring profile");
         List<String> allWarnings = new ArrayList<>();
 
         // ----- Logs (Loki) -----
@@ -89,12 +100,27 @@ public class LocalTelemetryProvider implements TelemetryProvider {
 
         // ----- Health (Actuator) -----
         ActuatorHealthAdapter.HealthAdapterResult healthResult = fetchHealth(query, allWarnings);
+        var healthEvidence = new ArrayList<>(healthResult.getHealth());
+        var databaseHealth = databaseHealthAdapter.fetchHealth(query);
+        if (databaseHealth != null) healthEvidence.add(databaseHealth);
+
+        CoverageStatus healthCoverage = healthResult.getCoverage();
+        if (databaseHealth != null) {
+            boolean databaseProbeConclusive = databaseHealth.getState() != com.madlanga.blastradius.telemetry.model.HealthState.UNKNOWN;
+            if (healthCoverage == CoverageStatus.NOT_SUPPORTED) {
+                healthCoverage = databaseProbeConclusive ? CoverageStatus.AVAILABLE : CoverageStatus.UNAVAILABLE;
+            } else if (healthCoverage == CoverageStatus.UNAVAILABLE && databaseProbeConclusive) {
+                healthCoverage = CoverageStatus.PARTIAL;
+            } else if (!databaseProbeConclusive && healthCoverage == CoverageStatus.AVAILABLE) {
+                healthCoverage = CoverageStatus.PARTIAL;
+            }
+        }
 
         TelemetryCoverage coverage = TelemetryCoverage.builder()
                 .logs(logsResult.getCoverage())
                 .metrics(metricsResult.getCoverage())
                 .traces(spansResult.getCoverage())
-                .health(healthResult.getCoverage())
+                .health(healthCoverage)
                 .build();
 
         log.debug("TelemetryBundle assembled for {}/{}: logs={}, metrics={}, spans={}, health={}, warnings={}",
@@ -109,7 +135,7 @@ public class LocalTelemetryProvider implements TelemetryProvider {
                 .logs(logsResult.getLogs())
                 .metrics(metricsResult.getMetrics())
                 .spans(spansResult.getSpans())
-                .health(healthResult.getHealth())
+                .health(healthEvidence)
                 .coverage(coverage)
                 .warnings(allWarnings)
                 .build();

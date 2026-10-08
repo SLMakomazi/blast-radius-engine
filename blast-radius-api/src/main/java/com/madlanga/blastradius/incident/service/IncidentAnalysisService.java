@@ -45,7 +45,7 @@ public class IncidentAnalysisService {
 
         for (TheoreticalImpact impact : theoretical.getImpacts()) {
             List<EvidenceSignal> componentSignals = signals.getOrDefault(impact.getComponent().getId(), List.of());
-            ComponentImpact.State state = componentSignals.isEmpty()
+            ComponentImpact.State state = componentSignals.stream().noneMatch(e -> e.kind() != EvidenceSignal.Kind.POTENTIAL)
                     ? (telemetry.isFullyCovered() ? ComponentImpact.State.THEORETICAL_ONLY : ComponentImpact.State.UNKNOWN)
                     : ComponentImpact.State.OBSERVED;
             impacts.add(new ComponentImpact(impact.getComponent().getId(), state, impact.getDistance(),
@@ -58,7 +58,11 @@ public class IncidentAnalysisService {
                 .forEach(e -> impacts.add(new ComponentImpact(e.getKey(), ComponentImpact.State.UNEXPECTED, null,
                         List.of(), e.getValue())));
 
-        List<EvidenceSignal> timeline = signals.values().stream().flatMap(Collection::stream)
+        List<EvidenceSignal> observations = new ArrayList<>(signals.values().stream().flatMap(Collection::stream).toList());
+        telemetry.getHealth().stream().filter(h -> h.isHealthy() && (h.getEndpoint().endsWith("/liveness") || h.getEndpoint().equals("database/availability")))
+                .forEach(h -> observations.add(new EvidenceSignal(h.getTimestamp(), h.getService(), "HEALTH", "availability check UP", h.getId())
+                        .withSource(h.getProvenance(), EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)));
+        List<EvidenceSignal> timeline = observations.stream()
                 .sorted(Comparator.comparing(EvidenceSignal::timestamp)
                         .thenComparing(EvidenceSignal::component)
                         .thenComparing(EvidenceSignal::family))
@@ -74,49 +78,71 @@ public class IncidentAnalysisService {
 
     private TelemetryBundle withinWindow(TelemetryBundle bundle, Instant from, Instant to) {
         java.util.function.Predicate<Instant> inWindow = at -> !at.isBefore(from) && at.isBefore(to);
+        Instant collectedThrough = Instant.now();
+        boolean liveQuery = !to.isBefore(collectedThrough.minusSeconds(60)) && !to.isAfter(collectedThrough.plusSeconds(5));
+        java.util.function.Predicate<Instant> healthInWindow = at -> inWindow.test(at)
+                || (liveQuery && !at.isBefore(from) && !at.isAfter(collectedThrough));
         List<String> warnings = new ArrayList<>(bundle.getWarnings());
-        if (bundle.getHealth().stream().anyMatch(h -> !inWindow.test(h.getTimestamp())))
+        if (bundle.getHealth().stream().anyMatch(h -> !healthInWindow.test(h.getTimestamp())))
             warnings.add("Live health snapshots outside the incident window were excluded from correlation; coverage describes provider availability.");
         return TelemetryBundle.builder().coverage(bundle.getCoverage()).warnings(warnings)
                 .spans(bundle.getSpans().stream().filter(s -> inWindow.test(s.getStartTime())).toList())
                 .logs(bundle.getLogs().stream().filter(l -> inWindow.test(l.getTimestamp())).toList())
                 .metrics(bundle.getMetrics().stream().filter(m -> inWindow.test(m.getTimestamp())).toList())
-                .health(bundle.getHealth().stream().filter(h -> inWindow.test(h.getTimestamp())).toList()).build();
+                .health(bundle.getHealth().stream().filter(h -> healthInWindow.test(h.getTimestamp())).toList()).build();
     }
 
     private Map<String,List<EvidenceSignal>> correlate(TelemetryBundle telemetry, DependencyTopology topology) {
         Map<String,List<EvidenceSignal>> result = new LinkedHashMap<>();
         for (LogEvidence log : telemetry.getLogs()) {
-            if (isErrorLevel(log.getLevel()) || isStage2DegradationLog(log)) add(result, log.getService(),
+            if (isErrorLevel(log.getLevel()) || isDegradationLog(log)) add(result, log.getService(),
                     new EvidenceSignal(log.getTimestamp(), log.getService(), "LOG",
-                            logSignal(log), log.getId()));
+                            logSignal(log), log.getId()).withSource(log.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
         }
         for (SpanEvidence span : telemetry.getSpans()) {
             if (span.getDurationMs() >= 2000) {
                 add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
-                        "slow span: " + span.getOperation() + " duration=" + span.getDurationMs() + "ms", span.getId()));
+                        "slow span: " + span.getOperation() + " duration=" + span.getDurationMs() + "ms", span.getId()).withSource(span.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
             }
             if (span.isError()) {
                 add(result, span.getService(), new EvidenceSignal(span.getStartTime(), span.getService(), "TRACE",
-                        "error span: " + span.getOperation(), span.getId()));
+                        "error span: " + span.getOperation(), span.getId()).withSource(span.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
                 if (hasText(span.getPeerService())) {
                     add(result, span.getPeerService(),
                             new EvidenceSignal(span.getStartTime(), span.getPeerService(), "TRACE",
-                                    "dependency error observed by " + span.getService(), span.getId()));
+                                    "dependency error observed by " + span.getService(), span.getId()).withSource(span.getProvenance(), EvidenceSignal.Kind.POTENTIAL));
                 } else {
                     inferFailedDependencyFromTopology(span, topology).ifPresent(dependency ->
                             add(result, dependency,
                                     new EvidenceSignal(span.getStartTime(), dependency, "TRACE",
                                             "dependency error inferred from topology for failed "
                                                     + span.getOperation() + " observed by " + span.getService(),
-                                            span.getId())));
+                                            span.getId()).withSource(span.getProvenance(), EvidenceSignal.Kind.POTENTIAL)));
                 }
             }
         }
         for (HealthEvidence health : telemetry.getHealth()) {
-            if (health.isDegraded()) add(result, health.getService(),
-                    new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
-                            "health " + health.getState(), health.getId()));
+            if (health.isDegraded()) {
+                String endpoint = health.getEndpoint() == null ? "" : health.getEndpoint().toLowerCase(Locale.ROOT);
+                String signal;
+                if (endpoint.equals("database/availability")) {
+                    signal = "availability health " + health.getState();
+                } else if (endpoint.endsWith("/liveness")) {
+                    signal = health.getState() == HealthState.UNKNOWN && health.getHttpStatus() == null
+                            ? "liveness unreachable"
+                            : "liveness health " + health.getState();
+                } else if (endpoint.endsWith("/readiness")) {
+                    signal = "readiness health " + health.getState();
+                } else {
+                    signal = "aggregate health " + health.getState();
+                }
+                add(result, health.getService(),
+                        new EvidenceSignal(health.getTimestamp(), health.getService(), "HEALTH",
+                                signal, health.getId()).withSource(health.getProvenance(),
+                                (endpoint.equals("database/availability") || endpoint.endsWith("/liveness"))
+                                && (health.getState() == HealthState.DOWN || (endpoint.endsWith("/liveness") && health.getState() == HealthState.UNKNOWN && health.getHttpStatus() == null))
+                                ? EvidenceSignal.Kind.AVAILABILITY_UNAVAILABLE : EvidenceSignal.Kind.SYMPTOM));
+            }
         }
         correlateMetricDeltas(telemetry.getMetrics(), result);
         result.replaceAll((k,v) -> v.stream().sorted(Comparator.comparing(EvidenceSignal::timestamp)).toList());
@@ -151,6 +177,11 @@ public class IncidentAnalysisService {
         if (candidates.isEmpty()) throw new IllegalStateException(
                 "No failure evidence found in the requested window; provide originHint for theoretical analysis.");
 
+        // Direct availability has priority over any quantity of downstream symptoms.
+        Set<String> unavailable = new LinkedHashSet<>();
+        candidates.stream().filter(id -> signals.get(id).stream().anyMatch(EvidenceSignal::confirmsUnavailable)).forEach(unavailable::add);
+        if (!unavailable.isEmpty()) candidates.retainAll(unavailable);
+
         Set<String> hasFailingDependency = new HashSet<>();
         for (DependencyEdge edge : topology.getEdges()) {
             if (candidates.contains(edge.getDependentId()) && candidates.contains(edge.getDependencyId())) {
@@ -161,7 +192,7 @@ public class IncidentAnalysisService {
         if (rootCandidates.isEmpty()) rootCandidates = List.copyOf(candidates);
 
         return rootCandidates.stream()
-                .map(id -> new OriginAssessment(id, confidence(score(signals.get(id))),
+                .map(id -> new OriginAssessment(id, unavailable.contains(id) ? OriginAssessment.Confidence.HIGH : confidence(score(signals.get(id))),
                         score(signals.get(id)), signals.get(id)))
                 .sorted(Comparator.comparingInt(OriginAssessment::evidenceScore).reversed()
                         .thenComparing(o -> earliest(o.evidence())).thenComparing(OriginAssessment::component))
@@ -183,21 +214,12 @@ public class IncidentAnalysisService {
     private Instant earliest(List<EvidenceSignal> evidence) { return evidence.stream().map(EvidenceSignal::timestamp).min(Instant::compareTo).orElse(Instant.MAX); }
     private void add(Map<String,List<EvidenceSignal>> map,String service,EvidenceSignal signal) { if(hasText(service)&&!"unknown".equalsIgnoreCase(service)) map.computeIfAbsent(service,k->new ArrayList<>()).add(signal); }
     private boolean isErrorLevel(String level) { return level!=null && ("ERROR".equalsIgnoreCase(level)||"FATAL".equalsIgnoreCase(level)); }
-    private boolean isStage2DegradationLog(LogEvidence log) {
-        String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
-        return message.contains("synthetic_latency");
+    private boolean isDegradationLog(LogEvidence log) {
+        return log.getMessage() != null && log.getMessage().toLowerCase(Locale.ROOT).contains("latency");
     }
     private String logSignal(LogEvidence log) {
-        String message = log.getMessage() == null ? "" : log.getMessage().toLowerCase(Locale.ROOT);
-        if (message.contains("synthetic_application_failure") && message.contains("intermittent_500"))
-            return "stage2 intermittent HTTP 500";
-        if (message.contains("synthetic_application_failure") || message.contains("synthetic local application failure"))
-            return "stage2 application error HTTP 500";
-        if (message.contains("synthetic_dependency_failure"))
-            return "stage2 database connectivity failure";
-        if (message.contains("synthetic_latency"))
-            return "stage2 latency degradation";
-        return log.getLevel() + " log";
+        // The adapters sanitize messages. Preserve the actual observation, not demo scenario names.
+        return log.getLevel() + " log: " + (log.getMessage() == null ? "" : log.getMessage());
     }
     private void correlateMetricDeltas(List<MetricEvidence> metrics, Map<String,List<EvidenceSignal>> result) {
         Map<String,List<MetricEvidence>> series = new LinkedHashMap<>();
@@ -223,10 +245,10 @@ public class IncidentAnalysisService {
 
             if (serverErrorCounter) {
                 add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
-                        "METRIC",last.getName()+" 5xx counter increased by "+delta,last.getId()));
+                        "METRIC",last.getName()+" 5xx counter increased by "+delta,last.getId()).withSource(last.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
             } else if (timeoutCounter && hasIndependentFailureSignal(result,last.getService())) {
                 add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
-                        "METRIC",last.getName()+" timeout counter increased by "+delta,last.getId()));
+                        "METRIC",last.getName()+" timeout counter increased by "+delta,last.getId()).withSource(last.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
             }
         }
 
@@ -273,7 +295,7 @@ public class IncidentAnalysisService {
                 add(result,lastCount.getService(),new EvidenceSignal(lastCount.getTimestamp(),
                         lastCount.getService(),"METRIC",
                         String.format(Locale.ROOT,"HTTP mean latency %.3fs across %.0f requests",meanSeconds,requestDelta),
-                        lastCount.getId()));
+                        lastCount.getId()).withSource(lastCount.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
             }
         }
     }
@@ -295,13 +317,13 @@ public class IncidentAnalysisService {
                 long high=points.stream().filter(p -> p.getValue()>=0.90).count();
                 if (high>=2) {
                     add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
-                            "METRIC","sustained process CPU usage >= 90%",last.getId()));
+                            "METRIC","sustained process CPU usage >= 90%",last.getId()).withSource(last.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
                 }
             } else if ("hikaricp.connections.pending".equals(name)) {
                 long pending=points.stream().filter(p -> p.getValue()>0).count();
                 if (pending>=2) {
                     add(result,last.getService(),new EvidenceSignal(last.getTimestamp(),last.getService(),
-                            "METRIC","sustained database connection-pool contention",last.getId()));
+                            "METRIC","sustained database connection-pool contention",last.getId()).withSource(last.getProvenance(), EvidenceSignal.Kind.SYMPTOM));
                 }
             }
         }

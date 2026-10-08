@@ -59,9 +59,14 @@ public class LokiLogAdapter {
                           JsonMapper objectMapper) {
         this.properties = properties;
         this.sanitizer = sanitizer;
-        this.restClient = restClientBuilder
-                .baseUrl(properties.getBaseUrl())
-                .build();
+        var client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(properties.getTimeout()).build();
+        var requests = new org.springframework.http.client.JdkClientHttpRequestFactory(client);
+        requests.setReadTimeout(properties.getTimeout());
+        RestClient.Builder isolatedBuilder = restClientBuilder.clone();
+        if (isolatedBuilder == null) isolatedBuilder = restClientBuilder;
+        isolatedBuilder.requestFactory(requests);
+        this.restClient = isolatedBuilder.baseUrl(properties.getBaseUrl()).build();
         this.objectMapper = objectMapper;
     }
 
@@ -242,7 +247,7 @@ public class LokiLogAdapter {
                 String sanitizedMessage = sanitizer.sanitizeMessage(logLine.body);
 
                 LogEvidence evidence = LogEvidence.builder()
-                        .id("log-" + UUID.randomUUID())
+                        .id(com.madlanga.blastradius.telemetry.model.EvidenceIdentity.of(properties.getProviderId(), serviceName, timestamp, new java.util.TreeMap<>(stream.stream), sanitizedMessage))
                         .timestamp(timestamp)
                         .service(serviceName)
                         .environment(environment)

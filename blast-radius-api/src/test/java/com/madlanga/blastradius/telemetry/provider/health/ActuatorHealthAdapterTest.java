@@ -84,6 +84,8 @@ class ActuatorHealthAdapterTest {
                 .toList();
         assertFalse(healthList.isEmpty());
         assertTrue(healthList.stream().anyMatch(h -> h.getState() == HealthState.UP));
+        assertTrue(result.getHealth().stream().anyMatch(h -> "/actuator/health/liveness".equals(h.getEndpoint())));
+        assertTrue(result.getHealth().stream().anyMatch(h -> "/actuator/health/readiness".equals(h.getEndpoint())));
     }
 
     @Test
@@ -166,7 +168,7 @@ class ActuatorHealthAdapterTest {
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(filtered);
 
-        assertEquals(CoverageStatus.UNAVAILABLE, result.getCoverage());
+        assertEquals(CoverageStatus.NOT_SUPPORTED, result.getCoverage());
         assertTrue(result.getHealth().isEmpty());
         assertFalse(result.getWarnings().isEmpty());
     }

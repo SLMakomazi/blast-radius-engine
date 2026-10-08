@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 2 degradation validation for the local Blast Radius lab.
+"""Degradation validation for the local Blast Radius lab.
 
 Unlike Phase 11, these scenarios keep document-service running and inject
 application-level degradation through its localhost-only synthetic lab endpoint.
@@ -51,7 +51,7 @@ SCENARIOS = {
 }
 
 
-class Stage2Failure(AssertionError):
+class DegradationValidationFailure(AssertionError):
     pass
 
 
@@ -74,7 +74,7 @@ def incidents(status):
     query = urlencode({"applicationId": APP, "environment": ENV, "status": status})
     code, body = request_json(f"{API}/incidents?{query}")
     if code != 200 or not isinstance(body, list):
-        raise Stage2Failure(f"Incident API returned HTTP {code}: {body}")
+        raise DegradationValidationFailure(f"Incident API returned HTTP {code}: {body}")
     return body
 
 def eventually(check, label, timeout, interval=2):
@@ -85,22 +85,22 @@ def eventually(check, label, timeout, interval=2):
             value = check()
             if value:
                 return value
-        except (OSError, Stage2Failure, KeyError, TypeError, ValueError) as error:
+        except (OSError, DegradationValidationFailure, KeyError, TypeError, ValueError) as error:
             last = str(error)
         time.sleep(interval)
-    raise Stage2Failure(f"Timed out waiting for {label}. Last observation: {last}")
+    raise DegradationValidationFailure(f"Timed out waiting for {label}. Last observation: {last}")
 
 def set_fault(config):
     code, body = request_json(FAULTS, "PUT", config)
     if code != 200:
-        raise Stage2Failure(f"Could not configure fault: HTTP {code} {body}")
+        raise DegradationValidationFailure(f"Could not configure fault: HTTP {code} {body}")
     return body
 
 
 def reset_fault():
     code, body = request_json(FAULTS, "DELETE")
     if code != 200:
-        raise Stage2Failure(f"Could not reset fault: HTTP {code} {body}")
+        raise DegradationValidationFailure(f"Could not reset fault: HTTP {code} {body}")
     return body
 
 
@@ -108,7 +108,7 @@ def exercise_full_chain(stop_event):
     """Drive payment -> customer -> document -> postgres for real propagation evidence."""
     while not stop_event.is_set():
         payload = {
-            "customerId": "SYNTH-CUST-STAGE2",
+            "customerId": "SYNTH-CUST-DEGRADATION",
             "amount": 125.50,
             "currency": "ZAR",
             "documentReference": "SYNTH-DOC-" + uuid.uuid4().hex[:16].upper(),
@@ -120,116 +120,71 @@ def exercise_full_chain(stop_event):
         stop_event.wait(1)
 
 
-def incident_signals(incident):
-    analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
-    return {str(e.get("signal", "")).lower() for e in analysis.get("timeline", [])}
-
-def active_after(baseline, expected_origins, scenario_started_at):
-    """Accept a new incident or an existing ACTIVE incident refreshed by this scenario."""
-    for incident in incidents("ACTIVE"):
-        if incident.get("originComponent") not in expected_origins:
-            continue
-
-        incident_id = str(incident.get("id"))
-        current_signals = incident_signals(incident)
-
-        if incident_id not in baseline:
-            return incident
-
-        previous = baseline[incident_id]
-        previous_signals = previous.get("signals", set())
-        previous_updated_at = previous.get("updatedAt")
-        current_updated_at = incident.get("updatedAt")
-        analysis = incident.get("analysis") or incident.get("analysisSnapshot") or {}
-        analysis_to = analysis.get("to")
-
-        # Preserve main's signal-delta protection.
-        if current_signals - previous_signals:
-            return incident
-
-        # The lifecycle service deliberately reuses an ACTIVE UUID. Accept the
-        # incident when this scenario has caused that existing record to refresh.
-        if current_updated_at and current_updated_at != previous_updated_at:
-            return incident
-
-        if analysis_to and analysis_to >= scenario_started_at:
-            return incident
-
-    return None
-
-
-def resolved(incident_id):
-    for incident in incidents("RESOLVED"):
-        if str(incident.get("id")) == str(incident_id):
-            return incident
-    return None
-
-
 def run_scenario(name):
     scenario = SCENARIOS[name]
-    baseline = {
-        str(item["id"]): {
-            "signals": incident_signals(item),
-            "updatedAt": item.get("updatedAt"),
-        }
-        for item in incidents("ACTIVE")
-    }
-    scenario_started_at = None
-    detected = None
+    baseline_ids = {str(item["id"]) for item in incidents("ACTIVE")}
     stimulus_stop = threading.Event()
     stimulus = None
+    configured = False
     try:
-        configured = set_fault(scenario["fault"])
-        if configured.get("mode") != scenario["fault"]["mode"]:
-            raise Stage2Failure(f"Fault mode was not applied: {configured}")
-
-        scenario_started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
+        configured_fault = set_fault(scenario["fault"])
+        configured = True
+        if configured_fault.get("mode") != scenario["fault"]["mode"]:
+            raise DegradationValidationFailure(f"Fault mode was not applied: {configured_fault}")
+        started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         stimulus = threading.Thread(target=exercise_full_chain, args=(stimulus_stop,), daemon=True)
         stimulus.start()
 
-        detected = eventually(
-            lambda: active_after(
-                baseline,
-                scenario["expected_origins"],
-                scenario_started_at,
-            ),
-            f"{name} degradation incident",
-            timeout=120,
-        )
-        # Give Prometheus/Tempo another scrape/flush window, then read the latest
-        # persisted snapshot for the same active incident. Detection may happen first
-        # from logs; the lifecycle monitor enriches that incident as other signals arrive.
-        time.sleep(35)
-        latest = next((item for item in incidents("ACTIVE")
-                       if str(item.get("id")) == str(detected.get("id"))), detected)
-        analysis = latest.get("analysis") or {}
-        timeline = analysis.get("timeline") or []
-        family_counts = {family: sum(1 for item in timeline if item.get("family") == family)
-                         for family in ("LOG", "METRIC", "TRACE", "HEALTH")}
-        families = sorted(family for family, count in family_counts.items() if count)
-        missing = sorted(scenario.get("required_evidence", set()) - set(families))
-        if missing:
-            raise Stage2Failure(
-                f"{name} was detected but telemetry enrichment is incomplete; "
-                f"missing evidence families: {', '.join(missing)}; counts={family_counts}"
-            )
+        def observed_degradation():
+            new_ids = {str(item["id"]) for item in incidents("ACTIVE")} - baseline_ids
+            if new_ids:
+                raise AssertionError(f"Degradation created unexpected outage incidents: {sorted(new_ids)}")
+            code, health = request_json("http://127.0.0.1:8083/actuator/health/liveness")
+            if code != 200 or health.get("status") != "UP":
+                raise AssertionError("The degraded service must remain alive")
+            code, analysis = request_json(f"{API}/analyze", "POST", {
+                "applicationId": APP, "environment": ENV, "from": started_at,
+                "to": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            })
+            if code != 200:
+                return None
+            if (analysis.get("origin") or {}).get("component") not in scenario["expected_origins"]:
+                return None
+            timeline = analysis.get("timeline") or []
+            families = {e.get("family") for e in timeline if e.get("kind") != "AVAILABILITY_AVAILABLE"}
+            if not scenario["required_evidence"].issubset(families):
+                return None
+            if any(e.get("kind") == "AVAILABILITY_UNAVAILABLE" for e in timeline):
+                raise AssertionError("Degradation scenario unexpectedly includes a direct outage")
+            return analysis
+
+        analysis = eventually(observed_degradation, f"{name} real degradation evidence with no outage", timeout=120)
+        # Allow another scheduler evaluation and verify liveness and the outage gate again.
+        time.sleep(12)
+        latest = observed_degradation()
+        if latest is None:
+            raise DegradationValidationFailure("Required real telemetry was not retained in the scenario window")
+        timeline = latest.get("timeline") or []
         return {
-            "id": str(detected["id"]),
-            "origin": detected.get("originComponent"),
-            "confidence": detected.get("originConfidence"),
-            "severity": f"{detected.get('severityLevel')}/{detected.get('severityScore')}",
-            "evidenceFamilies": families,
-            "evidenceCounts": family_counts,
+            "origin": latest["origin"]["component"],
+            "evidenceCounts": {family: sum(e.get("family") == family for e in timeline)
+                               for family in ("LOG", "METRIC", "TRACE", "HEALTH")},
             "serviceStayedRunning": True,
+            "outageIncidentsCreated": 0,
         }
     finally:
         stimulus_stop.set()
         if stimulus is not None:
             stimulus.join(timeout=2)
-        reset_fault()
-        if detected is not None:
-            eventually(lambda: resolved(detected["id"]), f"recovery after {name}", timeout=160)
+        if configured:
+            reset_fault()
+            def requests_recovered():
+                code, _ = request_json(PAYMENTS, "POST", {
+                    "customerId": "SYNTH-CUST-RECOVERY", "amount": 125.50, "currency": "ZAR",
+                    "documentReference": "SYNTH-RECOVERY-" + uuid.uuid4().hex[:16].upper(),
+                })
+                return 200 <= code < 300
+            eventually(requests_recovered, f"successful full-chain request after {name}", timeout=160)
 
 
 def main():
@@ -238,7 +193,7 @@ def main():
     args = parser.parse_args()
 
     selected = list(SCENARIOS) if args.scenario == "all" else [args.scenario]
-    print("\nMADLANGAAI BLAST RADIUS — STAGE 2 DEGRADATION VALIDATION\n", flush=True)
+    print("\nMADLANGAAI BLAST RADIUS — DEGRADATION VALIDATION\n", flush=True)
     results = []
     for name in selected:
         print(f"[RUN ] {name}", flush=True)

@@ -64,14 +64,28 @@ public class TempoTraceAdapter {
     private final TelemetrySanitizer sanitizer;
     private final RestClient restClient;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public TempoTraceAdapter(TempoProperties properties,
                              TelemetrySanitizer sanitizer,
                              RestClient.Builder restClientBuilder) {
         this.properties = properties;
         this.sanitizer = sanitizer;
-        this.restClient = restClientBuilder
-                .baseUrl(properties.getBaseUrl())
-                .build();
+        var client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(properties.getTimeout()).build();
+        var requests = new org.springframework.http.client.JdkClientHttpRequestFactory(client);
+        requests.setReadTimeout(properties.getTimeout());
+        RestClient.Builder isolatedBuilder = restClientBuilder.clone();
+        if (isolatedBuilder == null) isolatedBuilder = restClientBuilder;
+        isolatedBuilder.requestFactory(requests);
+        this.restClient = isolatedBuilder.baseUrl(properties.getBaseUrl()).build();
+    }
+
+    // Test seam for captured-trace regression: provide a RestClient already
+    // bound to a MockRestServiceServer without replacing its request factory.
+    TempoTraceAdapter(TempoProperties properties, TelemetrySanitizer sanitizer, RestClient client) {
+        this.properties = properties;
+        this.sanitizer = sanitizer;
+        this.restClient = client;
     }
 
     // -------------------------------------------------------------------------
@@ -302,7 +316,7 @@ public class TempoTraceAdapter {
                 sourceRef);
 
         return SpanEvidence.builder()
-                .id("span-" + UUID.randomUUID())
+                .id(com.madlanga.blastradius.telemetry.model.EvidenceIdentity.of(properties.getProviderId(), normalizeOtlpId(span.traceId), normalizeOtlpId(span.spanId), startTime, serviceName, span.name))
                 .traceId(normalizeOtlpId(span.traceId))
                 .spanId(normalizeOtlpId(span.spanId))
                 .parentSpanId(normalizeOtlpId(span.parentSpanId))
