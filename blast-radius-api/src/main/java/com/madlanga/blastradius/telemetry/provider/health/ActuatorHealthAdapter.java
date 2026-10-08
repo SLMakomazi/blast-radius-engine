@@ -117,8 +117,8 @@ public class ActuatorHealthAdapter {
 
         CoverageStatus coverage;
         if (probeCount == 0) {
-            coverage = CoverageStatus.UNAVAILABLE;
-            warnings.add("Health: no components matched the query filter.");
+            coverage = CoverageStatus.NOT_SUPPORTED;
+            warnings.add("Health: no HTTP components matched the query filter.");
         } else if (successCount == 0) {
             coverage = CoverageStatus.UNAVAILABLE;
         } else if (successCount < probeCount) {
