@@ -30,7 +30,7 @@ class IncidentLifecycleSchedulerTest {
                 List.of(),List.of(),new IncidentSeverity(IncidentSeverity.Level.LOW,0,List.of()),List.of());
         var healthy = new IncidentAnalysis("ledger","test",start,Instant.now(),origin,TelemetryCoverage.allAvailable(),
                 List.of(),List.of(up),noProbe.severity(),List.of());
-        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db"))).thenReturn(noProbe,healthy,healthy,healthy);
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db"))).thenReturn(noProbe,healthy,freshProbe(healthy,1),freshProbe(healthy,2));
         when(lifecycle.persistLifecycle(any())).thenReturn(Optional.of(incident));
         var scheduler = new IncidentLifecycleScheduler(engine,lifecycle,repository,"ledger","test",Duration.ofSeconds(20),3);
         scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle();
@@ -57,11 +57,45 @@ class IncidentLifecycleSchedulerTest {
         var origin = new OriginAssessment("db",OriginAssessment.Confidence.LOW,0,List.of(symptom));
         var healthy = new IncidentAnalysis("ledger","test",start,Instant.now(),origin,TelemetryCoverage.allAvailable(),
                 List.of(),List.of(up,symptom),new IncidentSeverity(IncidentSeverity.Level.LOW,0,List.of()),List.of());
-        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db"))).thenReturn(healthy);
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db"))).thenReturn(healthy,freshProbe(healthy,1),freshProbe(healthy,2));
         when(lifecycle.persistLifecycle(any())).thenReturn(Optional.of(incident));
         var scheduler = new IncidentLifecycleScheduler(engine,lifecycle,repository,"ledger","test",Duration.ofSeconds(20),3);
         scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle();
         verify(lifecycle).resolveIfUnchanged(eq(id),eq(incident.updatedAt()),any());
     }
 
+    @Test void cachedPositiveProbeCannotCountTowardRecoveryMoreThanOnce() {
+        var engine = mock(IncidentAnalysisService.class);
+        var lifecycle = mock(IncidentLifecycleService.class);
+        var repository = mock(IncidentRepository.class);
+        Instant start = Instant.now().minusSeconds(120);
+        var incident = new PersistedIncident(UUID.randomUUID(),"ledger","test",PersistedIncident.Status.ACTIVE,
+                start,null,"db",OriginAssessment.Confidence.HIGH,IncidentSeverity.Level.HIGH,
+                50,start,start,"{}",start,start);
+        when(repository.findActive("ledger","test")).thenReturn(List.of(incident));
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),isNull()))
+                .thenThrow(new IllegalStateException("No failure evidence found"));
+        var positive = new EvidenceSignal(Instant.now(),"db","HEALTH","availability check UP","same-probe",
+                EvidenceSignal.Kind.AVAILABILITY_AVAILABLE,"jdbc","availability",Instant.now());
+        var analysis = new IncidentAnalysis("ledger","test",start,Instant.now(),
+                new OriginAssessment("db",OriginAssessment.Confidence.LOW,0,List.of()),
+                TelemetryCoverage.allAvailable(),List.of(),List.of(positive),
+                new IncidentSeverity(IncidentSeverity.Level.LOW,0,List.of()),List.of());
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db"))).thenReturn(analysis);
+        when(lifecycle.persistLifecycle(any())).thenReturn(Optional.of(incident));
+        var scheduler = new IncidentLifecycleScheduler(engine,lifecycle,repository,"ledger","test",Duration.ofSeconds(20),3);
+        scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle();
+        verify(lifecycle,never()).resolveIfUnchanged(any(),any(),any());
+    }
+
+    private IncidentAnalysis freshProbe(IncidentAnalysis original,int offsetSeconds) {
+        var events = original.timeline().stream().map(e -> e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE
+                ? new EvidenceSignal(e.timestamp().plusSeconds(offsetSeconds),e.component(),e.family(),e.signal(),
+                        e.evidenceId()+"-"+offsetSeconds,e.kind(),e.provider(),e.sourceRef(),
+                        e.collectedAt().plusSeconds(offsetSeconds))
+                : e).toList();
+        return new IncidentAnalysis(original.applicationId(),original.environment(),
+                original.from(),original.to(),original.origin(),original.coverage(),original.impacts(),
+                events,original.severity(),original.warnings());
+    }
 }
