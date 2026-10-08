@@ -151,11 +151,15 @@ public class IncidentLifecycleScheduler {
                 log.info("Recovery reset for incident {}: no fresh direct UP probe for {}", incident.id(), incident.originComponent());
                 return;
             }
-            if (collected.isEmpty() || collected.get().analysisTo().isAfter(analysis.to())) {
+            if (collected.isEmpty()) {
                 resetHealthyWindows(incident.id());
-                log.info("Recovery reset for incident {}: persisted incident revision is missing or newer than probe window", incident.id());
+                log.info("Recovery reset for incident {}: persisted incident is unavailable", incident.id());
                 return;
             }
+            // Persisted analysisTo can legitimately advance as other telemetry is
+            // collected. It is not a direct DOWN observation and must not reset
+            // healthy probes. Compare the actual UP/DOWN evidence timestamps below;
+            // resolveIfUnchanged still protects against concurrent revisions.
             Instant probeAt = newestHealthyProbeAt.get();
             // An older positive observation must never outweigh a newer, retained
             // direct unavailability probe even if both queries share an end time.
