@@ -128,7 +128,7 @@ public class IncidentLifecycleScheduler {
             var collected = lifecycleService.persistLifecycle(analysis);
 
             if (!analysis.coverage().isFullyCovered()) {
-                healthyWindows.remove(incident.id());
+                resetHealthyWindows(incident.id());
                 log.info("Recovery not confirmed for incident {}: telemetry coverage is partial",
                         incident.id());
                 return;
@@ -143,9 +143,11 @@ public class IncidentLifecycleScheduler {
                 return;
             }
 
-            boolean directlyAvailable = analysis.timeline().stream().anyMatch(e -> e.component().equals(incident.originComponent())
-                    && e.kind() == com.madlanga.blastradius.incident.model.EvidenceSignal.Kind.AVAILABILITY_AVAILABLE);
-            if (!directlyAvailable) { healthyWindows.remove(incident.id()); return; }
+            var newestHealthyProbeAt = analysis.timeline().stream()
+                    .filter(e -> e.component().equals(incident.originComponent())
+                            && e.kind() == EvidenceSignal.Kind.AVAILABILITY_AVAILABLE)
+                    .map(EvidenceSignal::timestamp).max(Instant::compareTo);
+            if (newestHealthyProbeAt.isEmpty()) { resetHealthyWindows(incident.id()); return; }
             if (collected.isEmpty() || collected.get().analysisTo().isAfter(analysis.to())) {
                 healthyWindows.remove(incident.id());
                 return;
