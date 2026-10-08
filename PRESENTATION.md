@@ -679,8 +679,8 @@ Open the linked file when someone asks about it. Folder headings match the repos
 
 | Open | Say |
 |---|---|
-| [run-phase11-e2e.py](scripts/run-phase11-e2e.py) | “This file runs six Stage 1 cases against the live lab, stopping and restoring services while checking detection, propagation and guarded recovery.” |
-| [run-stage2-e2e.py](scripts/run-stage2-e2e.py) | “This file runs four Stage 2 degradation cases using lab fault controls while asserting real evidence and same-incident recovery.” |
+| [run-phase11-e2e.py](scripts/run-phase11-e2e.py) | “This file runs six controlled outage scenarios against the live lab, checking detection, propagation, evidence retention and guarded recovery.” |
+| [run-degradation-e2e.py](scripts/run-degradation-e2e.py) | “This file validates degradation telemetry without creating degradation-only outages, and checks service recovery after resetting each controlled fault.” |
 
 ### `traffic-generator/`
 
