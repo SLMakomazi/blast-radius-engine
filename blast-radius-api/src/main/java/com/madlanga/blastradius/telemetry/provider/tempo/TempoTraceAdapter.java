@@ -302,7 +302,7 @@ public class TempoTraceAdapter {
                 sourceRef);
 
         return SpanEvidence.builder()
-                .id("span-" + UUID.randomUUID())
+                .id(com.madlanga.blastradius.telemetry.model.EvidenceIdentity.of(properties.getProviderId(), normalizeOtlpId(span.traceId), normalizeOtlpId(span.spanId), startTime, serviceName, span.name))
                 .traceId(normalizeOtlpId(span.traceId))
                 .spanId(normalizeOtlpId(span.spanId))
                 .parentSpanId(normalizeOtlpId(span.parentSpanId))

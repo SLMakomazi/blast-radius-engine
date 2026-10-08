@@ -102,6 +102,10 @@ def assert_incident_shape(incident, expected):
         raise Phase11Failure(f"Expected origin {expected['origin']}, got {origin}")
 
     analysis = analysis_of(incident)
+    if incident.get("incidentType") != "OUTAGE" or incident.get("availabilityStatus") != "UNAVAILABLE":
+        raise Phase11Failure("Direct outage must be classified OUTAGE / UNAVAILABLE")
+    if not any(e.get("kind") == "AVAILABILITY_UNAVAILABLE" for e in (analysis.get("origin") or {}).get("evidence", [])):
+        raise Phase11Failure("Origin lacks direct availability confirmation")
     impacts = analysis.get("impacts") or []
     observed = [item for item in impacts if item.get("state") == "OBSERVED"]
     max_depth = max((item.get("distance") or 0 for item in observed), default=0)
@@ -167,6 +171,13 @@ def outage(runtime, service):
         ids = {str(i["id"]) for i in same_origin}
         if ids != {incident_id}:
             raise Phase11Failure(f"Expected one stable ACTIVE incident UUID {incident_id}, got {sorted(ids)}")
+        current = same_origin[0]
+        if current.get("startedAt") != detected.get("startedAt"):
+            raise Phase11Failure("Polling changed the original incident start")
+        original_keys = {json.dumps(e, sort_keys=True) for e in analysis_of(detected).get("timeline", [])}
+        current_keys = {json.dumps(e, sort_keys=True) for e in analysis_of(current).get("timeline", [])}
+        if not original_keys.issubset(current_keys):
+            raise Phase11Failure("Polling lost previously collected evidence")
     finally:
         compose(runtime, "start", service)
 
@@ -176,6 +187,9 @@ def outage(runtime, service):
     resolved = eventually(lambda: resolved_by_id(detected["id"]), f"automatic resolution of {service}", timeout=120)
     if not resolved.get("resolvedAt"):
         raise Phase11Failure("Resolved incident has no resolvedAt timestamp")
+    retained = {json.dumps(e, sort_keys=True) for e in analysis_of(resolved).get("timeline", [])}
+    if not original_keys.issubset(retained):
+        raise Phase11Failure("Resolution lost historical evidence")
     summary["lifecycle"] = "ACTIVE -> RESOLVED"
     summary["sameUuidResolved"] = True
     return summary

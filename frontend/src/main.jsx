@@ -6,16 +6,14 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import { ServiceMap, EvidenceCharts, SignalExplanation } from "./ServiceMap.jsx";
-import { analysisOf, matchesIncident } from "./incident-visuals.js";
+import { analysisOf, matchesIncident, incidentClassification, acceptIncidentDetail } from "./incident-visuals.js";
 
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const statusClass = (value = "") => value.toLowerCase().replaceAll("_", "-");
 
 function chooseSelectedIncidentId(data, selectedId) {
-  if (!data.length) return null;
-  if (selectedId && data.some(i => i.id === selectedId)) return selectedId;
-  return data[0].id;
+  return selectedId; // Only an explicit click changes the selected incident.
 }
 
 function getImpactScope(impacts, involved) {
@@ -25,30 +23,7 @@ function getImpactScope(impacts, involved) {
 }
 
 function evidenceRowKey(e) {
-  return e.evidenceId || `${e.timestamp}-${e.component}-${e.family}-${e.signal}`;
-}
-
-function incidentSignals(incident) {
-  const analysis = analysisOf(incident);
-  return (analysis.timeline || []).map(e => String(e.signal || "").toLowerCase());
-}
-
-function incidentScenario(incident) {
-  const signals = incidentSignals(incident);
-  if (signals.some(s => s.includes("distributed cascade"))) return "Distributed Cascade";
-  if (signals.some(s => s.includes("compound dependency failure"))) return "Compound Dependency Failure";
-  if (signals.some(s => s.includes("flapping dependency"))) return "Flapping Dependency";
-  if (signals.some(s => s.includes("deployment regression"))) return "Deployment Regression";
-  if (signals.some(s => s.includes("configuration error"))) return "Configuration Error";
-  if (signals.some(s => s.includes("api contract break"))) return "API Contract Break";
-  if (signals.some(s => s.includes("feature flag regression"))) return "Feature Flag Regression";
-  if (signals.some(s => s.includes("database connectivity"))) return "DB Connectivity";
-  if (signals.some(s => s.includes("latency") || s.includes("slow span") || s.includes("timeout"))) return "Latency";
-  if (signals.some(s => s.includes("intermittent http 500"))) return "Intermittent 500";
-  if (signals.some(s => s.includes("application error http 500") || s.includes("5xx counter"))) return "HTTP 500";
-  if (signals.some(s => s.includes("process cpu"))) return "CPU Pressure";
-  if (signals.some(s => s.includes("connection-pool"))) return "Pool Pressure";
-  return null;
+  return `${e.timestamp}-${e.component}-${e.family}-${e.signal}-${e.provider || ""}`;
 }
 
 function App() {
@@ -73,20 +48,15 @@ function App() {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents?status=${nextStatus}`);
       if (!res.ok) throw new Error(`Incident API returned HTTP ${res.status}`);
       const data = await res.json();
-      setIncidents(data);
+      setIncidents(previous => JSON.stringify(previous) === JSON.stringify(data) ? previous : data);
       setLastUpdated(new Date());
 
       const currentSelectedId = selectedIdRef.current;
 
-      // Background polling is deliberately list-only. It must not replace the
+      // Poll the same selected incident without remounting the map or resetting local state. It must not replace the
       // user's selection, reset map hover/focus, or touch an existing diagnosis.
       if (background) {
-        // If the selected ACTIVE incident disappeared from the ACTIVE list, it
-        // may just have resolved. Refresh that same incident once so its detail
-        // can transition to RESOLVED without selecting another incident.
-        if (currentSelectedId && nextStatus === "ACTIVE" && !data.some(i => i.id === currentSelectedId)) {
-          await loadIncident(currentSelectedId, { background: true });
-        }
+        if (currentSelectedId) await loadIncident(currentSelectedId, { background: true });
         return;
       }
 
@@ -112,7 +82,7 @@ function App() {
       const res = await fetch(`${API}/api/v1/blast-radius/incidents/${id}`);
       if (!res.ok) throw new Error(`Incident detail returned HTTP ${res.status}`);
       const next = await res.json();
-      setSelected(prev => prev?.id === next.id && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
+      setSelected(prev => acceptIncidentDetail(prev, next, selectedIdRef.current));
     } catch (e) {
       if (!background) setError(e.message);
     }
@@ -202,7 +172,7 @@ function App() {
             {visibleIncidents.map(i => <button key={i.id} className={"incident-item "+(selected?.id===i.id?"current":"")} onClick={()=>{selectedIdRef.current=i.id;void loadIncident(i.id)}}>
               <div className="incident-top"><span className={"severity "+statusClass(i.severityLevel)}>{i.severityLevel}</span><span className={"state "+statusClass(i.status)}>{i.status}</span></div>
               <strong>{i.originComponent}</strong>
-              {incidentScenario(i) && <span className="scenario-label">{incidentScenario(i)}</span>}
+              {incidentClassification(i) && <span className="scenario-label">{incidentClassification(i)}</span>}
               <span>{i.applicationId} · {i.environment}</span>
               <small><Clock3 size={12}/>{new Date(i.startedAt).toLocaleString()}</small>
             </button>)}
@@ -212,7 +182,7 @@ function App() {
         <div className="detail-column">
           {!selected ? <div className="panel empty large">Select an incident to inspect its deterministic evidence.</div> : <>
             <section className="incident-title panel">
-              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{incidentScenario(selected) || "Incident"} · {selected.applicationId} / {selected.environment}</p></div>
+              <div><span className="eyebrow">INCIDENT {selected.id.slice(0,8)}</span><h2>{selected.originComponent} <span>origin</span></h2><p>{incidentClassification(selected) || "Incident"} · {selected.applicationId} / {selected.environment}</p></div>
               <div className="incident-badges"><span className={"severity "+statusClass(selected.severityLevel)}>{selected.severityLevel} · {selected.severityScore}</span><span className={"state "+statusClass(selected.status)}>{selected.status}</span></div>
             </section>
 
@@ -248,6 +218,7 @@ function App() {
               <div className="panel-head"><div><span className="eyebrow">EVIDENCE EXPLORER</span><h2>{evidenceComponent || "All components"}</h2><p>Sanitized incident evidence captured from logs, metrics, traces and health telemetry.</p></div><span className="evidence-total">{evidenceRows.length} events</span></div>
               <label className="visual-search evidence-search"><Search size={16}/><input aria-label="Search evidence" placeholder="Search evidence by service or symptom…" value={evidenceSearch} onChange={e => setEvidenceSearch(e.target.value)}/></label>
               <div className="evidence-tabs">{["ALL","LOG","METRIC","TRACE","HEALTH"].map(f=><button key={f} className={evidenceFamily===f?"selected":""} onClick={()=>setEvidenceFamily(f)}>{f==="ALL"?"All":f[0]+f.slice(1).toLowerCase()}</button>)}{evidenceComponent && <button onClick={()=>setEvidenceComponent(null)}>All components</button>}</div>
+              {analysis.collectionLimited && <div className="error">Evidence collection limit reached. Earlier history is preserved; later observations may be absent.</div>}
               <div className="evidence-list">
                 {!evidenceRows.length && <div className="empty">No evidence matches these filters in this incident snapshot.</div>}
                 {evidenceRows.slice(0,100).map(e=><div className="evidence-row" key={evidenceRowKey(e)}><time>{new Date(e.timestamp).toLocaleTimeString()}</time><span className={"evidence-family "+statusClass(e.family)}>{e.family}</span><strong>{e.component}</strong><div className="plain-evidence"><SignalExplanation signal={e.signal}/></div><code>{e.evidenceId}</code></div>)}
@@ -273,7 +244,7 @@ function Kpi({icon,label,value,meta}) { return <div className="kpi panel"><div c
 function Diagnosis({data}) {
   const groups=[["Immediate actions",data.immediateActions],["Medium-term",data.mediumTermActions],["Strategic",data.strategicActions]];
   return <div className="diagnosis">
-    <div className="diagnosis-meta"><span>{data.provider}</span><span>{data.model}</span></div>
+    <div className="diagnosis-meta"><span>{data.provider}</span><span>{data.model}</span>{data.evidenceVersion != null && <span>Evidence version {data.evidenceVersion}</span>}</div>
     <div className="diagnosis-copy"><h3>Summary</h3><p>{data.summary}</p><h3>Probable cause</h3><p>{data.probableCause}</p></div>
     <div className="actions">{groups.map(([name,items])=><div key={name}><h3>{name}</h3><ol>{(items||[]).map(x=><li key={`${name}-${x}`}>{x}</li>)}</ol></div>)}</div>
     {!!data.limitations?.length && <div className="limitations"><h3>Limitations</h3>{data.limitations.map(x=><p key={`limitation-${x}`}>• {x}</p>)}</div>}

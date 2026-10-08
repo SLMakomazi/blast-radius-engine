@@ -19,6 +19,21 @@ public class JdbcIncidentRepository implements IncidentRepository {
     }
 
     @Override
+    public void lockScope(String applicationId, String environment, String origin) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("Lifecycle scope lock requires a transaction");
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", rs -> {},
+                applicationId + "\u001f" + environment + "\u001f" + origin);
+    }
+
+    @Override
+    public Optional<Instant> latestResolution(String applicationId, String environment, String origin) {
+        return jdbc.query("SELECT max(resolved_at) AS resolved_at FROM incidents WHERE application_id=? AND environment=? AND origin_component=?",
+                (rs, row) -> rs.getTimestamp("resolved_at"), applicationId, environment, origin).stream()
+                .filter(java.util.Objects::nonNull).map(java.sql.Timestamp::toInstant).findFirst();
+    }
+
+    @Override
     public Optional<PersistedIncident> findActive(String applicationId, String environment, String originComponent) {
         List<PersistedIncident> rows = jdbc.query("""
                 SELECT * FROM incidents

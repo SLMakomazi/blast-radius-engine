@@ -194,7 +194,7 @@ public class PrometheusMetricsAdapter {
                 dims.remove("environment");
 
                 MetricEvidence evidence = MetricEvidence.builder()
-                        .id("metric-" + UUID.randomUUID())
+                        .id(com.madlanga.blastradius.telemetry.model.EvidenceIdentity.of(properties.getProviderId(), service, timestamp, normalizedName, new java.util.TreeMap<>(dims)))
                         .timestamp(timestamp)
                         .service(service)
                         .environment(environment)

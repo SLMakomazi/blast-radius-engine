@@ -35,7 +35,7 @@ export function nodeView(impact, incident) {
   else if (impact.state === 'UNKNOWN') { tone = 'unknown'; }
   else if (impact.state === 'THEORETICAL_ONLY') { tone = 'risk'; label = 'At risk · unconfirmed'; }
   else if (evidence.length) {
-    const hardUnavailable = signals.some(s => /availability health (down|out_of_service)|liveness health (down|out_of_service)|liveness unreachable/.test(s));
+    const hardUnavailable = evidence.some(e => e.kind === "AVAILABILITY_UNAVAILABLE") || signals.some(s => /availability health (down|out_of_service)|liveness health (down|out_of_service)|liveness unreachable/.test(s));
     if (hardUnavailable) { tone = 'failed'; label = 'Unavailable'; }
     else { tone = 'degraded'; label = 'Observed impact'; }
   }
@@ -45,11 +45,12 @@ export function nodeView(impact, incident) {
   }
   const path = impact.path || [];
   const dependency = path.length > 1 ? path[path.length - 2] : null;
-  const reason = evidence.length ? explainSignal(evidence[0].signal) : 'No direct failure evidence is included for this service. Missing evidence is not proof that it is healthy.';
+  const availability = evidence.find(e => e.kind === 'AVAILABILITY_UNAVAILABLE');
+  const reason = availability ? 'Confirmed unavailable — direct availability check failed.' : evidence.length ? explainSignal(evidence[0].signal) : 'No direct failure evidence is included for this service. Missing evidence is not proof that it is healthy.';
   const relationship = origin
-    ? `The engine selected ${impact.component} as the likely starting point, with ${incident.originConfidence || analysis.origin?.confidence || 'unknown'} confidence. This is an evidence-based assessment, not a confirmed physical root cause.`
+    ? tone === "failed" ? "Confirmed unavailable — direct availability check failed." : `The engine selected ${impact.component} as the likely starting point, with ${incident.originConfidence || analysis.origin?.confidence || 'unknown'} confidence. The underlying physical cause has not been established.`
     : dependency
-      ? `${impact.component} depends on ${dependency} along this recorded path. If ${dependency} cannot respond normally, this service may fail or slow down too.${impact.state === 'THEORETICAL_ONLY' ? ' That impact has not been observed here.' : ''}`
+      ? `${impact.state === 'OBSERVED' ? 'Observed impact — failure or degradation evidence recorded. ' : 'Potential impact — dependency relationship exists, but no direct impact confirmed. '}${impact.component} depends on ${dependency} along this recorded path. If ${dependency} cannot respond normally, this service may fail or slow down too.${impact.state === 'THEORETICAL_ONLY' ? ' That impact has not been observed here.' : ''}`
       : 'The snapshot does not include a dependency path for this service. Do not assume it is connected to the selected origin.';
   return { ...impact, tone, label, evidence, reason, relationship, origin, resolved };
 }
@@ -87,4 +88,19 @@ export function evidenceBuckets(analysis, count = 12) {
     if (Object.hasOwn(b, e.family)) { b[e.family]++; b.total++; }
   }
   return buckets;
+}
+
+/** Classification comes from the backend; symptoms never determine the headline. */
+export function incidentClassification(incident) {
+  const analysis = analysisOf(incident);
+  const type = incident?.incidentType || analysis.incidentType || 'UNCLASSIFIED';
+  const availability = incident?.status === 'RESOLVED' ? 'RECOVERED' : incident?.availabilityStatus || analysis.availabilityStatus || 'UNKNOWN';
+  return `${type} · ${availability}`;
+}
+
+/** Ignore stale requests after a click, and preserve identity when nothing changed. */
+export function acceptIncidentDetail(previous, next, selectedId) {
+  if (next.id !== selectedId) return previous;
+  if (previous?.id === next.id && previous.updatedAt && next.updatedAt && next.updatedAt < previous.updatedAt) return previous;
+  return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
 }

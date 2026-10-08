@@ -23,8 +23,9 @@ public class DatabaseHealthAdapter {
     }
 
     public HealthEvidence fetchHealth(TelemetryQuery query) {
+        if (properties.getUrl().isBlank() || properties.getService().isBlank()) return null;
         if (query.hasComponentFilter() && !query.getComponentFilter().contains(properties.getService())) return null;
-        Instant timestamp = query.getTo().minusNanos(1);
+        Instant timestamp = Instant.now();
         long started = System.nanoTime();
         HealthState state;
         try {
@@ -34,12 +35,16 @@ public class DatabaseHealthAdapter {
                 state = connection.isValid((int) Math.max(1, properties.getTimeout().toSeconds()))
                         ? HealthState.UP : HealthState.DOWN;
             }
-        } catch (Exception ignored) {
-            state = HealthState.DOWN;
+        } catch (java.sql.SQLException failure) {
+            // Authentication/configuration errors do not establish database availability.
+            state = failure.getSQLState() != null && failure.getSQLState().startsWith("08")
+                    ? HealthState.DOWN : HealthState.UNKNOWN;
+        } catch (RuntimeException failure) {
+            state = HealthState.UNKNOWN;
         }
         long latencyMs = (System.nanoTime() - started) / 1_000_000;
         EvidenceProvenance provenance = EvidenceProvenance.of(
-                EvidenceFamily.HEALTH, properties.getProviderId(), timestamp, "jdbc:postgresql");
+                EvidenceFamily.HEALTH, properties.getProviderId(), Instant.now(), "jdbc:postgresql");
         return HealthEvidence.builder()
                 .id("health-" + UUID.randomUUID())
                 .timestamp(timestamp)

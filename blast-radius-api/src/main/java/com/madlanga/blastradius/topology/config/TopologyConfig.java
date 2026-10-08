@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 @Configuration
 @EnableScheduling
+@org.springframework.boot.context.properties.EnableConfigurationProperties(ConfiguredTopology.class)
 public class TopologyConfig {
     @Bean
     TopologyRepository topologyStore(@Value("${blast-radius.topology.directory:./data/topology}") String directory) {
@@ -26,7 +27,7 @@ public class TopologyConfig {
     TopologyService retainedTopologyProvider(TopologyRepository store, TempoTraceAdapter adapter,
             @Value("${blast-radius.topology.ttl:7d}") Duration ttl,
             @Value("${blast-radius.topology.discovery-window:5m}") Duration window,
-            @Value("${blast-radius.topology.application-id:document-platform}") String applicationId,
+            @Value("${blast-radius.topology.application-id}") String applicationId,
             @Value("${blast-radius.topology.environment:local}") String environment) {
         return new TopologyService(store, query -> {
             // This lab has one telemetry backend/application. Never relabel its evidence into another scope.
@@ -37,9 +38,22 @@ public class TopologyConfig {
     }
 
     @Bean
+    @org.springframework.context.annotation.Primary
+    com.madlanga.blastradius.topology.provider.DependencyTopologyProvider monitoringTopology(
+            TopologyService retained, ConfiguredTopology configured,
+            @Value("${blast-radius.topology.application-id}") String applicationId,
+            @Value("${blast-radius.topology.environment:local}") String environment) {
+        return (app, env) -> {
+            if (!applicationId.equals(app) || !environment.equals(env))
+                throw new IllegalArgumentException("Application/environment is not configured for this monitoring profile");
+            return configured.getComponents().isEmpty() ? retained.getTopology(app, env) : configured.build(app, env);
+        };
+    }
+
+    @Bean
     @ConditionalOnProperty(name="blast-radius.topology.refresh-enabled", havingValue="true", matchIfMissing=true)
     TopologyRefresh topologyRefresh(TopologyService provider,
-            @Value("${blast-radius.topology.application-id:document-platform}") String applicationId,
+            @Value("${blast-radius.topology.application-id}") String applicationId,
             @Value("${blast-radius.topology.environment:local}") String environment) {
         return new TopologyRefresh(provider, applicationId, environment);
     }

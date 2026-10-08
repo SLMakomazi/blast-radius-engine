@@ -94,12 +94,12 @@ public class TelemetryConfig {
 
     @ConfigurationProperties(prefix = "blast-radius.telemetry.database-health")
     public static class DatabaseHealthProperties {
-        private String service = "postgres";
-        private String url = "jdbc:postgresql://postgres:5432/synthetic_lab?connectTimeout=2&socketTimeout=3";
-        private String username = "synthetic_lab";
+        private String service = "";
+        private String url = "";
+        private String username = "";
         private String password = "";
         private Duration timeout = Duration.ofSeconds(3);
-        private String providerId = "local-postgres";
+        private String providerId = "jdbc-availability";
         public String getService() { return service; }
         public void setService(String service) { this.service = service; }
         public String getUrl() { return url; }
@@ -118,11 +118,10 @@ public class TelemetryConfig {
     public static class ActuatorHealthProperties {
         private Duration timeout = Duration.ofSeconds(5);
         private String providerId = "local-actuator";
-        private Map<String, String> endpoints = new LinkedHashMap<>(Map.of(
-                "blast-radius-api", "http://blast-radius-api:8080",
-                "payment-service", "http://payment-service:8081",
-                "customer-service", "http://customer-service:8082",
-                "document-service", "http://document-service:8083"));
+        private Map<String, String> endpoints = new LinkedHashMap<>();
+        private String livenessPath = "/actuator/health/liveness";
+        public String getLivenessPath() { return livenessPath; }
+        public void setLivenessPath(String path) { livenessPath = path; }
         public Duration getTimeout() { return timeout; }
         public void setTimeout(Duration timeout) { this.timeout = timeout; }
         public String getProviderId() { return providerId; }

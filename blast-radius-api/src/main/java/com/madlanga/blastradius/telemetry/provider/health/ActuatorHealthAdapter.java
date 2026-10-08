@@ -61,6 +61,10 @@ public class ActuatorHealthAdapter {
         this.properties = properties;
         this.sanitizer = sanitizer;
         // No base URL — each probe uses the component-specific URL
+        var client = java.net.http.HttpClient.newBuilder().connectTimeout(properties.getTimeout()).build();
+        var requests = new org.springframework.http.client.JdkClientHttpRequestFactory(client);
+        requests.setReadTimeout(properties.getTimeout());
+        restClientBuilder.requestFactory(requests);
         this.restClient = restClientBuilder.build();
     }
 
@@ -85,11 +89,7 @@ public class ActuatorHealthAdapter {
             }
 
             probeCount++;
-            // A live probe is collected while answering this query. Stamp it at the
-            // query boundary so IncidentAnalysisService's [from,to) window does not
-            // discard the observation merely because the HTTP probe completed after
-            // query.getTo() was captured.
-            Instant probeTime = query.getTo().minusNanos(1);
+            Instant probeTime = Instant.now();
 
             // Probe /actuator/health (full + liveness + readiness where available)
             HealthProbeResult rootResult = probeEndpoint(
@@ -102,7 +102,7 @@ public class ActuatorHealthAdapter {
             // Probe liveness separately. Readiness can be DOWN because a dependency
             // failed while the service process itself is still alive.
             HealthProbeResult livenessResult = probeEndpoint(
-                    componentName, baseUrl, LIVENESS_PATH,
+                    componentName, baseUrl, properties.getLivenessPath(),
                     query.getEnvironment(), probeTime);
             allHealth.add(livenessResult.evidence);
             if (livenessResult.warning != null) warnings.add(livenessResult.warning);
@@ -140,12 +140,12 @@ public class ActuatorHealthAdapter {
                                              String environment,
                                              Instant probeTime) {
         Instant start = Instant.now();
-        String sourceRef = baseUrl + path;
+        String sourceRef = path;
 
         EvidenceProvenance provenance = EvidenceProvenance.of(
                 EvidenceFamily.HEALTH,
                 properties.getProviderId(),
-                probeTime,
+                Instant.now(),
                 sourceRef);
 
         try {
@@ -192,7 +192,7 @@ public class ActuatorHealthAdapter {
             log.warn("Health adapter: could not reach {} at {} [{}]",
                     componentName, path, e.getClass().getSimpleName());
             HealthEvidence evidence = buildEvidence(componentName, path, environment,
-                    probeTime, HealthState.UNKNOWN, null,
+                    probeTime, HealthState.UNKNOWN, e instanceof org.springframework.web.client.ResourceAccessException ? null : 200,
                     latencyMs, Map.of(), provenance);
             String warning = "Health: could not reach " + componentName + " at " + path
                     + " — connection failed";
@@ -205,13 +205,10 @@ public class ActuatorHealthAdapter {
     // -------------------------------------------------------------------------
 
     private static HealthState mapHealthState(String statusText, int httpStatus) {
-        // HTTP 503 from Actuator means DOWN (e.g. document readiness with DB failed)
-        if (httpStatus == 503) return HealthState.DOWN;
-        if (httpStatus >= 500) return HealthState.DOWN;
+        if (statusText == null || statusText.isBlank()) return HealthState.UNKNOWN;
         if (httpStatus == 404) return HealthState.UNKNOWN;
-        if (httpStatus >= 400) return HealthState.UNKNOWN;
+        if (httpStatus >= 400 && httpStatus < 500) return HealthState.UNKNOWN;
 
-        if (statusText == null) return HealthState.UNKNOWN;
         return switch (statusText.toUpperCase()) {
             case "UP" -> HealthState.UP;
             case "DOWN" -> HealthState.DOWN;
@@ -234,7 +231,7 @@ public class ActuatorHealthAdapter {
         return details;
     }
 
-    private static HealthEvidence buildEvidence(String service, String endpoint,
+    private HealthEvidence buildEvidence(String service, String endpoint,
                                                  String environment, Instant timestamp,
                                                  HealthState state, Integer httpStatus,
                                                  long latencyMs, Map<String, String> details,
@@ -244,7 +241,7 @@ public class ActuatorHealthAdapter {
                 .timestamp(timestamp)
                 .service(service)
                 .environment(environment)
-                .endpoint(endpoint)
+                .endpoint(endpoint.equals(properties.getLivenessPath()) ? LIVENESS_PATH : endpoint)
                 .state(state)
                 .httpStatus(httpStatus)
                 .latencyMs(latencyMs)

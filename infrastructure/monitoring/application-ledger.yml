@@ -1,0 +1,47 @@
+# Example deployment profile: supply real endpoints and telemetry for this application.
+# Activate with SPRING_PROFILES_ACTIVE=ledger and SPRING_CONFIG_ADDITIONAL_LOCATION=file:/app/config/
+blast-radius:
+  topology:
+    application-id: ledger-platform
+    environment: staging
+    refresh-enabled: false
+    configured:
+      components: [ledger-api, ledger-worker, ledger-db]
+      dependencies:
+        ledger-api: [ledger-worker]
+        ledger-worker: [ledger-db]
+  lifecycle:
+    application-id: ledger-platform
+    environment: staging
+    evaluation-interval: 10s
+    recovery-lookback: 20s
+    healthy-windows-required: 3
+    max-evidence-per-incident: 20000
+    collection-duration: 7d
+  telemetry:
+    health:
+      provider-id: ledger-liveness
+      timeout: 3s
+      liveness-path: /actuator/health/liveness
+      endpoints:
+        ledger-api: ${LEDGER_API_URL}
+        ledger-worker: ${LEDGER_WORKER_URL}
+    database-health:
+      service: ledger-db
+      url: ${LEDGER_JDBC_URL}
+      username: ${LEDGER_DB_USER}
+      password: ${LEDGER_DB_PASSWORD}
+      timeout: 3s
+      provider-id: ledger-jdbc
+    loki:
+      base-url: ${LEDGER_LOKI_URL}
+      provider-id: ledger-loki
+      timeout: 5s
+    prometheus:
+      base-url: ${LEDGER_PROMETHEUS_URL}
+      provider-id: ledger-prometheus
+      timeout: 5s
+    tempo:
+      base-url: ${LEDGER_TEMPO_URL}
+      provider-id: ledger-tempo
+      timeout: 5s

@@ -54,3 +54,19 @@ test('origin label differs from downstream observed impact', () => {
   assert.equal(a.label,'Likely origin');
   assert.equal(b.label,'Observed impact');
 });
+
+test('structured outage classification takes priority over latency and 500 symptoms', async () => {
+  const { incidentClassification } = await import('./incident-visuals.js');
+  assert.equal(incidentClassification({ incidentType: 'OUTAGE', availabilityStatus: 'UNAVAILABLE', analysis: { timeline: [{ signal: 'latency HTTP 500' }] } }), 'OUTAGE · UNAVAILABLE');
+  assert.equal(incidentClassification({ analysis: { timeline: [{ signal: 'HTTP 500' }] } }), 'UNCLASSIFIED · UNKNOWN');
+});
+
+test('background detail refresh preserves selection, identity and ignores stale responses', async () => {
+  const { acceptIncidentDetail } = await import('./incident-visuals.js');
+  const previous = { id: 'selected', updatedAt: '2026-10-08T01:02:00Z' };
+  assert.equal(acceptIncidentDetail(previous, { ...previous }, 'selected'), previous);
+  assert.equal(acceptIncidentDetail(previous, { id: 'other' }, 'selected'), previous);
+  assert.equal(acceptIncidentDetail(previous, { ...previous, updatedAt: '2026-10-08T01:01:00Z' }, 'selected'), previous);
+  const resolved = { ...previous, status: 'RESOLVED', updatedAt: '2026-10-08T01:03:00Z' };
+  assert.equal(acceptIncidentDetail(previous, resolved, 'selected'), resolved);
+});

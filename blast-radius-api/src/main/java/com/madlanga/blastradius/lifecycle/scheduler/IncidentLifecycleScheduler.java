@@ -47,7 +47,7 @@ public class IncidentLifecycleScheduler {
             IncidentAnalysisService analysisService,
             IncidentLifecycleService lifecycleService,
             IncidentRepository repository,
-            @Value("${blast-radius.lifecycle.application-id:document-platform}") String applicationId,
+            @Value("${blast-radius.lifecycle.application-id}") String applicationId,
             @Value("${blast-radius.lifecycle.environment:local}") String environment,
             @Value("${blast-radius.lifecycle.recovery-lookback:20s}") Duration lookback,
             @Value("${blast-radius.lifecycle.healthy-windows-required:3}") int healthyWindowsRequired) {
@@ -97,7 +97,8 @@ public class IncidentLifecycleScheduler {
                             incident.severityLevel(),
                             incident.severityScore()));
 
-            return analysis.origin().component();
+            return analysis.origin().evidence().stream().anyMatch(com.madlanga.blastradius.incident.model.EvidenceSignal::confirmsUnavailable)
+                    ? analysis.origin().component() : null;
         } catch (IllegalStateException e) {
             if (isNoFailureEvidence(e)) {
                 log.debug("Proactive detector found no failure evidence in current telemetry window");
@@ -122,6 +123,8 @@ public class IncidentLifecycleScheduler {
             IncidentAnalysis analysis = analysisService.analyze(
                     applicationId, environment, from, to, incident.originComponent());
 
+            var collected = lifecycleService.persistLifecycle(analysis);
+
             if (!analysis.coverage().isFullyCovered()) {
                 healthyWindows.remove(incident.id());
                 log.info("Recovery not confirmed for incident {}: telemetry coverage is partial",
@@ -137,7 +140,11 @@ public class IncidentLifecycleScheduler {
                 return;
             }
 
-            confirmHealthyWindow(incident, to);
+            boolean directlyAvailable = analysis.timeline().stream().anyMatch(e -> e.component().equals(incident.originComponent())
+                    && e.kind() == com.madlanga.blastradius.incident.model.EvidenceSignal.Kind.AVAILABILITY_AVAILABLE);
+            if (!directlyAvailable) { healthyWindows.remove(incident.id()); return; }
+            if (collected.isEmpty()) { healthyWindows.remove(incident.id()); return; }
+            confirmHealthyWindow(collected.get(), Instant.now());
         } catch (RuntimeException e) {
             healthyWindows.remove(incident.id());
             log.warn("Recovery evaluation failed for incident {} ({}); leaving incident ACTIVE",
@@ -151,7 +158,7 @@ public class IncidentLifecycleScheduler {
                 incident.id(), count, healthyWindowsRequired);
 
         if (count >= healthyWindowsRequired) {
-            lifecycleService.resolve(incident.id(), evaluatedAt);
+            lifecycleService.resolveIfUnchanged(incident.id(), incident.updatedAt(), evaluatedAt);
             healthyWindows.remove(incident.id());
             log.info("Incident {} automatically resolved after {} consecutive healthy windows",
                     incident.id(), count);

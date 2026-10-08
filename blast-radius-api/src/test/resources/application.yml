@@ -23,7 +23,10 @@ spring:
     enabled: false
 
 blast-radius:
+  lifecycle:
+    auto-recovery-enabled: false
   topology:
+    application-id: document-platform
     refresh-enabled: false
   telemetry:
     loki:

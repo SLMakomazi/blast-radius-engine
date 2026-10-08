@@ -23,4 +23,13 @@ public record IncidentResponse(
         JsonNode analysis,
         Instant createdAt,
         Instant updatedAt) {
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public String incidentType() { return analysis.path("incidentType").asText("UNCLASSIFIED"); }
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public String availabilityStatus() {
+        return status == Status.RESOLVED ? "RECOVERED" : analysis.path("availabilityStatus").asText("UNKNOWN");
+    }
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public long evidenceVersion() { return analysis.path("evidenceVersion").asLong(0); }
+
 }

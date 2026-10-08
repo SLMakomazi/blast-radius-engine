@@ -90,7 +90,8 @@ public final class DiagnosisRequestMapper {
 
     private DiagnosisRequest.Evidence evidence(EvidenceSignal signal) {
         return new DiagnosisRequest.Evidence(
-                signal.timestamp(), signal.component(), signal.family(), signal.signal(), signal.evidenceId());
+                signal.timestamp(), signal.component(), signal.family(), signal.signal(), signal.evidenceId(),
+                signal.kind().name(), signal.provider(), signal.sourceRef(), signal.collectedAt());
     }
 
     private List<DiagnosisRequest.Impact> impacts(JsonNode node) {
@@ -117,7 +118,8 @@ public final class DiagnosisRequestMapper {
                 text(item, "component"),
                 text(item, "family"),
                 sanitize(text(item, "signal")),
-                text(item, "evidenceId"))));
+                text(item, "evidenceId"), item.path("kind").asText("SYMPTOM"), item.path("provider").asText("unknown"),
+                sanitize(item.path("sourceRef").asText("")), item.hasNonNull("collectedAt") ? instant(item,"collectedAt") : null)));
         return List.copyOf(result);
     }
 

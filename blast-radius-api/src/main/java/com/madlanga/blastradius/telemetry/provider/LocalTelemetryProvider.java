@@ -47,6 +47,10 @@ import com.madlanga.blastradius.telemetry.provider.TelemetryProvider;
 @Component
 public class LocalTelemetryProvider implements TelemetryProvider {
 
+    @org.springframework.beans.factory.annotation.Value("${blast-radius.topology.application-id:}")
+    private String configuredApplication = "";
+    @org.springframework.beans.factory.annotation.Value("${blast-radius.topology.environment:local}")
+    private String configuredEnvironment = "local";
     private static final Logger log = LoggerFactory.getLogger(LocalTelemetryProvider.class);
 
     private final LokiLogAdapter lokiAdapter;
@@ -80,6 +84,8 @@ public class LocalTelemetryProvider implements TelemetryProvider {
      */
     @Override
     public TelemetryBundle getTelemetry(TelemetryQuery query) {
+        if (!configuredApplication.isBlank() && (!configuredApplication.equals(query.getApplicationId()) || !configuredEnvironment.equals(query.getEnvironment())))
+            throw new IllegalArgumentException("Application/environment is outside the configured monitoring profile");
         List<String> allWarnings = new ArrayList<>();
 
         // ----- Logs (Loki) -----
