@@ -105,4 +105,49 @@ class JdbcIncidentRepositoryPostgresTest {
             jdbc.update("DELETE FROM incidents WHERE application_id=?", application);
         }
     }
+    @Test
+    void transactionAdvisoryLockSerializesTwoIndependentPostgresConnections() throws Exception {
+        var dataSource = new DriverManagerDataSource(
+                System.getenv("CI_PG_URL"), System.getenv("CI_PG_USER"), System.getenv("CI_PG_PASSWORD"));
+        var repository = new JdbcIncidentRepository(new JdbcTemplate(dataSource));
+        var transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        String app = "lock-ci-" + UUID.randomUUID();
+        var firstLocked = new java.util.concurrent.CountDownLatch(1);
+        var secondAttempting = new java.util.concurrent.CountDownLatch(1);
+        var releaseFirst = new java.util.concurrent.CountDownLatch(1);
+        var secondAcquired = new java.util.concurrent.atomic.AtomicBoolean(false);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first = pool.submit(() -> transaction.execute(status -> {
+                repository.lockScope(app, "integration", "postgres");
+                firstLocked.countDown();
+                try {
+                    if (!releaseFirst.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                        throw new IllegalStateException("first transaction was not released");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+                return null;
+            }));
+            assertThat(firstLocked.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var second = pool.submit(() -> transaction.execute(status -> {
+                secondAttempting.countDown();
+                repository.lockScope(app, "integration", "postgres");
+                secondAcquired.set(true);
+                return null;
+            }));
+            assertThat(secondAttempting.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            Thread.sleep(150);
+            assertThat(secondAcquired.get()).isFalse();
+            releaseFirst.countDown();
+            first.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            second.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(secondAcquired.get()).isTrue();
+        } finally {
+            releaseFirst.countDown();
+            pool.shutdownNow();
+        }
+    }
+
 }
