@@ -371,3 +371,67 @@ The validator made no fixes. All issue recommendations are for the subsequent im
 ## 12. Handover publication follow-up
 
 After the validation-only session, the user explicitly authorized committing and pushing only `CHATGPT_HANDOVER.md` to the existing feature branch. Statements above that no commit or push occurred describe the validation session. No application code or test results were changed for publication. Temporary logs referenced here remain local; the results and issue evidence are recorded in this document for remote review.
+
+## 13. ChatGPT implementation follow-up — 2026-10-08
+
+**Status:** correctness fixes implemented and pushed to this feature branch after the validation-only checkpoint. This section supersedes the old C1–C10 *current status* statements above; their original reproduction descriptions remain useful historical evidence. This is **not** a claim of completed local Docker outage/recovery acceptance or a merge into `main`.
+
+### Confirmed problems addressed
+
+| Handover item | Follow-up correction |
+|---|---|
+| **C1** database UNKNOWN falsely confirmed unavailable | The health correlation recognizes direct database **DOWN** only as unavailability; UNKNOWN remains inconclusive. A correlation regression test protects this. |
+| **C2** older healthy analysis could overwrite newer DOWN | Active persistence rejects older analysis window end-times under the scoped transaction lock, and guarded recovery rejects older persisted revision candidates. Consecutive recovery now requires distinct positive availability observation timestamps, not recycled probe results. New tests exercise stale update rejection and distinct checks. |
+| **C3** ISO timestamps sorted lexically | Java evidence sorting/window bounds use `Instant`; frontend detail revision comparisons use parsed time. Both have mixed-precision regression tests. |
+| **C4** old ACTIVE list request overwrote RESOLVED list | Polling responses are scoped by the current requested status and request generation; superseded responses are discarded without changing the selection. |
+| **C5** LOG symptom wording painted service unavailable | Node status prioritizes typed direct HEALTH `AVAILABILITY_UNAVAILABLE`, with tightly scoped legacy HEALTH fallback. Quoted symptom logs do not turn nodes red. |
+| **C6** cap excluded the proof that service recovered | Latest successful **origin-specific** availability observation is retained separately in `lastRecoveryEvidence` even if the ordinary timeline is at its collection cap. Existing evidence remains intact. |
+| **C7** database-only profiles lacked health coverage | Unconfigured/unmatched Actuator probes use `NOT_SUPPORTED`; aggregate coverage includes configured direct JDBC evidence. A failed configured HTTP probe plus successful JDBC probe is only `PARTIAL`, not fully covered. |
+| **C8** provider timeouts ignored/shared mutable HTTP client | Loki, Prometheus, Tempo and Actuator construct independently configured request factories on cloned builders. Captured Tempo regression fixtures use a mock-bound RestClient without weakening captured evidence assertions. |
+| **C9** logs claimed resolved after rejected revision | Scheduler logs resolution only when `resolveIfUnchanged` returns a RESOLVED incident; failed revision guards log a re-evaluation instead. |
+| **C10** global archive/retention policy | **Still requires an explicit data-retention decision.** No history was deleted. The existing 20,000-observation/7-day per-incident limits and recovery-proof slot protect individual snapshots, and duplicate polls no longer increment `evidenceVersion` without meaningful new knowledge. Resolved incidents and archived AI snapshots remain stored indefinitely until an approved archival/purge policy is designed. Do not claim C10 fully fixed. |
+
+Additional correction: the scheduler only counts **distinct** direct UP probe timestamps toward its consecutive healthy threshold, instead of counting a cached positive result multiple times. This is intentionally conservative across restarts.
+
+### Verified automated tests
+
+An explicit GitHub Actions workflow was added at `.github/workflows/validate-outage.yml`. It runs the Maven build and frontend unit tests/build on this feature branch. It now provisions a **disposable PostgreSQL 17 database** for two CI-gated `JdbcIncidentRepositoryPostgresTest` methods. These tests verify that Flyway V1–V3 migrate successfully on real PostgreSQL, JSONB incident and diagnosis archive data round-trip, the unique ACTIVE-origin partial index blocks duplicate active rows, a resolved origin can later start a new incident, and advisory transaction locks serialize separate JDBC connections. Test rows are scoped to generated CI-only application IDs and cleaned up; the developer's database and Docker volumes are untouched.
+
+- Successful implementation-commit run: https://github.com/SLMakomazi/blast-radius-engine/actions/runs/37756041645
+- Backend: **223 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS** (includes the two isolated PostgreSQL-backed cases).
+- Frontend: **14 tests, 14 passed, 0 failed**, production build successful.
+- Earlier CI failures were corrected: Tempo captured-response mock client URI/base URL after isolated timeout clients, a missing positive-recovery local variable, and a JDBC test using `Instant` instead of JDBC `Timestamp` parameters. The run above is the source of truth for passing results.
+- Documentation-only commits followed this successful code run; verify the latest branch workflow status before local deployment.
+
+### Remaining non-destructive validation / constraints
+
+1. **Not executed:** the six-case local Docker outage runner, the four-case degradation-telemetry runner, a complete PostgreSQL stop/start test against the user's current Docker stack, a real AI provider request or an end-to-end browser interaction run for this updated branch. These operations should require user authorization and preserve diagnostic history. CI integration PostgreSQL is not a substitute for the 12-service live lab.
+2. The engine still evaluates **one detected origin per proactive window**; multiple independent simultaneous outages are not proven handled. One monitored application/environment and one direct JDBC target per engine deployment are the supported current scope.
+3. Collector/provider downtime can cause gaps; no automatic historical backfill after a long outage is implemented. Source retention and finite provider query limits also constrain completeness.
+4. Global DB retention, offsite archival and approved deletion policies are not implemented. Do not silently purge incidents, diagnoses or Docker volumes.
+5. Full React mounted UI hover, zoom, focus and active AI request races are not covered by the helper-only unit tests; the earlier labeled fixture browser walkthrough is historical, not updated live-browser validation.
+6. Broad load/memory/AI-context-size and multi-instance lifecycle stress tests remain outstanding. The updated CI advisory-lock test demonstrates two independent transactions, not full production multi-instance correctness.
+
+### Safe next commands for the user
+
+```bash
+git fetch origin
+git switch feat/outage-evidence-lifecycle
+git pull --ff-only origin feat/outage-evidence-lifecycle
+mvn -f blast-radius-api/pom.xml clean verify
+node --test frontend/src/incident-visuals.test.js
+npm --prefix frontend run build
+docker compose config --quiet
+```
+
+After user approval to update the **local lab** (no volume deletion):
+
+```bash
+docker compose build blast-radius-api frontend
+docker compose up -d blast-radius-api frontend
+docker compose ps blast-radius-api frontend blast-radius-db
+```
+
+A controlled outage test still requires separate approval. Keep `blast-radius-db` running, stop only the monitored `postgres` service, observe OUTAGE/UNAVAILABLE and cumulative evidence, restore `postgres`, and confirm stable ID/start time, retained history and guarded RESOLVED state without a manual browser refresh.
+
+**Branch:** `feat/outage-evidence-lifecycle`. **No merge, force-push, database reset or existing history deletion was performed by ChatGPT.**
