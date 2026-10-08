@@ -39,4 +39,29 @@ class IncidentLifecycleSchedulerTest {
         verify(lifecycle).resolveIfUnchanged(eq(id),eq(incident.updatedAt()),any());
         verify(lifecycle,times(4)).persistLifecycle(any());
     }
+    @Test void lingeringHttpErrorsDoNotPreventRecoveryAfterDirectAvailabilityReturns() {
+        var engine = mock(IncidentAnalysisService.class);
+        var lifecycle = mock(IncidentLifecycleService.class);
+        var repository = mock(IncidentRepository.class);
+        Instant start = Instant.now().minusSeconds(120);
+        UUID id = UUID.randomUUID();
+        var incident = new PersistedIncident(id,"ledger","test",PersistedIncident.Status.ACTIVE,start,null,"db",
+                OriginAssessment.Confidence.HIGH,IncidentSeverity.Level.HIGH,50,start,start,"{}",start,start);
+        when(repository.findActive("ledger","test")).thenReturn(List.of(incident));
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),isNull()))
+                .thenThrow(new IllegalStateException("No failure evidence found"));
+        var up = new EvidenceSignal(Instant.now(),"db","HEALTH","availability check UP","probe",
+                EvidenceSignal.Kind.AVAILABILITY_AVAILABLE,"jdbc","availability",Instant.now());
+        var symptom = new EvidenceSignal(Instant.now(),"db","METRIC","HTTP 500 counter increased","metric",
+                EvidenceSignal.Kind.SYMPTOM,"prometheus","counter",Instant.now());
+        var origin = new OriginAssessment("db",OriginAssessment.Confidence.LOW,0,List.of(symptom));
+        var healthy = new IncidentAnalysis("ledger","test",start,Instant.now(),origin,TelemetryCoverage.allAvailable(),
+                List.of(),List.of(up,symptom),new IncidentSeverity(IncidentSeverity.Level.LOW,0,List.of()),List.of());
+        when(engine.analyze(eq("ledger"),eq("test"),any(),any(),eq("db"))).thenReturn(healthy);
+        when(lifecycle.persistLifecycle(any())).thenReturn(Optional.of(incident));
+        var scheduler = new IncidentLifecycleScheduler(engine,lifecycle,repository,"ledger","test",Duration.ofSeconds(20),3);
+        scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle(); scheduler.evaluateLifecycle();
+        verify(lifecycle).resolveIfUnchanged(eq(id),eq(incident.updatedAt()),any());
+    }
+
 }
