@@ -101,7 +101,7 @@ export function incidentClassification(incident) {
 /** Compare ISO 8601 UTC instants without losing PostgreSQL microsecond precision. */
 export function compareIncidentTimestamps(a, b) {
   const parse = value => {
-    const match = /^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})(?:\\.(\\d{1,9}))?(Z|[+-]\\d{2}:\\d{2})$/.exec(value || '');
+    const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/.exec(value || '');
     if (!match) return null;
     const millis = Date.parse(match[1] + match[3]);
     if (!Number.isFinite(millis)) return null;
