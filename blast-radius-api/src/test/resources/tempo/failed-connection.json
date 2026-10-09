@@ -12,7 +12,7 @@
           {
             "key": "service.name",
             "value": {
-              "stringValue": "payment-service"
+              "stringValue": "checkout-api"
             }
           }
         ]
@@ -66,7 +66,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "customer-service"
+                    "stringValue": "account-api"
                   }
                 }
               ],
@@ -123,7 +123,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "payment-service"
+                    "stringValue": "checkout-api"
                   }
                 },
                 {
@@ -153,7 +153,7 @@
           {
             "key": "service.name",
             "value": {
-              "stringValue": "customer-service"
+              "stringValue": "account-api"
             }
           }
         ]
@@ -207,7 +207,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "document-service"
+                    "stringValue": "storage-api"
                   }
                 }
               ],
@@ -265,7 +265,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "customer-service"
+                    "stringValue": "account-api"
                   }
                 },
                 {
@@ -295,7 +295,7 @@
           {
             "key": "service.name",
             "value": {
-              "stringValue": "document-service"
+              "stringValue": "storage-api"
             }
           }
         ]
@@ -383,7 +383,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "document-service"
+                    "stringValue": "storage-api"
                   }
                 },
                 {

@@ -20,13 +20,13 @@ class LogEvidenceTest {
         LogEvidence e = LogEvidence.builder()
                 .id("log-001")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .provenance(provenance())
                 .build();
 
         assertEquals("log-001", e.getId());
         assertEquals(TS, e.getTimestamp());
-        assertEquals("document-service", e.getService());
+        assertEquals("storage-api", e.getService());
         assertNotNull(e.getProvenance());
     }
 
@@ -35,7 +35,7 @@ class LogEvidenceTest {
         LogEvidence e = LogEvidence.builder()
                 .id("log-001")
                 .timestamp(TS)
-                .service("payment-service")
+                .service("checkout-api")
                 .correlationId("phase3-healthy-abc")
                 .provenance(provenance())
                 .build();
@@ -48,7 +48,7 @@ class LogEvidenceTest {
         LogEvidence e = LogEvidence.builder()
                 .id("log-002")
                 .timestamp(TS)
-                .service("customer-service")
+                .service("account-api")
                 .traceId("61e1c07146fcb6829b35fca26be213c3")
                 .spanId("4a627d450e97f6bf")
                 .provenance(provenance())
@@ -65,7 +65,7 @@ class LogEvidenceTest {
         LogEvidence e = LogEvidence.builder()
                 .id("log-003")
                 .timestamp(specific)
-                .service("document-service")
+                .service("storage-api")
                 .provenance(provenance())
                 .build();
         assertEquals(specific, e.getTimestamp());
@@ -77,7 +77,7 @@ class LogEvidenceTest {
         LogEvidence e = LogEvidence.builder()
                 .id("log-004")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .attributes(attrs)
                 .provenance(provenance())
                 .build();
@@ -90,7 +90,7 @@ class LogEvidenceTest {
         LogEvidence e = LogEvidence.builder()
                 .id("log-005")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .provenance(provenance())
                 .build();
 
@@ -103,7 +103,7 @@ class LogEvidenceTest {
         assertThrows(NullPointerException.class, () ->
                 LogEvidence.builder()
                         .timestamp(TS)
-                        .service("document-service")
+                        .service("storage-api")
                         .provenance(provenance())
                         .build());
     }

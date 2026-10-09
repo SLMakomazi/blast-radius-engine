@@ -17,12 +17,12 @@ class IncidentSeverityServiceTest {
     @Test
     void scoresThreeHopObservedAvailabilityFailureAsCritical() {
         var topology = topology(Map.of());
-        var health = new EvidenceSignal(Instant.parse("2026-10-03T04:00:00Z"), "document-service", "HEALTH", "health DOWN", "h1");
+        var health = new EvidenceSignal(Instant.parse("2026-10-03T04:00:00Z"), "storage-api", "HEALTH", "health DOWN", "h1");
         var impacts = List.of(
                 impact("postgres", ComponentImpact.State.ORIGIN, 0, List.of()),
-                impact("document-service", ComponentImpact.State.OBSERVED, 1, List.of(health)),
-                impact("customer-service", ComponentImpact.State.OBSERVED, 2, List.of()),
-                impact("payment-service", ComponentImpact.State.OBSERVED, 3, List.of()));
+                impact("storage-api", ComponentImpact.State.OBSERVED, 1, List.of(health)),
+                impact("account-api", ComponentImpact.State.OBSERVED, 2, List.of()),
+                impact("checkout-api", ComponentImpact.State.OBSERVED, 3, List.of()));
         var severity = calculator.calculate(topology, new OriginAssessment("postgres", OriginAssessment.Confidence.HIGH, 100, List.of()), impacts);
         assertThat(severity.score()).isEqualTo(80);
         assertThat(severity.level()).isEqualTo(IncidentSeverity.Level.CRITICAL);
@@ -32,9 +32,9 @@ class IncidentSeverityServiceTest {
     void theoreticalDepthDoesNotEscalateIncidentSeverityWithoutObservedPropagation() {
         var impacts = List.of(
                 impact("postgres", ComponentImpact.State.ORIGIN, 0, List.of()),
-                impact("document-service", ComponentImpact.State.THEORETICAL_ONLY, 1, List.of()),
-                impact("customer-service", ComponentImpact.State.THEORETICAL_ONLY, 2, List.of()),
-                impact("payment-service", ComponentImpact.State.THEORETICAL_ONLY, 3, List.of()));
+                impact("storage-api", ComponentImpact.State.THEORETICAL_ONLY, 1, List.of()),
+                impact("account-api", ComponentImpact.State.THEORETICAL_ONLY, 2, List.of()),
+                impact("checkout-api", ComponentImpact.State.THEORETICAL_ONLY, 3, List.of()));
         var severity = calculator.calculate(topology(Map.of()),
                 new OriginAssessment("postgres", OriginAssessment.Confidence.LOW, 0, List.of()), impacts);
         assertThat(severity.score()).isZero();
@@ -46,7 +46,7 @@ class IncidentSeverityServiceTest {
     void unexpectedImpactAndCriticalOriginEscalateSeverity() {
         var impacts = List.of(
                 impact("postgres", ComponentImpact.State.ORIGIN, 0, List.of()),
-                impact("document-service", ComponentImpact.State.OBSERVED, 1, List.of()),
+                impact("storage-api", ComponentImpact.State.OBSERVED, 1, List.of()),
                 impact("external-service", ComponentImpact.State.UNEXPECTED, null, List.of()));
         var severity = calculator.calculate(topology(Map.of("criticality","HIGH")),
                 new OriginAssessment("postgres", OriginAssessment.Confidence.HIGH, 100, List.of()), impacts);
@@ -58,12 +58,12 @@ class IncidentSeverityServiceTest {
     @Test
     void directOriginAvailabilityFailureIsAtLeastHigh() {
         var health = new EvidenceSignal(Instant.parse("2026-10-04T06:00:00Z"),
-                "customer-service", "HEALTH", "health UNREACHABLE", "h-customer");
+                "account-api", "HEALTH", "health UNREACHABLE", "h-customer");
         var severity = calculator.calculate(topology(Map.of()),
-                new OriginAssessment("customer-service", OriginAssessment.Confidence.HIGH, 100, List.of(health)),
+                new OriginAssessment("account-api", OriginAssessment.Confidence.HIGH, 100, List.of(health)),
                 List.of(
-                        impact("customer-service", ComponentImpact.State.ORIGIN, 0, List.of(health)),
-                        impact("payment-service", ComponentImpact.State.OBSERVED, 1, List.of())));
+                        impact("account-api", ComponentImpact.State.ORIGIN, 0, List.of(health)),
+                        impact("checkout-api", ComponentImpact.State.OBSERVED, 1, List.of())));
 
         assertThat(severity.score()).isEqualTo(60);
         assertThat(severity.level()).isEqualTo(IncidentSeverity.Level.HIGH);
@@ -76,10 +76,10 @@ class IncidentSeverityServiceTest {
     @Test
     void directOriginFailureWithoutAvailabilityEvidenceIsMedium() {
         var trace = new EvidenceSignal(Instant.parse("2026-10-04T06:00:00Z"),
-                "customer-service", "TRACE", "error span: request", "t-customer");
+                "account-api", "TRACE", "error span: request", "t-customer");
         var severity = calculator.calculate(topology(Map.of()),
-                new OriginAssessment("customer-service", OriginAssessment.Confidence.MEDIUM, 40, List.of(trace)),
-                List.of(impact("customer-service", ComponentImpact.State.ORIGIN, 0, List.of(trace))));
+                new OriginAssessment("account-api", OriginAssessment.Confidence.MEDIUM, 40, List.of(trace)),
+                List.of(impact("account-api", ComponentImpact.State.ORIGIN, 0, List.of(trace))));
 
         assertThat(severity.score()).isEqualTo(20);
         assertThat(severity.level()).isEqualTo(IncidentSeverity.Level.MEDIUM);
@@ -102,9 +102,9 @@ class IncidentSeverityServiceTest {
         return DependencyTopology.builder().applicationId("document-platform").environment("local")
                 .nodes(List.of(
                         node("postgres", ComponentType.DATABASE, postgresMetadata),
-                        node("document-service", ComponentType.SERVICE, Map.of()),
-                        node("customer-service", ComponentType.SERVICE, Map.of()),
-                        node("payment-service", ComponentType.SERVICE, Map.of()),
+                        node("storage-api", ComponentType.SERVICE, Map.of()),
+                        node("account-api", ComponentType.SERVICE, Map.of()),
+                        node("checkout-api", ComponentType.SERVICE, Map.of()),
                         node("external-service", ComponentType.EXTERNAL_SYSTEM, Map.of())))
                 .build();
     }

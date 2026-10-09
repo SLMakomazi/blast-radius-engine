@@ -76,26 +76,26 @@ class LocalTelemetryProviderTest {
 
     private LogEvidence sampleLog() {
         return LogEvidence.builder().id("log-1").timestamp(FROM)
-                .service("document-service").level("ERROR")
+                .service("storage-api").level("ERROR")
                 .message("event=dependency_failed")
                 .provenance(prov(EvidenceFamily.LOGS)).build();
     }
 
     private MetricEvidence sampleMetric() {
         return MetricEvidence.builder().id("metric-1").timestamp(FROM)
-                .service("document-service").name("http.server.requests.count")
+                .service("storage-api").name("http.server.requests.count")
                 .value(16.0).provenance(prov(EvidenceFamily.METRICS)).build();
     }
 
     private SpanEvidence sampleSpan() {
         return SpanEvidence.builder().id("span-1").traceId("trace001")
-                .spanId("span001").service("document-service").startTime(FROM)
+                .spanId("span001").service("storage-api").startTime(FROM)
                 .status(SpanStatus.ERROR).provenance(prov(EvidenceFamily.TRACES)).build();
     }
 
     private HealthEvidence sampleHealth(HealthState state) {
         return HealthEvidence.builder().id("health-1").timestamp(FROM)
-                .service("document-service").endpoint("/actuator/health")
+                .service("storage-api").endpoint("/actuator/health")
                 .state(state).httpStatus(state == HealthState.UP ? 200 : 503)
                 .provenance(prov(EvidenceFamily.HEALTH)).build();
     }

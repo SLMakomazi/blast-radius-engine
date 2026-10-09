@@ -25,14 +25,14 @@ class SpanEvidenceTest {
                 .id("span-001")
                 .traceId(TRACE_ID)
                 .spanId(SPAN_ID)
-                .service("document-service")
+                .service("storage-api")
                 .startTime(START)
                 .provenance(provenance())
                 .build();
 
         assertEquals(TRACE_ID, s.getTraceId());
         assertEquals(SPAN_ID, s.getSpanId());
-        assertEquals("document-service", s.getService());
+        assertEquals("storage-api", s.getService());
         assertEquals(SpanStatus.UNSET, s.getStatus()); // default
     }
 
@@ -43,7 +43,7 @@ class SpanEvidenceTest {
                 .traceId(TRACE_ID)
                 .spanId(SPAN_ID)
                 .parentSpanId(PARENT)
-                .service("document-service")
+                .service("storage-api")
                 .startTime(START)
                 .provenance(provenance())
                 .build();
@@ -60,7 +60,7 @@ class SpanEvidenceTest {
                 .id("span-root")
                 .traceId(TRACE_ID)
                 .spanId("4a627d450e97f6bf")
-                .service("payment-service")
+                .service("checkout-api")
                 .startTime(START)
                 .provenance(provenance())
                 .build();
@@ -75,7 +75,7 @@ class SpanEvidenceTest {
                 .id("span-003")
                 .traceId(TRACE_ID)
                 .spanId(SPAN_ID)
-                .service("document-service")
+                .service("storage-api")
                 .startTime(specific)
                 .provenance(provenance())
                 .build();
@@ -88,7 +88,7 @@ class SpanEvidenceTest {
                 .id("span-004")
                 .traceId(TRACE_ID)
                 .spanId(SPAN_ID)
-                .service("document-service")
+                .service("storage-api")
                 .startTime(START)
                 .durationMs(1250)
                 .provenance(provenance())
@@ -103,7 +103,7 @@ class SpanEvidenceTest {
                 .traceId(TRACE_ID)
                 .spanId(SPAN_ID)
                 .parentSpanId(PARENT)
-                .service("document-service")
+                .service("storage-api")
                 .startTime(START)
                 .status(SpanStatus.ERROR)
                 .errorType("ConnectionException")
@@ -121,8 +121,8 @@ class SpanEvidenceTest {
                 .traceId(TRACE_ID)
                 .spanId("069c7fb20b8ab97f")
                 .parentSpanId(SPAN_ID)
-                .service("document-service")
-                .operation("INSERT synthetic_lab.synthetic_documents")
+                .service("storage-api")
+                .operation("INSERT app_db.records")
                 .startTime(START)
                 .durationMs(45)
                 .status(SpanStatus.OK)
@@ -132,7 +132,7 @@ class SpanEvidenceTest {
                 .build();
 
         assertEquals("postgresql", s.getPeerService());
-        assertEquals("INSERT synthetic_lab.synthetic_documents", s.getOperation());
+        assertEquals("INSERT app_db.records", s.getOperation());
     }
 
     @Test
@@ -143,7 +143,7 @@ class SpanEvidenceTest {
                 .id("span-pay")
                 .traceId(TRACE_ID)
                 .spanId("4a627d450e97f6bf")
-                .service("payment-service")
+                .service("checkout-api")
                 .operation("POST /api/payments")
                 .startTime(START)
                 .provenance(provenance())
@@ -154,7 +154,7 @@ class SpanEvidenceTest {
                 .traceId(TRACE_ID)
                 .spanId("58aab8c1d21212c6")
                 .parentSpanId(payment.getSpanId())
-                .service("customer-service")
+                .service("account-api")
                 .operation("POST /api/customers/validate")
                 .startTime(START.plusMillis(5))
                 .provenance(provenance())
@@ -170,7 +170,7 @@ class SpanEvidenceTest {
                 .id("span-006")
                 .traceId(TRACE_ID)
                 .spanId(SPAN_ID)
-                .service("document-service")
+                .service("storage-api")
                 .startTime(START)
                 .provenance(provenance())
                 .build();

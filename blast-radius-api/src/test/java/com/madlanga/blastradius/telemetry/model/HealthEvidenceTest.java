@@ -21,11 +21,11 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-001")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health")
                 .state(HealthState.UP)
                 .httpStatus(200)
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
 
         assertTrue(h.isHealthy());
@@ -37,11 +37,11 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-002")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health/readiness")
                 .state(HealthState.DOWN)
                 .httpStatus(503)
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
 
         assertFalse(h.isHealthy());
@@ -69,10 +69,10 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-004")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health")
                 .state(HealthState.UNKNOWN)
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
 
         assertFalse(h.isHealthy());
@@ -88,10 +88,10 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-005")
                 .timestamp(specific)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health")
                 .state(HealthState.UP)
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
         assertEquals(specific, h.getTimestamp());
     }
@@ -101,12 +101,12 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-006")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health")
                 .state(HealthState.DOWN)
                 .httpStatus(503)
                 .latencyMs(4200L)
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
         assertEquals(4200L, h.getLatencyMs());
     }
@@ -116,12 +116,12 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-007")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health")
                 .state(HealthState.DOWN)
                 .httpStatus(503)
                 .details(Map.of("db", "DOWN", "diskSpace", "UP"))
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
 
         assertEquals("DOWN", h.getDetails().get("db"));
@@ -133,10 +133,10 @@ class HealthEvidenceTest {
         HealthEvidence h = HealthEvidence.builder()
                 .id("health-008")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .endpoint("/actuator/health")
                 .state(HealthState.UP)
-                .provenance(provenance("document-service"))
+                .provenance(provenance("storage-api"))
                 .build();
 
         assertThrows(UnsupportedOperationException.class,

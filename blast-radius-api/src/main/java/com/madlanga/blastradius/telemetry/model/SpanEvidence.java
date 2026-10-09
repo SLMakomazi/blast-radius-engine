@@ -10,7 +10,7 @@ import java.util.Objects;
  * Normalized distributed trace span — provider-neutral representation of a single span.
  *
  * <p>Capable of representing cross-service propagation:
- * payment-service → customer-service → document-service → PostgreSQL.</p>
+ * checkout-api → account-api → storage-api → PostgreSQL.</p>
  *
  * <p>Does NOT contain Tempo-specific JSON structures, OTLP proto field names, or
  * Datadog trace formats. The adapter layer maps from provider payloads and sanitizes
@@ -30,7 +30,7 @@ public final class SpanEvidence {
     /** Logical component/service name. */
     private final String service;
     private final String environment;
-    /** Span/operation name, e.g. "POST /api/documents", "INSERT synthetic_lab.synthetic_documents". */
+    /** Span/operation name, e.g. "POST /api/documents", "INSERT app_db.records". */
     private final String operation;
     private final Instant startTime;
     private final long durationMs;
@@ -38,7 +38,7 @@ public final class SpanEvidence {
     private final SpanKind kind;
     /**
      * Peer service when this span represents a client-side call to another component.
-     * E.g. "postgres" for a JDBC span emitted by document-service.
+     * E.g. "postgres" for a JDBC span emitted by storage-api.
      */
     private final String peerService;
     /** Sanitized span attributes. */

@@ -56,10 +56,10 @@ class CapturedTempoRegressionTest {
                 .allSatisfy(s -> { assertThat(s.getPeerService()).isNull();
                     assertThat(s.getAttributes()).containsEntry("db.system", "postgresql"); });
         DependencyTopology topology = provider().learn("document-platform", "local", spans);
-        assertThat(topology.getNodesById()).containsOnlyKeys("payment-service", "customer-service", "document-service", "postgres");
+        assertThat(topology.getNodesById()).containsOnlyKeys("checkout-api", "account-api", "storage-api", "postgres");
         assertThat(topology.getNode("postgres").getType()).isEqualTo(ComponentType.DATABASE);
         assertThat(topology.getNode("postgres").getTechnology()).isEqualTo("POSTGRESQL");
-        assertThat(topology.getEdges()).hasSize(3).contains(new DependencyEdge("document-service", "postgres"));
+        assertThat(topology.getEdges()).hasSize(3).contains(new DependencyEdge("storage-api", "postgres"));
     }
 
     @Test void restartAndRawTraceLossStillCorrelateRealPeerlessOutageWithoutHistoricalEvidence() throws Exception {
@@ -76,7 +76,7 @@ class CapturedTempoRegressionTest {
                 .spans(failed).build(), provider()).analyze("document-platform", "local", FROM, TO, null);
         assertThat(result.origin().component()).isEqualTo("postgres");
         assertThat(result.impacts()).extracting(ComponentImpact::distance).containsExactly(0,1,2,3);
-        assertThat(result.impacts().getLast().path()).containsExactly("postgres","document-service","customer-service","payment-service");
+        assertThat(result.impacts().getLast().path()).containsExactly("postgres","storage-api","account-api","checkout-api");
         assertThat(result.impacts()).extracting(ComponentImpact::state).containsExactly(ComponentImpact.State.ORIGIN,
                 ComponentImpact.State.OBSERVED,ComponentImpact.State.OBSERVED,ComponentImpact.State.OBSERVED);
         assertThat(result.timeline()).allSatisfy(s -> assertThat(s.timestamp()).isBetween(FROM, TO));
@@ -106,14 +106,14 @@ class CapturedTempoRegressionTest {
         var provider = provider();
         provider.learn("document-platform", "local", healthy());
         provider.learn("document-platform", "local", List.of(SpanEvidence.builder().id("alternate")
-                .traceId("other").spanId("other").service("document-service").environment("local")
+                .traceId("other").spanId("other").service("storage-api").environment("local")
                 .peerService("archive-store").attributes(Map.of("db.system.name","oracle"))
                 .startTime(FROM.minusSeconds(10)).status(SpanStatus.OK).kind(SpanKind.CLIENT)
                 .provenance(EvidenceProvenance.of(EvidenceFamily.TRACES,"test",FROM,"alternate-db")).build()));
         var failed = load("failed-connection", FROM, TO).getSpans();
         var result = new IncidentAnalysisService(q -> TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(failed).build(), provider).analyze("document-platform","local",FROM,TO,null);
-        assertThat(result.origin().component()).isEqualTo("document-service");
+        assertThat(result.origin().component()).isEqualTo("storage-api");
         assertThat(result.timeline()).noneMatch(s -> Set.of("postgres","archive-store").contains(s.component()));
     }
 }

@@ -22,7 +22,7 @@ public final class MetricEvidence {
 
     private final String id;
     private final Instant timestamp;
-    /** Logical component/service name (e.g. "document-service"). */
+    /** Logical component/service name (e.g. "storage-api"). */
     private final String service;
     private final String environment;
     /**

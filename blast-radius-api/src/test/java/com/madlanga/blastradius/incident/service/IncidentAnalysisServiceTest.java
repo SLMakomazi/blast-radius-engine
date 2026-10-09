@@ -24,7 +24,7 @@ class IncidentAnalysisServiceTest {
         assertThat(result.origin().component()).isEqualTo("postgres");
         assertThat(result.origin().confidence()).isNotNull();
         assertThat(result.impacts()).extracting(ComponentImpact::component)
-                .containsExactly("postgres","document-service","customer-service","payment-service");
+                .containsExactly("postgres","storage-api","account-api","checkout-api");
         assertThat(result.impacts()).allMatch(i -> i.state()==ComponentImpact.State.ORIGIN || i.state()==ComponentImpact.State.OBSERVED);
         assertThat(result.timeline()).isSortedAccordingTo(java.util.Comparator.comparing(EvidenceSignal::timestamp)
                 .thenComparing(EvidenceSignal::component).thenComparing(EvidenceSignal::family));
@@ -35,18 +35,18 @@ class IncidentAnalysisServiceTest {
         TelemetryBundle incident = TelemetryBundle.builder()
                 .coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p-fail","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
-                        span("c-fail","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
-                        span("jdbc-fail","document-service",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())))
-                .health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2))))
+                        span("p-fail","checkout-api","account-api",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
+                        span("c-fail","account-api","storage-api",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                        span("jdbc-fail","storage-api",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())))
+                .health(List.of(health("storage-api",HealthState.DOWN,FROM.plusSeconds(2))))
                 .build();
 
         TelemetryBundle history = TelemetryBundle.builder()
                 .coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p-ok","payment-service","customer-service",SpanStatus.OK,FROM.minusSeconds(30),Map.of()),
-                        span("c-ok","customer-service","document-service",SpanStatus.OK,FROM.minusSeconds(30),Map.of()),
-                        span("db-ok","document-service","postgres",SpanStatus.OK,FROM.minusSeconds(30),
+                        span("p-ok","checkout-api","account-api",SpanStatus.OK,FROM.minusSeconds(30),Map.of()),
+                        span("c-ok","account-api","storage-api",SpanStatus.OK,FROM.minusSeconds(30),Map.of()),
+                        span("db-ok","storage-api","postgres",SpanStatus.OK,FROM.minusSeconds(30),
                                 Map.of("db.system.name","postgresql"))))
                 .build();
 
@@ -57,22 +57,22 @@ class IncidentAnalysisServiceTest {
 
         assertThat(result.origin().component()).isEqualTo("postgres");
         assertThat(result.impacts()).extracting(ComponentImpact::component)
-                .containsExactly("postgres","document-service","customer-service","payment-service");
+                .containsExactly("postgres","storage-api","account-api","checkout-api");
         assertThat(result.origin().evidence()).anyMatch(signal ->
                 signal.family().equals("TRACE")
                         && signal.signal().contains("dependency error inferred from topology")
-                        && signal.signal().contains("document-service"));
+                        && signal.signal().contains("storage-api"));
         assertThat(result.timeline()).noneMatch(signal -> signal.evidenceId().equals("db-ok"));
     }
 
     @Test
     void infersPeerlessFailedDependencyWhenTopologyHasSingleCandidate() {
         TelemetryBundle bundle=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable()).spans(List.of(
-                span("p","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
-                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
-                span("topology-db","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system","postgresql")),
-                span("failed-jdbc","document-service",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())
-        )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
+                span("p","checkout-api","account-api",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
+                span("c","account-api","storage-api",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("topology-db","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system","postgresql")),
+                span("failed-jdbc","storage-api",null,SpanStatus.ERROR,FROM.plusSeconds(2),Map.of())
+        )).health(List.of(health("storage-api",HealthState.DOWN,FROM.plusSeconds(2)))).build();
 
         IncidentAnalysis result=service(q -> bundle)
                 .analyze("document-platform","local",FROM,TO,null);
@@ -81,7 +81,7 @@ class IncidentAnalysisServiceTest {
         assertThat(result.origin().evidence()).anyMatch(signal ->
                 signal.family().equals("TRACE")
                         && signal.signal().contains("dependency error inferred from topology")
-                        && signal.signal().contains("document-service"));
+                        && signal.signal().contains("storage-api"));
     }
 
     @Test
@@ -90,15 +90,15 @@ class IncidentAnalysisServiceTest {
                 .metrics(CoverageStatus.AVAILABLE).traces(CoverageStatus.AVAILABLE)
                 .health(CoverageStatus.PARTIAL).build();
         TelemetryBundle partialBundle=TelemetryBundle.builder().coverage(partial).spans(List.of(
-                span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(4),Map.of()),
-                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
-                span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
-        )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
+                span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(4),Map.of()),
+                span("c","account-api","storage-api",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("d","storage-api","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
+        )).health(List.of(health("storage-api",HealthState.DOWN,FROM.plusSeconds(2)))).build();
 
         IncidentAnalysis result=service(q -> partialBundle)
                 .analyze("document-platform","local",FROM,TO,"postgres");
 
-        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+        assertThat(result.impacts().stream().filter(i->i.component().equals("checkout-api")).findFirst().orElseThrow().state())
                 .isEqualTo(ComponentImpact.State.UNKNOWN);
         assertThat(result.warnings()).anyMatch(w -> w.contains("missing evidence is not healthy evidence"));
     }
@@ -107,13 +107,13 @@ class IncidentAnalysisServiceTest {
     @Test
     void fullCoverageDistinguishesTheoreticalOnlyFromObserved() {
         TelemetryBundle bundle=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable()).spans(List.of(
-                span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(4),Map.of()),
-                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
-                span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
+                span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(4),Map.of()),
+                span("c","account-api","storage-api",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("d","storage-api","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
         )).build();
         IncidentAnalysis result=service(q -> bundle)
                 .analyze("document-platform","local",FROM,TO,"postgres");
-        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+        assertThat(result.impacts().stream().filter(i->i.component().equals("checkout-api")).findFirst().orElseThrow().state())
                 .isEqualTo(ComponentImpact.State.THEORETICAL_ONLY);
     }
 
@@ -133,14 +133,14 @@ class IncidentAnalysisServiceTest {
     void counterMetricMustIncreaseInsideWindowBeforeItCountsAsFailureEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
-                .metrics(List.of(metric("m1","payment-service",5,FROM.plusSeconds(1)),
-                        metric("m2","payment-service",5,FROM.plusSeconds(30)))).build();
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                .metrics(List.of(metric("m1","checkout-api",5,FROM.plusSeconds(1)),
+                        metric("m2","checkout-api",5,FROM.plusSeconds(30)))).build();
         IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
-        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+        assertThat(result.impacts().stream().filter(i->i.component().equals("checkout-api")).findFirst().orElseThrow().state())
                 .isEqualTo(ComponentImpact.State.THEORETICAL_ONLY);
     }
 
@@ -157,16 +157,16 @@ class IncidentAnalysisServiceTest {
     void ignoresHttpFiveXxLatencySumEvenWhenItIncreases() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(
-                        metricNamed("s1","payment-service","http.server.requests.seconds.sum",100,FROM.plusSeconds(1),Map.of("status","500")),
-                        metricNamed("s2","payment-service","http.server.requests.seconds.sum",250,FROM.plusSeconds(30),Map.of("status","500"))))
+                        metricNamed("s1","checkout-api","http.server.requests.seconds.sum",100,FROM.plusSeconds(1),Map.of("status","500")),
+                        metricNamed("s2","checkout-api","http.server.requests.seconds.sum",250,FROM.plusSeconds(30),Map.of("status","500"))))
                 .build();
         IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
-        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+        assertThat(result.impacts().stream().filter(i->i.component().equals("checkout-api")).findFirst().orElseThrow().state())
                 .isEqualTo(ComponentImpact.State.THEORETICAL_ONLY);
     }
 
@@ -174,16 +174,16 @@ class IncidentAnalysisServiceTest {
     void timeoutCounterAloneIsSupportingNotSufficientFailureEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(
-                        metricNamed("t1","document-service","hikaricp.connections.timeout.total",1,FROM.plusSeconds(1),Map.of()),
-                        metricNamed("t2","document-service","hikaricp.connections.timeout.total",5,FROM.plusSeconds(30),Map.of())))
+                        metricNamed("t1","storage-api","hikaricp.connections.timeout.total",1,FROM.plusSeconds(1),Map.of()),
+                        metricNamed("t2","storage-api","hikaricp.connections.timeout.total",5,FROM.plusSeconds(30),Map.of())))
                 .build();
         IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
-        assertThat(result.impacts().stream().filter(i->i.component().equals("document-service")).findFirst().orElseThrow().state())
+        assertThat(result.impacts().stream().filter(i->i.component().equals("storage-api")).findFirst().orElseThrow().state())
                 .isEqualTo(ComponentImpact.State.THEORETICAL_ONLY);
     }
 
@@ -191,23 +191,23 @@ class IncidentAnalysisServiceTest {
     void acceptsIncreasingFiveXxCountAsFailureEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(
-                        metricNamed("e1","payment-service","http.server.requests.seconds.count",5,FROM.plusSeconds(1),Map.of("status","500")),
-                        metricNamed("e2","payment-service","http.server.requests.seconds.count",7,FROM.plusSeconds(30),Map.of("status","500"))))
+                        metricNamed("e1","checkout-api","http.server.requests.seconds.count",5,FROM.plusSeconds(1),Map.of("status","500")),
+                        metricNamed("e2","checkout-api","http.server.requests.seconds.count",7,FROM.plusSeconds(30),Map.of("status","500"))))
                 .build();
         IncidentAnalysis result=service(q -> metricsOnly)
                 .analyze("document-platform","local",FROM,TO,"postgres");
-        assertThat(result.impacts().stream().filter(i->i.component().equals("payment-service")).findFirst().orElseThrow().state())
+        assertThat(result.impacts().stream().filter(i->i.component().equals("checkout-api")).findFirst().orElseThrow().state())
                 .isEqualTo(ComponentImpact.State.OBSERVED);
     }
 
     @Test
     void acceptsSlowSpanAsTraceLatencyEvidence() {
         SpanEvidence slow = SpanEvidence.builder().id("slow-doc").traceId("0123456789abcdef0123456789abcdef")
-                .spanId("slow-doc").service("document-service").environment("local")
+                .spanId("slow-doc").service("storage-api").environment("local")
                 .operation("POST /api/documents").startTime(FROM.plusSeconds(2)).durationMs(9000)
                 .status(SpanStatus.OK).kind(SpanKind.SERVER)
                 .provenance(provenance(EvidenceFamily.TRACES)).build();
@@ -215,7 +215,7 @@ class IncidentAnalysisServiceTest {
                 .spans(List.of(slow)).build();
 
         IncidentAnalysis result = service(q -> tracesOnly)
-                .analyze("document-platform", "local", FROM, TO, "document-service");
+                .analyze("document-platform", "local", FROM, TO, "storage-api");
 
         assertThat(result.origin().evidence()).anyMatch(signal ->
                 signal.family().equals("TRACE") && signal.signal().contains("slow span"));
@@ -225,18 +225,18 @@ class IncidentAnalysisServiceTest {
     void acceptsHighMeanHttpLatencyAsDegradationEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(
-                        metricNamed("c1","document-service","http.server.requests.seconds.count",10,FROM.plusSeconds(1),Map.of("status","201")),
-                        metricNamed("c2","document-service","http.server.requests.seconds.count",12,FROM.plusSeconds(30),Map.of("status","201")),
-                        metricNamed("s1","document-service","http.server.requests.seconds.sum",1,FROM.plusSeconds(1),Map.of("status","201")),
-                        metricNamed("s2","document-service","http.server.requests.seconds.sum",11,FROM.plusSeconds(30),Map.of("status","201"))))
+                        metricNamed("c1","storage-api","http.server.requests.seconds.count",10,FROM.plusSeconds(1),Map.of("status","201")),
+                        metricNamed("c2","storage-api","http.server.requests.seconds.count",12,FROM.plusSeconds(30),Map.of("status","201")),
+                        metricNamed("s1","storage-api","http.server.requests.seconds.sum",1,FROM.plusSeconds(1),Map.of("status","201")),
+                        metricNamed("s2","storage-api","http.server.requests.seconds.sum",11,FROM.plusSeconds(30),Map.of("status","201"))))
                 .build();
 
         IncidentAnalysis result=service(q -> metricsOnly)
-                .analyze("document-platform","local",FROM,TO,"document-service");
+                .analyze("document-platform","local",FROM,TO,"storage-api");
 
         assertThat(result.origin().evidence()).anyMatch(signal ->
                 signal.family().equals("METRIC") && signal.signal().contains("HTTP mean latency"));
@@ -246,16 +246,16 @@ class IncidentAnalysisServiceTest {
     void acceptsSustainedCpuPressureAsDegradationEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(
-                        metricNamed("cpu1","document-service","process.cpu.usage",0.94,FROM.plusSeconds(1),Map.of()),
-                        metricNamed("cpu2","document-service","process.cpu.usage",0.96,FROM.plusSeconds(30),Map.of())))
+                        metricNamed("cpu1","storage-api","process.cpu.usage",0.94,FROM.plusSeconds(1),Map.of()),
+                        metricNamed("cpu2","storage-api","process.cpu.usage",0.96,FROM.plusSeconds(30),Map.of())))
                 .build();
 
         IncidentAnalysis result=service(q -> metricsOnly)
-                .analyze("document-platform","local",FROM,TO,"document-service");
+                .analyze("document-platform","local",FROM,TO,"storage-api");
 
         assertThat(result.origin().evidence()).anyMatch(signal ->
                 signal.family().equals("METRIC") && signal.signal().contains("CPU"));
@@ -265,16 +265,16 @@ class IncidentAnalysisServiceTest {
     void acceptsSustainedDatabasePoolContentionAsDegradationEvidence() {
         TelemetryBundle metricsOnly=TelemetryBundle.builder().coverage(TelemetryCoverage.allAvailable())
                 .spans(List.of(
-                        span("p","payment-service","customer-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("c","customer-service","document-service",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
-                        span("d","document-service","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
+                        span("p","checkout-api","account-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("c","account-api","storage-api",SpanStatus.OK,FROM.plusSeconds(1),Map.of()),
+                        span("d","storage-api","postgres",SpanStatus.OK,FROM.plusSeconds(1),Map.of("db.system.name","postgresql"))))
                 .metrics(List.of(
-                        metricNamed("pool1","document-service","hikaricp.connections.pending",2,FROM.plusSeconds(1),Map.of()),
-                        metricNamed("pool2","document-service","hikaricp.connections.pending",3,FROM.plusSeconds(30),Map.of())))
+                        metricNamed("pool1","storage-api","hikaricp.connections.pending",2,FROM.plusSeconds(1),Map.of()),
+                        metricNamed("pool2","storage-api","hikaricp.connections.pending",3,FROM.plusSeconds(30),Map.of())))
                 .build();
 
         IncidentAnalysis result=service(q -> metricsOnly)
-                .analyze("document-platform","local",FROM,TO,"document-service");
+                .analyze("document-platform","local",FROM,TO,"storage-api");
 
         assertThat(result.origin().evidence()).anyMatch(signal ->
                 signal.family().equals("METRIC") && signal.signal().contains("connection-pool contention"));
@@ -324,7 +324,7 @@ class IncidentAnalysisServiceTest {
                 .provenance(provenance(EvidenceFamily.HEALTH)).build();
         TelemetryBundle data = TelemetryBundle.builder()
                 .coverage(TelemetryCoverage.allAvailable())
-                .spans(List.of(span("known-dependency", "document-service", "postgres",
+                .spans(List.of(span("known-dependency", "storage-api", "postgres",
                         SpanStatus.OK, FROM.plusSeconds(1), Map.of("db.system","postgresql"))))
                 .health(List.of(unknown)).build();
         IncidentAnalysis result = service(q -> data)
@@ -347,10 +347,10 @@ class IncidentAnalysisServiceTest {
 
     private TelemetryBundle bundle(TelemetryCoverage coverage) {
         return TelemetryBundle.builder().coverage(coverage).spans(List.of(
-                span("p","payment-service","customer-service",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
-                span("c","customer-service","document-service",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
-                span("d","document-service","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
-        )).health(List.of(health("document-service",HealthState.DOWN,FROM.plusSeconds(2)))).build();
+                span("p","checkout-api","account-api",SpanStatus.ERROR,FROM.plusSeconds(4),Map.of()),
+                span("c","account-api","storage-api",SpanStatus.ERROR,FROM.plusSeconds(3),Map.of()),
+                span("d","storage-api","postgres",SpanStatus.ERROR,FROM.plusSeconds(2),Map.of("db.system.name","postgresql"))
+        )).health(List.of(health("storage-api",HealthState.DOWN,FROM.plusSeconds(2)))).build();
     }
 
     private SpanEvidence span(String id,String service,String peer,SpanStatus status,Instant at,Map<String,String> attrs){

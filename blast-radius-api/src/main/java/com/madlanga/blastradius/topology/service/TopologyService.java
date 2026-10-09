@@ -34,6 +34,10 @@ public final class TopologyService implements DependencyTopologyProvider {
 
     /** Also used by offline acceptance bootstrap; the same validation and observation timestamps apply. */
     public synchronized DependencyTopology learn(String applicationId, String environment, List<SpanEvidence> spans) {
+        return store.inScope(applicationId, environment, () -> learnLocked(applicationId, environment, spans));
+    }
+
+    private DependencyTopology learnLocked(String applicationId, String environment, List<SpanEvidence> spans) {
         Instant now = clock.instant();
         Instant cutoff = now.minus(ttl);
         RetainedTopology previous = store.load(applicationId, environment);

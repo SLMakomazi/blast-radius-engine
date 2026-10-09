@@ -1,261 +1,47 @@
 services:
-  blast-radius-api:
-    image: blast-radius-api:latest
-    container_name: blast-radius-api
+  postgres-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend-api:
     build:
       context: ./blast-radius-api
-    volumes:
-      - topology-data:/app/data/topology
-    mem_limit: 256m
-    environment:
-      JAVA_TOOL_OPTIONS: -Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=2
-      BLAST_RADIUS_DB_URL: jdbc:postgresql://blast-radius-db:5432/${BLAST_RADIUS_DB_NAME:-blast_radius}
-      BLAST_RADIUS_DB_USER: ${BLAST_RADIUS_DB_USER:-blast_radius}
-      BLAST_RADIUS_DB_PASSWORD: ${BLAST_RADIUS_DB_PASSWORD:-blast-radius-local-only}
-      MONITORED_POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-synthetic_lab}?connectTimeout=2&socketTimeout=3
-      MONITORED_POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
-      MONITORED_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
-      GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
-      GEMINI_FALLBACK_MODELS: ${GEMINI_FALLBACK_MODELS:-gemini-3.5-flash}
-      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
-      GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-20}
-    depends_on:
-      blast-radius-db:
-        condition: service_healthy
+    restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
-    networks:
-      - blast-radius
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8080}:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      MONITOR_APPLICATION_ID: ${MONITOR_APPLICATION_ID:?Set MONITOR_APPLICATION_ID}
+      MONITOR_ENVIRONMENT: ${MONITOR_ENVIRONMENT:?Set MONITOR_ENVIRONMENT}
+      TOPOLOGY_REFRESH_ENABLED: ${TOPOLOGY_REFRESH_ENABLED:-false}
 
-  frontend:
-    image: blast-radius-frontend:latest
-    container_name: blast-radius-frontend
+  frontend-ui:
     build:
       context: ./frontend
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-    mem_limit: 64m
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-5173}:80"
     depends_on:
-      blast-radius-api:
-        condition: service_started
-    ports:
-      - "127.0.0.1:5173:8080"
-    networks:
-      - blast-radius
-
-  blast-radius-db:
-    image: docker.io/library/postgres:17.6
-    container_name: blast-radius-db
-    mem_limit: 192m
-    environment:
-      POSTGRES_DB: ${BLAST_RADIUS_DB_NAME:-blast_radius}
-      POSTGRES_USER: ${BLAST_RADIUS_DB_USER:-blast_radius}
-      POSTGRES_PASSWORD: ${BLAST_RADIUS_DB_PASSWORD:-blast-radius-local-only}
-    ports:
-      - "127.0.0.1:5433:5432"
-    volumes:
-      - blast-radius-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-      start_period: 20s
-    networks:
-      - blast-radius
-
-  payment-service:
-    image: payment-service:latest
-    container_name: payment-service
-    build:
-      context: ./mock-services/payment-service
-    mem_limit: 448m
-    volumes:
-      - ./infrastructure/observability/otel/javaagent.properties:/app/javaagent.properties:ro
-    ports:
-      - "127.0.0.1:8081:8081"
-    environment:
-      JAVA_TOOL_OPTIONS: -Xms32m -Xmx160m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -javaagent:/app/otel-agent.jar
-      OTEL_SERVICE_NAME: payment-service
-      OTEL_JAVAAGENT_CONFIGURATION_FILE: /app/javaagent.properties
-      CUSTOMER_SERVICE_URL: http://customer-service:8082
-    depends_on:
-      customer-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8081/actuator/health/readiness"]
-      interval: 5s
-      timeout: 4s
-      start_period: 40s
-      retries: 12
-    networks:
-      - blast-radius
-
-  customer-service:
-    image: customer-service:latest
-    container_name: customer-service
-    build:
-      context: ./mock-services/customer-service
-    mem_limit: 448m
-    volumes:
-      - ./infrastructure/observability/otel/javaagent.properties:/app/javaagent.properties:ro
-    ports:
-      - "127.0.0.1:8082:8082"
-    environment:
-      JAVA_TOOL_OPTIONS: -Xms32m -Xmx160m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -javaagent:/app/otel-agent.jar
-      OTEL_SERVICE_NAME: customer-service
-      OTEL_JAVAAGENT_CONFIGURATION_FILE: /app/javaagent.properties
-      DOCUMENT_SERVICE_URL: http://document-service:8083
-    depends_on:
-      document-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8082/actuator/health/readiness"]
-      interval: 5s
-      timeout: 4s
-      start_period: 40s
-      retries: 12
-    networks:
-      - blast-radius
-
-  document-service:
-    image: document-service:latest
-    container_name: document-service
-    build:
-      context: ./mock-services/document-service
-    mem_limit: 448m
-    volumes:
-      - ./infrastructure/observability/otel/javaagent.properties:/app/javaagent.properties:ro
-    ports:
-      - "127.0.0.1:8083:8083"
-    environment:
-      JAVA_TOOL_OPTIONS: -Xms32m -Xmx160m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -javaagent:/app/otel-agent.jar
-      OTEL_SERVICE_NAME: document-service
-      OTEL_JAVAAGENT_CONFIGURATION_FILE: /app/javaagent.properties
-      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-synthetic_lab}?connectTimeout=2&socketTimeout=3
-      POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8083/actuator/health/readiness"]
-      interval: 5s
-      timeout: 4s
-      start_period: 40s
-      retries: 12
-    networks:
-      - blast-radius
-
-  postgres:
-    image: docker.io/library/postgres:17.6
-    container_name: postgres
-    mem_limit: 192m
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-synthetic_lab}
-      POSTGRES_USER: ${POSTGRES_USER:-synthetic_lab}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set a synthetic lab password}
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-      start_period: 20s
-    networks:
-      - blast-radius
-
-  traffic-generator:
-    image: traffic-generator:latest
-    container_name: traffic-generator
-    mem_limit: 64m
-    build:
-      context: ./traffic-generator
-    environment:
-      TARGET_URL: http://payment-service:8081/api/payments
-      REQUEST_INTERVAL: ${REQUEST_INTERVAL:-2}
-      ENABLED: ${TRAFFIC_ENABLED:-true}
-    depends_on:
-      payment-service:
-        condition: service_healthy
-    networks:
-      - blast-radius
-
-  otel-collector:
-    image: docker.io/otel/opentelemetry-collector-contrib:0.157.0
-    container_name: otel-collector
-    mem_limit: 192m
-    environment:
-      GOMEMLIMIT: 140MiB
-      GOMAXPROCS: "2"
-    command: ["--config=/etc/otelcol/config.yml"]
-    volumes:
-      - ./infrastructure/observability/otel/collector.yml:/etc/otelcol/config.yml:ro
-    ports:
-      - "127.0.0.1:13133:13133"
-    networks: [blast-radius]
-
-  prometheus:
-    image: docker.io/prom/prometheus:v3.14.0
-    container_name: prometheus
-    mem_limit: 256m
-    environment:
-      GOMEMLIMIT: 192MiB
-      GOMAXPROCS: "2"
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.retention.time=2h
-      - --storage.tsdb.retention.size=128MB
-      - --query.max-concurrency=2
-    volumes:
-      - ./infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "127.0.0.1:9090:9090"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/-/ready"]
-      interval: 10s
-      timeout: 3s
-      retries: 6
-    networks: [blast-radius]
-
-  tempo:
-    image: docker.io/grafana/tempo:2.10.7
-    container_name: tempo
-    mem_limit: 256m
-    environment:
-      GOMEMLIMIT: 192MiB
-      GOMAXPROCS: "2"
-    command: ["-config.file=/etc/tempo.yml"]
-    volumes:
-      - ./infrastructure/observability/tracing/tempo.yml:/etc/tempo.yml:ro
-    ports:
-      - "127.0.0.1:3200:3200"
-    networks: [blast-radius]
-
-  loki:
-    image: docker.io/grafana/loki:3.7.8
-    container_name: loki
-    mem_limit: 256m
-    environment:
-      GOMEMLIMIT: 192MiB
-      GOMAXPROCS: "2"
-    command: ["-config.file=/etc/loki.yml"]
-    volumes:
-      - ./infrastructure/observability/logging/loki.yml:/etc/loki.yml:ro
-    ports:
-      - "127.0.0.1:3100:3100"
-    networks: [blast-radius]
-
-networks:
-  blast-radius:
-    driver: bridge
+      - backend-api
 
 volumes:
-  topology-data:
-  postgres-data:
-  blast-radius-db-data:
+  pgdata:
+    name: ${POSTGRES_VOLUME_NAME:?Set POSTGRES_VOLUME_NAME}

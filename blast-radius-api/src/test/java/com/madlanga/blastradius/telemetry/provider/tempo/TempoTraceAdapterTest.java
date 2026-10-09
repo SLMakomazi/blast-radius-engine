@@ -83,7 +83,7 @@ class TempoTraceAdapterTest {
         TempoTraceAdapter.TempoResponse.KeyValue serviceKv = new TempoTraceAdapter.TempoResponse.KeyValue();
         serviceKv.key = "service.name";
         serviceKv.value = new TempoTraceAdapter.TempoResponse.AnyValue();
-        serviceKv.value.stringValue = "document-service";
+        serviceKv.value.stringValue = "storage-api";
         batch.resource.attributes = List.of(serviceKv);
 
         TempoTraceAdapter.TempoResponse.ScopeSpans scope = new TempoTraceAdapter.TempoResponse.ScopeSpans();
@@ -135,7 +135,7 @@ class TempoTraceAdapterTest {
         assertEquals(TRACE_ID, span.getTraceId());
         assertEquals("a08f368e31e4992c", span.getSpanId());
         assertEquals("41c503f305ad0e47", span.getParentSpanId());
-        assertEquals("document-service", span.getService());
+        assertEquals("storage-api", span.getService());
         assertEquals("POST /api/documents", span.getOperation());
         assertEquals(SpanStatus.OK, span.getStatus());
         assertEquals(1250, span.getDurationMs());

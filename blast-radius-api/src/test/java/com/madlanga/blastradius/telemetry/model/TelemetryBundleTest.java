@@ -72,10 +72,10 @@ class TelemetryBundleTest {
     @Test
     void fullBundleIsFullyCovered() {
         TelemetryBundle bundle = TelemetryBundle.builder()
-                .logs(List.of(log("document-service")))
-                .metrics(List.of(metric("document-service")))
-                .spans(List.of(span("document-service")))
-                .health(List.of(health("document-service", HealthState.UP)))
+                .logs(List.of(log("storage-api")))
+                .metrics(List.of(metric("storage-api")))
+                .spans(List.of(span("storage-api")))
+                .health(List.of(health("storage-api", HealthState.UP)))
                 .coverage(TelemetryCoverage.allAvailable())
                 .build();
 
@@ -101,8 +101,8 @@ class TelemetryBundleTest {
                 .build();
 
         TelemetryBundle bundle = TelemetryBundle.builder()
-                .metrics(List.of(metric("payment-service")))
-                .health(List.of(health("payment-service", HealthState.UP)))
+                .metrics(List.of(metric("checkout-api")))
+                .health(List.of(health("checkout-api", HealthState.UP)))
                 .coverage(coverage)
                 .warning("Loki: provider unreachable")
                 .warning("Tempo: provider unreachable")
@@ -206,11 +206,11 @@ class TelemetryBundleTest {
     @Test
     void bundleListsAreImmutable() {
         TelemetryBundle bundle = TelemetryBundle.builder()
-                .logs(List.of(log("document-service")))
+                .logs(List.of(log("storage-api")))
                 .coverage(TelemetryCoverage.allAvailable())
                 .build();
 
         assertThrows(UnsupportedOperationException.class,
-                () -> bundle.getLogs().add(log("payment-service")));
+                () -> bundle.getLogs().add(log("checkout-api")));
     }
 }

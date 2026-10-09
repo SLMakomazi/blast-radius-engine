@@ -45,6 +45,3 @@ blast-radius:
       provider-id: local-actuator
       endpoints:
         blast-radius-api: http://localhost:8080
-        payment-service:  http://localhost:8081
-        customer-service: http://localhost:8082
-        document-service: http://localhost:8083

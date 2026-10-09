@@ -1,10 +1,10 @@
 package com.madlanga.blastradius.topology.config;
 
-import com.madlanga.blastradius.topology.repository.FileTopologyRepository;
+import com.madlanga.blastradius.topology.repository.JdbcTopologyRepository;
 import com.madlanga.blastradius.telemetry.provider.tempo.TempoTraceAdapter;
 import com.madlanga.blastradius.topology.service.TopologyService;
 import com.madlanga.blastradius.topology.repository.TopologyRepository;
-import java.nio.file.Path;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.Clock;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,8 +19,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 @org.springframework.boot.context.properties.EnableConfigurationProperties(ConfiguredTopology.class)
 public class TopologyConfig {
     @Bean
-    TopologyRepository topologyStore(@Value("${blast-radius.topology.directory:./data/topology}") String directory) {
-        return new FileTopologyRepository(Path.of(directory));
+    TopologyRepository topologyStore(JdbcTemplate jdbc) {
+        return new JdbcTopologyRepository(jdbc);
     }
 
     @Bean
@@ -69,7 +69,7 @@ public class TopologyConfig {
         @Scheduled(fixedDelayString="${blast-radius.topology.refresh-interval:30s}", initialDelayString="${blast-radius.topology.refresh-interval:30s}")
         public void refresh() {
             try { provider.getTopology(applicationId, environment); }
-            catch (RuntimeException e) { log.warn("Topology refresh failed ({}); previous snapshot remains on disk", e.getClass().getSimpleName()); }
+            catch (RuntimeException e) { log.warn("Topology refresh failed ({}); previous snapshot remains in the database", e.getClass().getSimpleName()); }
         }
     }
 }

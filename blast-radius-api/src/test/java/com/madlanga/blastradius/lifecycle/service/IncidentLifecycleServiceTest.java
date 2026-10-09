@@ -78,15 +78,15 @@ class IncidentLifecycleServiceTest {
         Instant from = Instant.parse("2026-10-03T05:20:00Z");
         Instant to = Instant.parse("2026-10-03T05:21:00Z");
         EvidenceSignal latency = new EvidenceSignal(
-                Instant.parse("2026-10-03T05:20:12Z"), "document-service", "METRIC",
+                Instant.parse("2026-10-03T05:20:12Z"), "storage-api", "METRIC",
                 "HTTP mean latency 3.000s across 10 requests", "metric-1");
         OriginAssessment origin = new OriginAssessment(
-                "document-service", OriginAssessment.Confidence.HIGH, 80, List.of(latency));
+                "storage-api", OriginAssessment.Confidence.HIGH, 80, List.of(latency));
         IncidentSeverity severity = new IncidentSeverity(IncidentSeverity.Level.HIGH, 50, List.of());
         IncidentAnalysis analysis = new IncidentAnalysis(
                 "document-platform", "local", from, to, origin, null,
-                List.of(new ComponentImpact("document-service", ComponentImpact.State.ORIGIN, 0,
-                        List.of("document-service"), List.of(latency))),
+                List.of(new ComponentImpact("storage-api", ComponentImpact.State.ORIGIN, 0,
+                        List.of("storage-api"), List.of(latency))),
                 List.of(latency), severity, List.of());
 
         assertThat(service.persistLifecycle(analysis)).isEmpty();

@@ -21,7 +21,7 @@ class MetricEvidenceTest {
         MetricEvidence m = MetricEvidence.builder()
                 .id("metric-001")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .name("http.server.requests.seconds.count")
                 .value(14.0)
                 .provenance(provenance())
@@ -29,7 +29,7 @@ class MetricEvidenceTest {
 
         assertEquals("metric-001", m.getId());
         assertEquals(TS, m.getTimestamp());
-        assertEquals("document-service", m.getService());
+        assertEquals("storage-api", m.getService());
         assertEquals("http.server.requests.seconds.count", m.getName());
         assertEquals(14.0, m.getValue());
     }
@@ -40,7 +40,7 @@ class MetricEvidenceTest {
         MetricEvidence m = MetricEvidence.builder()
                 .id("metric-002")
                 .timestamp(specific)
-                .service("document-service")
+                .service("storage-api")
                 .name("http.server.requests.seconds.count")
                 .value(0.0)
                 .provenance(provenance())
@@ -53,7 +53,7 @@ class MetricEvidenceTest {
         MetricEvidence m = MetricEvidence.builder()
                 .id("metric-003")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .name("http.server.requests.seconds.count")
                 .value(16.0)
                 .unit("requests")
@@ -70,7 +70,7 @@ class MetricEvidenceTest {
         MetricEvidence m = MetricEvidence.builder()
                 .id("metric-004")
                 .timestamp(TS)
-                .service("payment-service")
+                .service("checkout-api")
                 .name("http.server.requests.seconds.sum")
                 .value(115.095)
                 .unit("seconds")
@@ -86,7 +86,7 @@ class MetricEvidenceTest {
         MetricEvidence m = MetricEvidence.builder()
                 .id("metric-005")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .name("hikaricp.connections.active")
                 .value(0.0)
                 .dimensions(Map.of("pool", "HikariPool-1"))
@@ -102,7 +102,7 @@ class MetricEvidenceTest {
         MetricEvidence m = MetricEvidence.builder()
                 .id("metric-006")
                 .timestamp(TS)
-                .service("document-service")
+                .service("storage-api")
                 .name("some.metric")
                 .value(1.0)
                 .provenance(provenance())

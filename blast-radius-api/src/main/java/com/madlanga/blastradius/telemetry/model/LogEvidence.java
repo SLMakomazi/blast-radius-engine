@@ -21,7 +21,7 @@ public final class LogEvidence {
 
     private final String id;
     private final Instant timestamp;
-    /** Logical component/service name (e.g. "document-service"). */
+    /** Logical component/service name (e.g. "storage-api"). */
     private final String service;
     private final String environment;
     /** Normalized severity: TRACE, DEBUG, INFO, WARN, ERROR, FATAL. */

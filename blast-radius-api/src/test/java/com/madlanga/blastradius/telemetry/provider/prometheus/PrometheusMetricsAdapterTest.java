@@ -88,7 +88,7 @@ class PrometheusMetricsAdapterTest {
 
         PrometheusMetricsAdapter.PrometheusResponse.Series series = new PrometheusMetricsAdapter.PrometheusResponse.Series();
         series.metric = Map.of(
-                "service", "document-service",
+                "service", "storage-api",
                 "status", "503",
                 "uri", "/api/documents");
         // [unix-epoch-float, value-string]
@@ -108,7 +108,7 @@ class PrometheusMetricsAdapterTest {
         assertEquals(2, result.getMetrics().size());
 
         MetricEvidence m = result.getMetrics().get(0);
-        assertEquals("document-service", m.getService());
+        assertEquals("storage-api", m.getService());
         assertEquals("http.server.requests.seconds.count", m.getName());
         assertEquals(14.0, m.getValue());
         assertEquals("503", m.getDimensions().get("status"));
@@ -122,7 +122,7 @@ class PrometheusMetricsAdapterTest {
         response.status = "success";
         response.data = new PrometheusMetricsAdapter.PrometheusResponse.Data();
         PrometheusMetricsAdapter.PrometheusResponse.Series series = new PrometheusMetricsAdapter.PrometheusResponse.Series();
-        series.metric = Map.of("service", "payment-service");
+        series.metric = Map.of("service", "checkout-api");
         // Unix epoch seconds for 2026-10-01T10:31:02Z = 1727776262
         series.values = List.of(List.of(1727776262.0, "170"));
         response.data.result = List.of(series);
@@ -163,7 +163,7 @@ class PrometheusMetricsAdapterTest {
         response.data = new PrometheusMetricsAdapter.PrometheusResponse.Data();
         PrometheusMetricsAdapter.PrometheusResponse.Series series = new PrometheusMetricsAdapter.PrometheusResponse.Series();
         // In a real scenario labels don't contain passwords, but the adapter sanitizes defensively
-        series.metric = Map.of("service", "document-service", "password", "synthetic-pass");
+        series.metric = Map.of("service", "storage-api", "password", "synthetic-pass");
         series.values = List.of(List.of(1727776262.0, "5"));
         response.data.result = List.of(series);
 

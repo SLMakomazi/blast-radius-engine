@@ -174,8 +174,8 @@ class TelemetrySanitizerTest {
 
     @Test
     void preservesServiceName() {
-        String result = sanitizer.sanitizeValue("service.name", "document-service");
-        assertEquals("document-service", result);
+        String result = sanitizer.sanitizeValue("service.name", "storage-api");
+        assertEquals("storage-api", result);
     }
 
     // -------------------------------------------------------------------------
