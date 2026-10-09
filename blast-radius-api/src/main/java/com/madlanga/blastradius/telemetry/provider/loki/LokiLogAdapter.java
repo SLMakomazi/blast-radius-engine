@@ -373,7 +373,7 @@ public class LokiLogAdapter {
     
         @JsonIgnoreProperties(ignoreUnknown = true)
         static class Stream {
-            /** Loki stream labels, e.g. {"service_name":"document-service","deployment_environment_name":"local"}. */
+            /** Loki stream labels, e.g. {"service_name":"storage-api","deployment_environment_name":"local"}. */
             @JsonProperty("stream")
             Map<String, String> stream = Collections.emptyMap();
     

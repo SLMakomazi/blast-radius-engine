@@ -1,20 +1,14 @@
-FROM docker.io/library/maven:3.9.16-eclipse-temurin-21 AS build
-WORKDIR /workspace
-COPY pom.xml .
-COPY src ./src
-RUN mvn --batch-mode --no-transfer-progress clean verify
-
-FROM docker.io/library/eclipse-temurin:21-jre-jammy
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 app \
-    && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
-RUN mkdir -p /app/data/topology && chown -R app:app /app/data
+# Build the Spring Boot application (the project targets Java 21).
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
-COPY --from=build --chown=app:app /workspace/target/blast-radius-api.jar ./app.jar
-USER app:app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn clean verify -B
+
+# Run only the compiled application.
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=builder /app/target/blast-radius-api.jar app.jar
 EXPOSE 8080
-HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
-    CMD curl --fail --silent http://localhost:8080/actuator/health || exit 1
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

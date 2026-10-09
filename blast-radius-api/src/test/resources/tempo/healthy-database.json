@@ -12,7 +12,7 @@
           {
             "key": "service.name",
             "value": {
-              "stringValue": "payment-service"
+              "stringValue": "checkout-api"
             }
           }
         ]
@@ -60,7 +60,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "customer-service"
+                    "stringValue": "account-api"
                   }
                 }
               ],
@@ -109,7 +109,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "payment-service"
+                    "stringValue": "checkout-api"
                   }
                 },
                 {
@@ -137,7 +137,7 @@
           {
             "key": "service.name",
             "value": {
-              "stringValue": "document-service"
+              "stringValue": "storage-api"
             }
           }
         ]
@@ -171,7 +171,7 @@
               "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
               "spanId": "9u/7PP3KUms=",
               "parentSpanId": "gKLZ4o6eGgE=",
-              "name": "INSERT synthetic_lab.synthetic_documents",
+              "name": "INSERT app_db.records",
               "kind": "SPAN_KIND_CLIENT",
               "startTimeUnixNano": "1790950809502934296",
               "endTimeUnixNano": "1790950809504056713",
@@ -207,7 +207,7 @@
               "traceId": "ACE4BtU2hDhJ48xT/c0VNA==",
               "spanId": "3V/I0SGVcrA=",
               "parentSpanId": "gKLZ4o6eGgE=",
-              "name": "SELECT synthetic_lab.synthetic_documents",
+              "name": "SELECT app_db.records",
               "kind": "SPAN_KIND_CLIENT",
               "startTimeUnixNano": "1790950809504211379",
               "endTimeUnixNano": "1790950809504451838",
@@ -283,7 +283,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "document-service"
+                    "stringValue": "storage-api"
                   }
                 },
                 {
@@ -311,7 +311,7 @@
           {
             "key": "service.name",
             "value": {
-              "stringValue": "customer-service"
+              "stringValue": "account-api"
             }
           }
         ]
@@ -359,7 +359,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "document-service"
+                    "stringValue": "storage-api"
                   }
                 }
               ],
@@ -409,7 +409,7 @@
                 {
                   "key": "server.address",
                   "value": {
-                    "stringValue": "customer-service"
+                    "stringValue": "account-api"
                   }
                 },
                 {

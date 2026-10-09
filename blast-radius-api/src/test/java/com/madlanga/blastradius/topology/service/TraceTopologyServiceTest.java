@@ -26,26 +26,26 @@ class TraceTopologyServiceTest {
                 Duration.ofMinutes(15));
 
         DependencyTopology topology = provider.discover("document-platform", "local", List.of(
-                span("p-server", null, "payment-service", null, Map.of()),
-                span("p-client", "p-server", "payment-service", "customer-service", Map.of()),
-                span("c-server", "p-client", "customer-service", null, Map.of()),
-                span("c-client", "c-server", "customer-service", "document-service", Map.of()),
-                span("d-server", "c-client", "document-service", null, Map.of()),
-                span("jdbc", "d-server", "document-service", "postgres", Map.of("db.system.name", "postgresql"))));
+                span("p-server", null, "checkout-api", null, Map.of()),
+                span("p-client", "p-server", "checkout-api", "account-api", Map.of()),
+                span("c-server", "p-client", "account-api", null, Map.of()),
+                span("c-client", "c-server", "account-api", "storage-api", Map.of()),
+                span("d-server", "c-client", "storage-api", null, Map.of()),
+                span("jdbc", "d-server", "storage-api", "postgres", Map.of("db.system.name", "postgresql"))));
 
         assertThat(topology.getNodes()).extracting(n -> n.getId())
-                .containsExactly("customer-service", "document-service", "payment-service", "postgres");
+                .containsExactly("account-api", "checkout-api", "postgres", "storage-api");
         assertThat(topology.getEdges()).extracting(e -> e.getDependentId() + "->" + e.getDependencyId())
                 .containsExactly(
-                        "customer-service->document-service",
-                        "document-service->postgres",
-                        "payment-service->customer-service");
+                        "account-api->storage-api",
+                        "checkout-api->account-api",
+                        "storage-api->postgres");
         assertThat(topology.getNode("postgres").getType()).isEqualTo(ComponentType.DATABASE);
         assertThat(topology.getNode("postgres").getTechnology()).isEqualTo("POSTGRESQL");
 
         assertThat(new BlastRadiusGraphService().calculate(topology, "postgres").getImpacts())
                 .extracting(i -> i.getComponent().getId())
-                .containsExactly("document-service", "customer-service", "payment-service");
+                .containsExactly("storage-api", "account-api", "checkout-api");
     }
 
     @Test
@@ -54,8 +54,8 @@ class TraceTopologyServiceTest {
                 query -> null, Clock.systemUTC(), Duration.ofMinutes(15));
 
         DependencyTopology topology = provider.discover("app", "local", List.of(
-                span("one", null, "payment-service", "customer-service", Map.of()),
-                span("two", null, "payment-service", "customer-service", Map.of())));
+                span("one", null, "checkout-api", "account-api", Map.of()),
+                span("two", null, "checkout-api", "account-api", Map.of())));
 
         assertThat(topology.getEdges()).hasSize(1);
     }

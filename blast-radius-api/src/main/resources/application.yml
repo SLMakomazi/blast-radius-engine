@@ -1,12 +1,6 @@
 spring:
-  profiles:
-    default: demo
   application:
     name: blast-radius-api
-  datasource:
-    url: ${BLAST_RADIUS_DB_URL:jdbc:postgresql://blast-radius-db:5432/blast_radius}
-    username: ${BLAST_RADIUS_DB_USER:blast_radius}
-    password: ${BLAST_RADIUS_DB_PASSWORD:blast-radius-local-only}
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -14,6 +8,7 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  forward-headers-strategy: framework
 
 management:
   endpoints:
@@ -34,12 +29,11 @@ management:
 
 # ---------------------------------------------------------------------------
 # Runtime topology, lifecycle, telemetry and advisory AI configuration.
-# Defaults target the local Docker/Podman validation lab and can be overridden
+# Settings can be overridden
 # through environment variables or profile-specific application-*.yml files.
 # ---------------------------------------------------------------------------
 blast-radius:
   topology:
-    directory: ${TOPOLOGY_DIRECTORY:./data/topology}
     ttl: ${TOPOLOGY_TTL:7d}
     discovery-window: ${TOPOLOGY_DISCOVERY_WINDOW:5m}
     refresh-interval: ${TOPOLOGY_REFRESH_INTERVAL:30s}

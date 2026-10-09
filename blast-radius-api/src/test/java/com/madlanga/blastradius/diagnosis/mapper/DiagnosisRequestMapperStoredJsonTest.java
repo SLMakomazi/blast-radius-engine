@@ -27,7 +27,7 @@ class DiagnosisRequestMapperStoredJsonTest {
         assertThat(context.severity().level()).isEqualTo("HIGH");
         assertThat(context.severity().score()).isEqualTo(50);
         assertThat(context.impacts()).extracting(DiagnosisRequest.Impact::component)
-                .containsExactly("postgres", "document-service");
+                .containsExactly("postgres", "storage-api");
         assertThat(context.timeline()).hasSize(1);
     }
 
@@ -102,17 +102,17 @@ class DiagnosisRequestMapperStoredJsonTest {
                       "evidence": []
                     },
                     {
-                      "component": "document-service",
+                      "component": "storage-api",
                       "state": "OBSERVED",
                       "distance": 1,
-                      "path": ["postgres", "document-service"],
+                      "path": ["postgres", "storage-api"],
                       "evidence": []
                     }
                   ],
                   "timeline": [
                     {
                       "timestamp": "2026-10-03T09:41:11Z",
-                      "component": "document-service",
+                      "component": "storage-api",
                       "family": "LOG",
                       "signal": "%s",
                       "evidenceId": "log-1"

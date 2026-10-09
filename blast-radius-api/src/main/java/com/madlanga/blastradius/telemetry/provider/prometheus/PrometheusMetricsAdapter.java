@@ -141,7 +141,7 @@ public class PrometheusMetricsAdapter {
 
     /**
      * Build a PromQL selector. If a component filter is given, restrict by the
-     * {@code service} label that Micrometer exports for our mock services.
+     * {@code service} label that Micrometer exports for monitored applications.
      */
     private String buildPromQL(String metricName, TelemetryQuery query) {
         if (query.hasComponentFilter()) {
@@ -325,7 +325,7 @@ public class PrometheusMetricsAdapter {
         static class Series {
             /**
              * Label set for this time series.
-             * E.g. {"service":"document-service","status":"503","uri":"/api/documents",
+             * E.g. {"service":"storage-api","status":"503","uri":"/api/documents",
              *        "__name__":"http_server_requests_seconds_count"}
              */
             @JsonProperty("metric")

@@ -37,7 +37,7 @@ class TelemetryQueryTest {
                 .environment("local")
                 .from(FROM)
                 .to(TO)
-                .componentFilter(List.of("payment-service", "customer-service"))
+                .componentFilter(List.of("checkout-api", "account-api"))
                 .correlationId("phase3-healthy-abc")
                 .traceId("61e1c07146fcb6829b35fca26be213c3")
                 .build();

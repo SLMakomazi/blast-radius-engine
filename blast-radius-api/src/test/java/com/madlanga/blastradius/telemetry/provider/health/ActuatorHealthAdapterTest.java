@@ -47,7 +47,7 @@ class ActuatorHealthAdapterTest {
     void setUp() {
         TelemetryConfig.ActuatorHealthProperties props = new TelemetryConfig.ActuatorHealthProperties();
         // Single component for deterministic testing
-        props.setEndpoints(Map.of("document-service", "http://document-service:8083"));
+        props.setEndpoints(Map.of("storage-api", "http://storage-api:8083"));
 
         TelemetrySanitizer sanitizer = new TelemetrySanitizer();
 
@@ -157,13 +157,13 @@ class ActuatorHealthAdapterTest {
 
     @Test
     void componentFilterLimitsProbes() {
-        // With a filter that excludes document-service, no probes should fire
+        // With a filter that excludes storage-api, no probes should fire
         TelemetryQuery filtered = TelemetryQuery.builder()
                 .applicationId("document-platform")
                 .environment("local")
                 .from(FROM)
                 .to(TO)
-                .componentFilter(List.of("payment-service")) // not document-service
+                .componentFilter(List.of("checkout-api")) // not storage-api
                 .build();
 
         ActuatorHealthAdapter.HealthAdapterResult result = adapter.fetchHealth(filtered);

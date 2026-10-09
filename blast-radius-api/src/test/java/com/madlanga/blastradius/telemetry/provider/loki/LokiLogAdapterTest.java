@@ -64,7 +64,7 @@ class LokiLogAdapterTest {
                 .environment("local")
                 .from(FROM)
                 .to(TO)
-                .componentFilter(List.of("payment-service", "customer-service", "document-service"))
+                .componentFilter(List.of("checkout-api", "account-api", "storage-api"))
                 .correlationId("phase3-healthy-abc")
                 .build();
     }
@@ -106,7 +106,7 @@ class LokiLogAdapterTest {
 
         LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
         stream.stream = java.util.Map.of(
-                "service_name", "document-service",
+                "service_name", "storage-api",
                 "deployment_environment_name", "local");
 
         // Nanosecond timestamp for 2026-10-01T10:31:02Z
@@ -130,7 +130,7 @@ class LokiLogAdapterTest {
         assertEquals(1, result.getLogs().size());
 
         LogEvidence log = result.getLogs().get(0);
-        assertEquals("document-service", log.getService());
+        assertEquals("storage-api", log.getService());
         assertEquals("ERROR", log.getLevel());
         assertEquals("61e1c07146fcb6829b35fca26be213c3", log.getTraceId());
         assertEquals("a08f368e31e4992c", log.getSpanId());
@@ -145,7 +145,7 @@ class LokiLogAdapterTest {
         response.status = "success";
         response.data = new LokiLogAdapter.LokiResponse.Data();
         LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
-        stream.stream = java.util.Map.of("service_name", "payment-service");
+        stream.stream = java.util.Map.of("service_name", "checkout-api");
         long nanos = FROM.getEpochSecond() * 1_000_000_000L;
         String json = "{\"severityText\":\"INFO\",\"body\":\"ok\",\"correlation_id\":\"my-correlation-id\"}";
         stream.values = List.of(List.of(String.valueOf(nanos), json));
@@ -171,7 +171,7 @@ class LokiLogAdapterTest {
 
         LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
         stream.stream = java.util.Map.of(
-                "service_name", "payment-service",
+                "service_name", "checkout-api",
                 "deployment_environment_name", "local",
                 "correlation_id", "phase4-integration-1790942164",
                 "trace_id", "1657683429e6a0a411c08c1a8554444",
@@ -181,7 +181,7 @@ class LokiLogAdapterTest {
         long nanos = FROM.getEpochSecond() * 1_000_000_000L;
         stream.values = List.of(List.of(
                 String.valueOf(nanos),
-                "event=downstream_request dependency=customer-service"));
+                "event=downstream_request dependency=account-api"));
         response.data.result = List.of(stream);
 
         doReturn(uriSpec).when(restClient).get();
@@ -195,12 +195,12 @@ class LokiLogAdapterTest {
         assertEquals(1, result.getLogs().size());
 
         LogEvidence log = result.getLogs().get(0);
-        assertEquals("payment-service", log.getService());
+        assertEquals("checkout-api", log.getService());
         assertEquals("INFO", log.getLevel());
         assertEquals("phase4-integration-1790942164", log.getCorrelationId());
         assertEquals("1657683429e6a0a411c08c1a8554444", log.getTraceId());
         assertEquals("39e32c2c76b45d5f", log.getSpanId());
-        assertEquals("event=downstream_request dependency=customer-service", log.getMessage());
+        assertEquals("event=downstream_request dependency=account-api", log.getMessage());
     }
 
     @Test
@@ -209,7 +209,7 @@ class LokiLogAdapterTest {
         response.status = "success";
         response.data = new LokiLogAdapter.LokiResponse.Data();
         LokiLogAdapter.LokiResponse.Stream stream = new LokiLogAdapter.LokiResponse.Stream();
-        stream.stream = java.util.Map.of("service_name", "payment-service");
+        stream.stream = java.util.Map.of("service_name", "checkout-api");
         long nanos = FROM.getEpochSecond() * 1_000_000_000L;
         // The authorization key should be redacted even if it slips through structured attributes
         String json = "{\"severityText\":\"DEBUG\",\"body\":\"test\","
