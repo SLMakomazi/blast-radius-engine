@@ -198,6 +198,8 @@ services:
       - ./infrastructure/observability/otel/collector.yml:/etc/otelcol/config.yml:ro
     ports:
       - "127.0.0.1:13133:13133"
+      # Development-only OTLP/HTTP ingress. Never bind to 0.0.0.0 without authentication.
+      - "127.0.0.1:4318:4318"
     networks: [blast-radius]
 
   prometheus:
